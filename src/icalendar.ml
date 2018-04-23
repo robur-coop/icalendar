@@ -29,6 +29,9 @@ DTEND:20041213T140000Z
 END:VEVENT
 END:VCALENDAR|__}
 
+let collect_param key value = (key, value)
+let collect_contentline key params value = (key, params, value) 
+
 let is_alpha_digit_minus = 
   function | '0' .. '9' | 'a' .. 'z' | 'A' .. 'Z' | '-' -> true | _ -> false
 let name = take_while1 is_alpha_digit_minus
@@ -39,16 +42,17 @@ let quoted_string = char '"' *> take_while is_qsafe_char <* char '"'
 let is_safe_char = function x when is_control x -> false | '"' | ';' | ':' | ',' -> false | _ -> true
 let param_text = take_while is_safe_char
 let param_value = param_text <|> quoted_string
-let param = list [param_name ; string "=" ; param_value ]
+let param = lift2 collect_param param_name (char '=' *> param_value)
+
 let crlf = string "\n" <|> string "\r\n"
 let value = take_while (fun x -> not (is_control x)) (*in fact it is more complicated*)
-let collect key params value = (key, params, value) 
-let contentline = many @@ lift3 collect name (many ( char ';' *> param )) (string ":" *> value <* crlf) 
+let contentline = lift3 collect_contentline name (many ( char ';' *> param )) (char ':' *> value <* crlf) 
+let contentlines = many contentline
 
-let string_of_triple (a, b, c) = "(" ^ a ^ ", " ^ String.concat "; " (List.map (String.concat " ") b) ^ "," ^ c ^ ")"
+let string_of_triple (a, b, c) = "(" ^ a ^ ", " ^ String.concat "; " (List.map (fun (x, y) -> x ^ " -> " ^ y) b) ^ "," ^ c ^ ")"
 
 let eval (str:string) =
-  match parse_string contentline str with
+  match parse_string contentlines str with
   | Result.Ok v      -> v
   | Result.Error msg -> failwith msg
 
