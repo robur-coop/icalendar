@@ -17,8 +17,9 @@ let test_line () =
 
 let test_multiline () = 
   let multiline = {__|DESCRIPTION:This is a lo
-      ng description
-       that exists on a long line.|__} in
+ ng description
+  that exists on a long line.
+|__} in
   let expected = Ok [("DESCRIPTION", [], "This is a long description that exists on a long line.")] in
   let f = Icalendar.parse multiline in
   Alcotest.(check (result (list compare_t) string) "test short line" expected f)

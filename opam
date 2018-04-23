@@ -6,6 +6,7 @@ depends: [
   "alcotest" {test}
   "topkg" {build}
   "angstrom"
+  "re"
 ]
 build: [
   [ "ocaml" "pkg/pkg.ml" "build" "--pinned" "%{pinned}%" "--tests" "false" ]
