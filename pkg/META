@@ -1,0 +1,7 @@
+description = "iCalendar format parser."
+version = "%%VERSION_NUM%%"
+requires = "fmt angstrom"
+archive(byte) = "icalendar.cma"
+archive(native) = "icalendar.cmxa"
+plugin(byte) = "icalendar.cma"
+plugin(native) = "icalendar.cmxs"

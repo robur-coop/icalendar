@@ -1,34 +1,5 @@
 open Angstrom
 
-let vevent = 
-{__|BEGIN:VCALENDAR
-PRODID:-//Example Corp.//CalDAV Client//EN
-VERSION:2.0
-BEGIN:VEVENT
-UID:1@example.com
-SUMMARY:One-off Meeting
-DTSTAMP:20041210T183904Z
-DTSTART:20041207T120000Z
-DTEND:20041207T130000Z
-END:VEVENT
-BEGIN:VEVENT
-UID:2@example.com
-SUMMARY:Weekly Meeting
-DTSTAMP:20041210T183838Z
-DTSTART:20041206T120000Z
-DTEND:20041206T130000Z
-RRULE:FREQ=WEEKLY
-END:VEVENT
-BEGIN:VEVENT
-UID:2@example.com
-SUMMARY:Weekly Meeting
-RECURRENCE-ID:20041213T120000Z
-DTSTAMP:20041210T183838Z
-DTSTART:20041213T130000Z
-DTEND:20041213T140000Z
-END:VEVENT
-END:VCALENDAR|__}
-
 let collect_param key value = (key, value)
 let collect_contentline key params value = (key, params, value) 
 
@@ -51,9 +22,4 @@ let contentlines = many contentline
 
 let string_of_triple (a, b, c) = "(" ^ a ^ ", " ^ String.concat "; " (List.map (fun (x, y) -> x ^ " -> " ^ y) b) ^ "," ^ c ^ ")"
 
-let eval (str:string) =
-  match parse_string contentlines str with
-  | Result.Ok v      -> v
-  | Result.Error msg -> failwith msg
-
-let () = Printf.printf "Result %s\n" @@ String.concat ";" @@ List.map string_of_triple @@ eval vevent (*Sys.argv.(1)*)
+let parse (str:string) = parse_string contentlines str
