@@ -1,4 +1,5 @@
 open Angstrom
+open Rresult.R.Infix
 
 (* param data structure *)
 type other = [
@@ -233,7 +234,61 @@ let collect_param key value =
     `Valuetype valtyp
   | _ -> assert false
 
-let collect_contentline key params value = (key, params, value)
+(* value type dependent parsers *)
+type value = [
+  | `Text of string
+  | `Binary of Cstruct.t
+]
+
+let pp_value fmt = function
+  | `Text str -> Fmt.pf fmt "text %s" str
+  | `Binary cs -> Fmt.pf fmt "binary %a" Cstruct.hexdump_pp cs
+
+let binary encoding str =
+  match encoding with
+  | `Eightbit -> Ok (`Binary (Cstruct.of_string str))
+  | `Base64 ->
+    match Nocrypto.Base64.decode (Cstruct.of_string str) with
+    | None -> Error "invalid base64 encoded input"
+    | Some cs -> Ok (`Binary cs)
+
+let collect_contentline key (params : icalparameter list) value =
+  let t =
+    let is_valuetype = function
+      | `Valuetype _ -> true | _ -> false
+    in
+    match
+      try Some (List.find is_valuetype params) with Not_found -> None
+    with
+    | Some (`Valuetype t) -> t
+    | _ -> `Text
+  in
+  let v = match t with
+    | `Text -> Ok (`Text value)
+    | `Date -> Ok (`Text value)
+    | `Binary ->
+      let encoding =
+        let is_encoding = function
+          | `Encoding _ -> true | _ -> false
+        in
+        match
+          try Some (List.find is_encoding params) with Not_found -> None
+        with
+        | Some (`Encoding e) -> e
+        | _ -> `Eightbit
+      in
+      binary encoding value
+  in
+  match v with
+  | Ok v -> Ok (key, params, v)
+  | Error e -> Error e
+
+let collect_contentlines parse_lines =
+  List.fold_right (fun line lines ->
+      lines >>= fun ls ->
+      line >>= fun l ->
+      Ok (l :: ls))
+    parse_lines (Ok [])
 
 (* base grammar *)
 let is_alpha_digit_minus = function | '0' .. '9' | 'a' .. 'z' | 'A' .. 'Z' | '-' -> true | _ -> false
@@ -252,7 +307,7 @@ let param = lift2 collect_param param_name (char '=' *> value_list)
 
 let value = take_while (fun x -> not (is_control x)) (* in fact it is more complicated *)
 
-let contentline = lift3 collect_contentline name (many ( char ';' *> param )) (char ':' *> value <* end_of_line) 
+let contentline = lift3 collect_contentline name (many ( char ';' *> param )) (char ':' *> value <* end_of_line)
 let contentlines = many contentline <* end_of_input
 
 (* processing *)
@@ -261,4 +316,6 @@ let normalize_lines s =
   let re = Re.compile ( Re.Perl.re ~opts:[`Multiline] "(\n|\r\n)^\\s" ) in
   Re.replace_string ~all:true re ~by:"" s
 
-let parse (str:string) = parse_string contentlines (normalize_lines str)
+let parse (str:string) =
+  parse_string contentlines (normalize_lines str) >>= fun lines ->
+  collect_contentlines lines

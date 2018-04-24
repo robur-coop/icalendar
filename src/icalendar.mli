@@ -26,4 +26,11 @@ type icalparameter = [`Altrep of Uri.t | `Cn of string | `Cutype of cutype
 
 val pp_icalparameter : icalparameter Fmt.t
 
-val parse : string -> ((string * icalparameter list * string) list, string) result
+type value = [
+  | `Text of string
+  | `Binary of Cstruct.t
+]
+
+val pp_value : value Fmt.t
+
+val parse : string -> ((string * icalparameter list * value) list, string) result

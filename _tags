@@ -1,3 +1,3 @@
-true: package(angstrom fmt re uri astring)
+true: package(angstrom fmt re uri astring nocrypto rresult)
 <test/*>: package(alcotest)
 "src": include

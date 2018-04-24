@@ -9,6 +9,8 @@ depends: [
   "re"
   "uri"
   "astring"
+  "nocrypto"
+  "rresult"
 ]
 
 build: [
