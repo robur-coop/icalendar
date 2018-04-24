@@ -58,7 +58,7 @@ let attach () =
 
 let attach_inline_binary_error () =
   let line = "ATTACH;FMTTYPE=text/plain;ENCODING=BASE64;VALUE=BINARY:VGhlIHF1aWNrIGJyb3duIGZveCBqdW1wcyBvdmVyIHRoZSBsYXp5IGRvZy4\n"
-  and expected = Error "invalid base64 encoded input" in
+  and expected = Error "parse error" in
   let f = Icalendar.parse line in
   Alcotest.check result __LOC__ expected f
 

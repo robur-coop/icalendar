@@ -1,5 +1,94 @@
 open Angstrom
-open Rresult.R.Infix
+
+exception Parse_error
+
+(* value data structures *)
+type value = [
+  | `Text of string
+  | `Boolean of bool
+  | `Binary of Cstruct.t
+  | `Caladdress of Uri.t
+  | `Date of (int * int * int)
+  | `Datetime of (int * int * int) * (int * int * int) * bool
+]
+
+let pp_value fmt = function
+  | `Text str -> Fmt.pf fmt "text %s" str
+  | `Boolean b -> Fmt.pf fmt "boolean %b" b
+  | `Binary cs -> Fmt.pf fmt "binary %a" Cstruct.hexdump_pp cs
+  | `Caladdress uri -> Fmt.pf fmt "caladdress %a" Uri.pp_hum uri
+  | `Date (year, month, day) -> Fmt.pf fmt "date %04d-%02d-%02d" year month day
+  | `Datetime ((y, m, d), (ho, mi, se), utc) ->
+    Fmt.pf fmt "datetime %04d-%02d-%02d %02d:%02d:%02d UTC? %b"
+      y m d ho mi se utc
+
+let binary encoding str =
+  let cs = Cstruct.of_string str in
+  match encoding with
+  | `Eightbit -> `Binary cs
+  | `Base64 ->
+    match Nocrypto.Base64.decode cs with
+    | None -> raise Parse_error
+    | Some cs -> `Binary cs
+
+let raw_boolean = function
+  | "TRUE" -> true
+  | "FALSE" -> false
+  | _ -> raise Parse_error
+
+let boolean str = `Boolean (raw_boolean str)
+
+let raw_caladdress = Uri.of_string
+
+let caladdress str = `Caladdress (raw_caladdress str)
+
+let ensure f x = try return (f x) with Failure _ -> fail "parse error"
+let in_range min max v = if min <= v && v <= max then return v else fail "parse error"
+
+let date_parser =
+  let year = take 4 >>= ensure int_of_string
+  and month = take 2 >>= ensure int_of_string >>= in_range 1 12
+  and day = take 2 >>= ensure int_of_string >>= in_range 1 31
+  in
+  lift3 (fun y m d -> (y, m, d)) year month day
+
+let raw_date str =
+  (* TODO need calendar library to discover leap years *)
+  match parse_string (date_parser <* end_of_input) str with
+  | Ok d -> d
+  | Error _ -> raise Parse_error
+
+let date str = `Date (raw_date str)
+
+let time_parser =
+  let hours = take 2 >>= ensure int_of_string >>= in_range 1 23
+  and minutes = take 2 >>= ensure int_of_string >>= in_range 1 59
+  and seconds = take 2 >>= ensure int_of_string >>= in_range 1 60
+  and utc = option ' ' (char 'Z')
+  in
+  lift4 (fun h m s u -> ((h, m, s), u = 'Z'))
+            hours minutes seconds utc
+
+let datetime str =
+  let datetime = lift2 (fun d (t, utc) -> (d, t, utc))
+      date_parser (char 'T' *> time_parser <* end_of_input)
+  in
+  match parse_string datetime str with
+  | Ok d -> `Datetime d
+  | Error _ -> raise Parse_error
+
+(*
+let duration str =
+ dur-value  = (["+"] / "-") "P" (dur-date / dur-time / dur-week)
+
+       dur-date   = dur-day [dur-time]
+       dur-time   = "T" (dur-hour / dur-minute / dur-second)
+       dur-week   = 1*DIGIT "W"
+       dur-hour   = 1*DIGIT "H" [dur-minute]
+       dur-minute = 1*DIGIT "M" [dur-second]
+       dur-second = 1*DIGIT "S"
+       dur-day    = 1*DIGIT "D"
+*)
 
 (* param data structure *)
 type other = [
@@ -133,7 +222,7 @@ let parse_other str =
 (* base data structure *)
 let collect_param key value =
   match key, value with
-  | "ALTREP", [ value ] -> `Altrep (Uri.of_string value)
+  | "ALTREP", [ value ] -> `Altrep (raw_caladdress value)
   | "CN", [ value ] -> `Cn value
   | "CUTYPE", [ x ] ->
     let cutype = match x with
@@ -145,20 +234,20 @@ let collect_param key value =
       | x -> parse_other x
     in
     `Cutype cutype
-  | "DELEGATED-FROM", values -> `Delfrom (List.map Uri.of_string values)
-  | "DELEGATED-TO", values -> `Delto (List.map Uri.of_string values)
-  | "DIR", [ value ] -> `Dir (Uri.of_string value)
+  | "DELEGATED-FROM", values -> `Delfrom (List.map raw_caladdress values)
+  | "DELEGATED-TO", values -> `Delto (List.map raw_caladdress values)
+  | "DIR", [ value ] -> `Dir (raw_caladdress value)
   | "ENCODING", [ value ] ->
     let enc = match value with
       | "8BIT" -> `Eightbit
       | "BASE64" -> `Base64
-      | _ -> assert false
+      | _ -> raise Parse_error
     in
     `Encoding enc
   | "FMTTYPE", [ value ] ->
     begin match Astring.String.cut ~sep:"/" value with
       | Some (typ, subtyp) -> `Fmttype (typ, subtyp)
-      | None -> assert false
+      | None -> raise Parse_error
     end
   | "FBTYPE", [ value ] ->
     let typ = match value with
@@ -170,7 +259,7 @@ let collect_param key value =
     in
     `Fbtype typ
   | "LANGUAGE", [ value ] -> `Language value
-  | "MEMBER", values -> `Member (List.map Uri.of_string values)
+  | "MEMBER", values -> `Member (List.map raw_caladdress values)
   | "PARTSTAT", [ value ] ->
     let stat = match value with
       | "NEEDS-ACTION" -> `Needsaction
@@ -204,8 +293,8 @@ let collect_param key value =
     in
     `Role role
   | "RSVP", [ value ] ->
-    `Rsvp (match value with "TRUE" -> true | "FALSE" -> false | _ -> assert false)
-  | "SENT-BY", [ value ] -> `Sentby (Uri.of_string value)
+    `Rsvp (raw_boolean value)
+  | "SENT-BY", [ value ] -> `Sentby (raw_caladdress value)
   | "TZID", [ value ] ->
     let prefix, string =
       match Astring.String.cut ~sep:"/" value with
@@ -232,25 +321,9 @@ let collect_param key value =
       | x -> parse_other x
     in
     `Valuetype valtyp
-  | _ -> assert false
+  | _ -> raise Parse_error
 
 (* value type dependent parsers *)
-type value = [
-  | `Text of string
-  | `Binary of Cstruct.t
-]
-
-let pp_value fmt = function
-  | `Text str -> Fmt.pf fmt "text %s" str
-  | `Binary cs -> Fmt.pf fmt "binary %a" Cstruct.hexdump_pp cs
-
-let binary encoding str =
-  match encoding with
-  | `Eightbit -> Ok (`Binary (Cstruct.of_string str))
-  | `Base64 ->
-    match Nocrypto.Base64.decode (Cstruct.of_string str) with
-    | None -> Error "invalid base64 encoded input"
-    | Some cs -> Ok (`Binary cs)
 
 let collect_contentline key (params : icalparameter list) value =
   let t =
@@ -264,8 +337,8 @@ let collect_contentline key (params : icalparameter list) value =
     | _ -> `Text
   in
   let v = match t with
-    | `Text -> Ok (`Text value)
-    | `Date -> Ok (`Text value)
+    | `Text -> `Text value
+    | `Date -> `Text value
     | `Binary ->
       let encoding =
         let is_encoding = function
@@ -278,17 +351,12 @@ let collect_contentline key (params : icalparameter list) value =
         | _ -> `Eightbit
       in
       binary encoding value
+    | `Boolean -> boolean value
+    | `Caladdress -> caladdress value
+    | `Date -> date value
+    | `Datetime -> datetime value
   in
-  match v with
-  | Ok v -> Ok (key, params, v)
-  | Error e -> Error e
-
-let collect_contentlines parse_lines =
-  List.fold_right (fun line lines ->
-      lines >>= fun ls ->
-      line >>= fun l ->
-      Ok (l :: ls))
-    parse_lines (Ok [])
+  (key, params, v)
 
 (* base grammar *)
 let is_alpha_digit_minus = function | '0' .. '9' | 'a' .. 'z' | 'A' .. 'Z' | '-' -> true | _ -> false
@@ -317,5 +385,5 @@ let normalize_lines s =
   Re.replace_string ~all:true re ~by:"" s
 
 let parse (str:string) =
-  parse_string contentlines (normalize_lines str) >>= fun lines ->
-  collect_contentlines lines
+  try parse_string contentlines (normalize_lines str)
+  with Parse_error -> Error "parse error"

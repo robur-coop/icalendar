@@ -28,7 +28,11 @@ val pp_icalparameter : icalparameter Fmt.t
 
 type value = [
   | `Text of string
+  | `Boolean of bool
   | `Binary of Cstruct.t
+  | `Caladdress of Uri.t
+  | `Date of (int * int * int)
+  | `Datetime of (int * int * int) * (int * int * int) * bool
 ]
 
 val pp_value : value Fmt.t
