@@ -8,22 +8,24 @@ type value = [
   | `Boolean of bool
   | `Binary of Cstruct.t
   | `Caladdress of Uri.t
-  | `Date of (int * int * int)
-  | `Datetime of (int * int * int) * (int * int * int) * bool
+  | `Date of Ptime.date
+  | `Datetime of Ptime.date * (int * int * int) * bool
   | `Duration of int
   | `Float of float
   | `Integer of int
 ]
 
-let pp_value fmt = function
+let pp_value fmt = 
+  let pp_date fmt (y, m, d) = Fmt.pf fmt "%04d-%02d-%02d" y m d in
+  function
   | `Text str -> Fmt.pf fmt "text %s" str
   | `Boolean b -> Fmt.pf fmt "boolean %b" b
   | `Binary cs -> Fmt.pf fmt "binary %a" Cstruct.hexdump_pp cs
   | `Caladdress uri -> Fmt.pf fmt "caladdress %a" Uri.pp_hum uri
-  | `Date (year, month, day) -> Fmt.pf fmt "date %04d-%02d-%02d" year month day
-  | `Datetime ((y, m, d), (ho, mi, se), utc) ->
-    Fmt.pf fmt "datetime %04d-%02d-%02d %02d:%02d:%02d UTC? %b"
-      y m d ho mi se utc
+  | `Date date -> Fmt.pf fmt "date %a" pp_date date
+  | `Datetime (date, (ho, mi, se), utc) ->
+    Fmt.pf fmt "datetime %a %02d:%02d:%02d UTC? %b"
+      pp_date date ho mi se utc
   | `Duration d -> Fmt.pf fmt "duration %d in seconds" d
   | `Float f -> Fmt.pf fmt "float %.10f" f
   | `Integer i -> Fmt.pf fmt "integer %d" i
@@ -55,8 +57,9 @@ let date_parser =
   let year = take 4 >>= ensure int_of_string
   and month = take 2 >>= ensure int_of_string >>= in_range 1 12
   and day = take 2 >>= ensure int_of_string >>= in_range 1 31
+  and to_ptime_date y m d = (y, m, d) 
   in
-  lift3 (fun y m d -> (y, m, d)) year month day
+  lift3 to_ptime_date year month day
 
 let raw_date str =
   (* TODO need calendar library to discover leap years *)
@@ -122,6 +125,14 @@ let signed_integer str =
   match parse_string int str with
   | Ok f -> `Integer f
   | Error _ -> raise Parse_error
+
+(*
+let period str =
+  let to_explicit dt dur = dt, dt+dur
+  let explicit = datetime char '/' datetime
+  let start = datetime char '/' duration
+  explicit <|> start <* end_of_input
+*)
 
 (* param data structure *)
 type other = [

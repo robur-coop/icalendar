@@ -1,6 +1,6 @@
 description = "iCalendar format parser."
 version = "%%VERSION_NUM%%"
-requires = "re fmt angstrom uri astring nocrypto rresult"
+requires = "re fmt angstrom uri astring nocrypto rresult ptime"
 archive(byte) = "icalendar.cma"
 archive(native) = "icalendar.cmxa"
 plugin(byte) = "icalendar.cma"

@@ -11,6 +11,7 @@ depends: [
   "astring"
   "nocrypto"
   "rresult"
+  "ptime"
 ]
 
 build: [

@@ -31,8 +31,8 @@ type value = [
   | `Boolean of bool
   | `Binary of Cstruct.t
   | `Caladdress of Uri.t
-  | `Date of (int * int * int)
-  | `Datetime of (int * int * int) * (int * int * int) * bool
+  | `Date of Ptime.date
+  | `Datetime of Ptime.date * (int * int * int) * bool
   | `Duration of int
   | `Float of float
   | `Integer of int
