@@ -33,6 +33,9 @@ type value = [
   | `Caladdress of Uri.t
   | `Date of (int * int * int)
   | `Datetime of (int * int * int) * (int * int * int) * bool
+  | `Duration of int
+  | `Float of float
+  | `Integer of int
 ]
 
 val pp_value : value Fmt.t

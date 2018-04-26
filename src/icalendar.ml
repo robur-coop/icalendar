@@ -10,6 +10,9 @@ type value = [
   | `Caladdress of Uri.t
   | `Date of (int * int * int)
   | `Datetime of (int * int * int) * (int * int * int) * bool
+  | `Duration of int
+  | `Float of float
+  | `Integer of int
 ]
 
 let pp_value fmt = function
@@ -21,6 +24,9 @@ let pp_value fmt = function
   | `Datetime ((y, m, d), (ho, mi, se), utc) ->
     Fmt.pf fmt "datetime %04d-%02d-%02d %02d:%02d:%02d UTC? %b"
       y m d ho mi se utc
+  | `Duration d -> Fmt.pf fmt "duration %d in seconds" d
+  | `Float f -> Fmt.pf fmt "float %.10f" f
+  | `Integer i -> Fmt.pf fmt "integer %d" i
 
 let binary encoding str =
   let cs = Cstruct.of_string str in
@@ -77,18 +83,45 @@ let datetime str =
   | Ok d -> `Datetime d
   | Error _ -> raise Parse_error
 
-(*
-let duration str =
- dur-value  = (["+"] / "-") "P" (dur-date / dur-time / dur-week)
+let digits = 
+  let is_digit = function '0' .. '9' -> true | _ -> false in
+  take_while1 is_digit
 
-       dur-date   = dur-day [dur-time]
-       dur-time   = "T" (dur-hour / dur-minute / dur-second)
-       dur-week   = 1*DIGIT "W"
-       dur-hour   = 1*DIGIT "H" [dur-minute]
-       dur-minute = 1*DIGIT "M" [dur-second]
-       dur-second = 1*DIGIT "S"
-       dur-day    = 1*DIGIT "D"
-*)
+let sign = option '+' (char '+' <|> char '-')
+
+let duration str =
+  let to_seconds p factor = p >>= ensure int_of_string >>| ( * ) factor in
+  let second = to_seconds (digits <* char 'S') 1 in
+  let minute = lift2 (+) (to_seconds (digits <* char 'M') 60) (option 0 second) in
+  let hour = lift2 (+) (to_seconds (digits <* char 'H') 3600) (option 0 minute) in
+  let time = char 'T' *> (hour <|> minute <|> second)
+  and day = to_seconds (digits <* char 'D') (24 * 3600) in
+  let date = lift2 (+) day (option 0 time) 
+  and week = to_seconds (digits <* char 'W') (7 * 24 * 3600)
+  and apply_sign s n = if s = '+' then n else (- n) in
+  let duration = lift2 apply_sign (sign <* char 'P') (date <|> time <|> week) <* end_of_input
+  in
+  match parse_string duration str with
+  | Ok d -> `Duration d
+  | Error _ -> raise Parse_error
+
+let float str =
+  let make_float s i f = 
+    let n = try float_of_string (i ^ "." ^ f) with Failure _ -> raise Parse_error in
+    if s = '+' then n else (-. n) in
+  let float = lift3 make_float sign digits (option "" ((char '.') *> digits)) <* end_of_input
+  in
+  match parse_string float str with
+  | Ok f -> `Float f
+  | Error _ -> raise Parse_error
+
+let signed_integer str =
+  let apply_sign s n = if s = '+' then n else (- n) in
+  let int = lift2 apply_sign sign (digits >>= ensure int_of_string >>= in_range (-2147483648) 2147483647) <* end_of_input
+  in
+  match parse_string int str with
+  | Ok f -> `Integer f
+  | Error _ -> raise Parse_error
 
 (* param data structure *)
 type other = [
@@ -221,79 +254,91 @@ let parse_other str =
 
 (* base data structure *)
 let collect_param key value =
+
+  let cutype = function
+    | "INDIVIDUAL" ->`Individual
+    | "GROUP" -> `Group
+    | "RESOURCE" -> `Resource
+    | "ROOM" -> `Room
+    | "UNKNOWN" -> `Unknown
+    | x -> parse_other x
+
+  and encoding = function
+    | "8BIT" -> `Eightbit
+    | "BASE64" -> `Base64
+    | _ -> raise Parse_error
+
+  and fbtype = function
+    | "FREE" -> `Free
+    | "BUSY" -> `Busy
+    | "BUSY-UNAVAILABLE" -> `Busyunavailable
+    | "BUSY-TENTATIVE" -> `Busytentative
+    | x -> parse_other x
+
+  and partstat = function
+    | "NEEDS-ACTION" -> `Needsaction
+    | "ACCEPTED" -> `Accepted
+    | "DECLINED" -> `Declined
+    | "TENTATIVE" -> `Tentative
+    | "DELEGATED" -> `Delegated
+    | "COMPLETED" -> `Completed
+    | "IN-PROCESS" -> `Inprocess
+    | x -> parse_other x
+
+  and reltype = function
+    | "PARENT" -> `Parent
+    | "CHILD" -> `Child
+    | "SIBLING" -> `Sibling
+    | x -> parse_other x
+
+  and role = function
+    | "CHAIR" -> `Chair
+    | "REQ-PARTICIPANT" -> `Reqparticipant
+    | "OPT-PARTICIPANT" -> `Optparticipant
+    | "NON-PARTICIPANT" -> `Nonparticipant
+    | x -> parse_other x
+
+  and valtype = function
+    | "BINARY" -> `Binary
+    | "BOOLEAN" -> `Boolean
+    | "CAL-ADDRESS" -> `Caladdress
+    | "DATE" -> `Date
+    | "DATE-TIME" -> `Datetime
+    | "DURATION" -> `Duration
+    | "FLOAT" -> `Float
+    | "INTEGER" -> `Integer
+    | "PERIOD" -> `Period
+    | "RECUR" -> `Recur
+    | "TEXT" -> `Text
+    | "TIME" -> `Time
+    | "URI" -> `Uri
+    | "UTC-OFFSET" -> `Utcoffset
+    | x -> parse_other x
+  in
+
   match key, value with
   | "ALTREP", [ value ] -> `Altrep (raw_caladdress value)
   | "CN", [ value ] -> `Cn value
-  | "CUTYPE", [ x ] ->
-    let cutype = match x with
-      | "INDIVIDUAL" ->`Individual
-      | "GROUP" -> `Group
-      | "RESOURCE" -> `Resource
-      | "ROOM" -> `Room
-      | "UNKNOWN" -> `Unknown
-      | x -> parse_other x
-    in
-    `Cutype cutype
+  | "CUTYPE", [ value ] -> `Cutype (cutype value)
   | "DELEGATED-FROM", values -> `Delfrom (List.map raw_caladdress values)
   | "DELEGATED-TO", values -> `Delto (List.map raw_caladdress values)
   | "DIR", [ value ] -> `Dir (raw_caladdress value)
-  | "ENCODING", [ value ] ->
-    let enc = match value with
-      | "8BIT" -> `Eightbit
-      | "BASE64" -> `Base64
-      | _ -> raise Parse_error
-    in
-    `Encoding enc
+  | "ENCODING", [ value ] -> `Encoding (encoding value)
   | "FMTTYPE", [ value ] ->
     begin match Astring.String.cut ~sep:"/" value with
       | Some (typ, subtyp) -> `Fmttype (typ, subtyp)
       | None -> raise Parse_error
     end
-  | "FBTYPE", [ value ] ->
-    let typ = match value with
-      | "FREE" -> `Free
-      | "BUSY" -> `Busy
-      | "BUSY-UNAVAILABLE" -> `Busyunavailable
-      | "BUSY-TENTATIVE" -> `Busytentative
-      | x -> parse_other x
-    in
-    `Fbtype typ
+  | "FBTYPE", [ value ] -> `Fbtype (fbtype value)
   | "LANGUAGE", [ value ] -> `Language value
   | "MEMBER", values -> `Member (List.map raw_caladdress values)
-  | "PARTSTAT", [ value ] ->
-    let stat = match value with
-      | "NEEDS-ACTION" -> `Needsaction
-      | "ACCEPTED" -> `Accepted
-      | "DECLINED" -> `Declined
-      | "TENTATIVE" -> `Tentative
-      | "DELEGATED" -> `Delegated
-      | "COMPLETED" -> `Completed
-      | "IN-PROCESS" -> `Inprocess
-      | x -> parse_other x
-    in
-    `Partstat stat
+  | "PARTSTAT", [ value ] -> `Partstat (partstat value)
   | "RANGE", [ "THISANDFUTURE" ] -> `Range
   | "RELATED", [ value ] ->
     `Trigrel (match value with "START" -> `Start | "END" -> `End)
-  | "RELTYPE", [ value ] ->
-    let reltyp = match value with
-      | "PARENT" -> `Parent
-      | "CHILD" -> `Child
-      | "SIBLING" -> `Sibling
-      | x -> parse_other x
-    in
-    `Reltype reltyp
-  | "ROLE", [ value ] ->
-    let role = match value with
-      | "CHAIR" -> `Chair
-      | "REQ-PARTICIPANT" -> `Reqparticipant
-      | "OPT-PARTICIPANT" -> `Optparticipant
-      | "NON-PARTICIPANT" -> `Nonparticipant
-      | x -> parse_other x
-    in
-    `Role role
-  | "RSVP", [ value ] ->
-    `Rsvp (raw_boolean value)
+  | "RELTYPE", [ value ] -> `Reltype (reltype value)
+  | "ROLE", [ value ] -> `Role (role value)
+  | "RSVP", [ value ] -> `Rsvp (raw_boolean value)
   | "SENT-BY", [ value ] -> `Sentby (raw_caladdress value)
   | "TZID", [ value ] ->
     let prefix, string =
@@ -302,25 +347,7 @@ let collect_param key value =
       | _ -> false, value
     in
     `Tzid (prefix, string)
-  | "VALUE", [ value ] ->
-    let valtyp = match value with
-      | "BINARY" -> `Binary
-      | "BOOLEAN" -> `Boolean
-      | "CAL-ADDRESS" -> `Caladdress
-      | "DATE" -> `Date
-      | "DATE-TIME" -> `Datetime
-      | "DURATION" -> `Duration
-      | "FLOAT" -> `Float
-      | "INTEGER" -> `Integer
-      | "PERIOD" -> `Period
-      | "RECUR" -> `Recur
-      | "TEXT" -> `Text
-      | "TIME" -> `Time
-      | "URI" -> `Uri
-      | "UTC-OFFSET" -> `Utcoffset
-      | x -> parse_other x
-    in
-    `Valuetype valtyp
+  | "VALUE", [ value ] -> `Valuetype (valtype value)
   | _ -> raise Parse_error
 
 (* value type dependent parsers *)
@@ -355,6 +382,9 @@ let collect_contentline key (params : icalparameter list) value =
     | `Caladdress -> caladdress value
     | `Date -> date value
     | `Datetime -> datetime value
+    | `Duration -> duration value
+    | `Float -> float value
+    | `Integer -> signed_integer value
   in
   (key, params, v)
 

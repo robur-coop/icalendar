@@ -153,8 +153,47 @@ let binary_b64_value () =
   let f = Icalendar.parse line in
   Alcotest.check result __LOC__ expected f
 
+let duration_value () =
+  let line = "KEY;VALUE=DURATION:P15DT5H0M20S\n"
+  and expected = Ok [ ("KEY", [`Valuetype `Duration], `Duration 1314020) ]
+  in 
+  let f = Icalendar.parse line in
+  Alcotest.check result __LOC__ expected f
+
+let float_value () =
+  let fake_key s = "KEY;VALUE=FLOAT:" ^ s ^ "\n" in
+  let lines = List.map fake_key ["1000000.0000001" ; "1.333" ; "-3.14" ]
+  and expected = [
+   Ok [ ("KEY", [`Valuetype `Float], `Float 1000000.0000001) ] ;
+   Ok [ ("KEY", [`Valuetype `Float], `Float 1.333) ] ;
+   Ok [ ("KEY", [`Valuetype `Float], `Float (-3.14)) ] ;
+  ]
+  in
+  List.iter2 (fun l e -> 
+    let f = Icalendar.parse l in
+    Alcotest.check result __LOC__ e f
+  ) lines expected
+
+let integer_value () =
+  let fake_key s = "KEY;VALUE=INTEGER:" ^ s ^ "\n" in
+  let lines = List.map fake_key ["1234567890" ; "-1234567890" ; "+1234567890" ; "432109876" ]
+  and expected = [
+   Ok [ ("KEY", [`Valuetype `Integer], `Integer 1234567890) ] ;
+   Ok [ ("KEY", [`Valuetype `Integer], `Integer (-1234567890)) ] ;
+   Ok [ ("KEY", [`Valuetype `Integer], `Integer 1234567890) ] ;
+   Ok [ ("KEY", [`Valuetype `Integer], `Integer 432109876) ] ;
+  ]
+  in
+  List.iter2 (fun l e -> 
+    let f = Icalendar.parse l in
+    Alcotest.check result __LOC__ e f
+  ) lines expected
+
 let value_tests = [
-  "Test base64 binary", `Quick, binary_b64_value
+  "Test base64 binary", `Quick, binary_b64_value ;
+  "Test duration", `Quick, duration_value ;
+  "Test float", `Quick, float_value ;
+  "Test integer", `Quick, integer_value ;
 ]
 
 
