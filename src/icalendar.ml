@@ -140,6 +140,51 @@ let period str =
   | Ok p -> `Period p
   | Error _ -> raise Parse_error
 
+let recur str =
+  let up_to_two_digits = (take 2 >>= ensure int_of_string) <|> (take 1 >>= ensure int_of_string) in
+  let up_to_three_digits = (take 3 >>= ensure int_of_string) <|> up_to_two_digits in
+  let freq = ( string "SECONDLY" >>| fun _ -> `Secondly )
+         <|> ( string "MINUTELY" >>| fun _ -> `Minutely )
+         <|> ( string "HOURLY"   >>| fun _ -> `Hourly )
+         <|> ( string "DAILY"    >>| fun _ -> `Daily )
+         <|> ( string "WEEKLY"   >>| fun _ -> `Weekly )
+         <|> ( string "MONTHLY"  >>| fun _ -> `Monthly )
+         <|> ( string "YEARLY"   >>| fun _ -> `Yearly )
+  and weekday = ( string "SU" >>| fun _ -> `Sunday ) 
+            <|> ( string "MO" >>| fun _ -> `Monday ) 
+            <|> ( string "TU" >>| fun _ -> `Tuesday )
+            <|> ( string "WE" >>| fun _ -> `Wednesday )
+            <|> ( string "TH" >>| fun _ -> `Thursday )
+            <|> ( string "FR" >>| fun _ -> `Friday )
+            <|> ( string "SA" >>| fun _ -> `Saturday ) in
+  let build_weekdaynum s wn wd = `Weekdaynum (s, wn, wd) in
+  let weekdaynum = lift3 build_weekdaynum sign (option 0 (up_to_two_digits >>= in_range 1 53) ) weekday in
+  let pair a b = (a, b) in
+  let monthdaynum = lift2 pair sign (up_to_two_digits >>= in_range 1 31) 
+  and yeardaynum = lift2 pair sign (up_to_three_digits >>= in_range 1 366)
+  and weeknum = lift2 pair sign (up_to_two_digits >>= in_range 1 53)
+  and monthnum = lift2 pair sign (up_to_two_digits >>= in_range 1 12)
+  and ptime = date_parser >>= fun d -> match Ptime.of_date d with None -> fail "Parse_error" | Some x -> return (x, true) in
+  let recur_rule_part = 
+       ( string "FREQ" *> freq >>| fun f -> `Frequency f )
+   <|> ( string "UNTIL" *> (ptime <|> datetime_parser) >>| fun u -> `Until u )
+   <|> ( string "COUNT" *> digits >>= ensure int_of_string >>| fun c -> `Count c ) 
+   <|> ( string "INTERVAL" *> digits >>= ensure int_of_string >>| fun i -> `Interval i )
+   <|> ( string "BYSECOND" *> (sep_by1 (char ',') (up_to_two_digits >>= in_range 0 60)) >>| fun s -> `Bysecond s )
+   <|> ( string "BYMINUTE" *> (sep_by1 (char ',') (up_to_two_digits >>= in_range 0 59)) >>| fun m -> `Bminute m )
+   <|> ( string "BYHOUR" *> (sep_by1 (char ',') (up_to_two_digits >>= in_range 0 23)) >>| fun h -> `Byhour h )
+   <|> ( string "BYDAY" *> (sep_by1 (char ',') weekdaynum) >>| fun d -> `Byday d )
+   <|> ( string "BYMONTHDAY" *> (sep_by1 (char ',') monthdaynum) >>| fun d -> `Bymonthday d )
+   <|> ( string "BYYEARDAY" *> (sep_by1 (char ',') yeardaynum) >>| fun d -> `Byyearday d )
+   <|> ( string "BYWEEKNO" *> (sep_by1 (char ',') weeknum) >>| fun w -> `Byweek w )
+   <|> ( string "BYMONTH" *> (sep_by1 (char ',') monthnum) >>| fun m -> `Bymonth m )
+   <|> ( string "BYSETPOS" *> yeardaynum >>| fun d -> `Bysetposday d )
+   <|> ( string "WKST" *> weekday >>| fun d -> `Weekday d ) in
+  let recur = sep_by1 (char ';') recur_rule_part in
+  match parse_string recur str with
+  | Ok p -> `Recur p
+  | Error _ -> raise Parse_error
+
 (* param data structure *)
 type other = [
   | `Xname of string
