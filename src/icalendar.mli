@@ -31,11 +31,12 @@ type value = [
   | `Boolean of bool
   | `Binary of Cstruct.t
   | `Caladdress of Uri.t
-  | `Date of Ptime.date
-  | `Datetime of Ptime.date * (int * int * int) * bool
+  | `Date of Ptime.date list
+  | `Datetime of Ptime.t * bool
   | `Duration of int
   | `Float of float
   | `Integer of int
+  | `Period of Ptime.t * Ptime.t * bool
 ]
 
 val pp_value : value Fmt.t

@@ -8,11 +8,12 @@ type value = [
   | `Boolean of bool
   | `Binary of Cstruct.t
   | `Caladdress of Uri.t
-  | `Date of Ptime.date
-  | `Datetime of Ptime.date * (int * int * int) * bool
+  | `Date of Ptime.date list
+  | `Datetime of Ptime.t * bool
   | `Duration of int
   | `Float of float
   | `Integer of int
+  | `Period of Ptime.t * Ptime.t * bool
 ]
 
 let pp_value fmt = 
@@ -22,13 +23,12 @@ let pp_value fmt =
   | `Boolean b -> Fmt.pf fmt "boolean %b" b
   | `Binary cs -> Fmt.pf fmt "binary %a" Cstruct.hexdump_pp cs
   | `Caladdress uri -> Fmt.pf fmt "caladdress %a" Uri.pp_hum uri
-  | `Date date -> Fmt.pf fmt "date %a" pp_date date
-  | `Datetime (date, (ho, mi, se), utc) ->
-    Fmt.pf fmt "datetime %a %02d:%02d:%02d UTC? %b"
-      pp_date date ho mi se utc
+  | `Date date -> Fmt.pf fmt "date %a" Fmt.(list ~sep:(unit ",@ ") pp_date) date
+  | `Datetime (date, utc) -> Fmt.pf fmt "datetime %a UTC? %b" Ptime.pp date utc
   | `Duration d -> Fmt.pf fmt "duration %d in seconds" d
   | `Float f -> Fmt.pf fmt "float %.10f" f
   | `Integer i -> Fmt.pf fmt "integer %d" i
+  | `Period (s, e, u) -> Fmt.pf fmt "period %a - %a UTC? %b" Ptime.pp s Ptime.pp e u
 
 let binary encoding str =
   let cs = Cstruct.of_string str in
@@ -61,28 +61,29 @@ let date_parser =
   in
   lift3 to_ptime_date year month day
 
-let raw_date str =
-  (* TODO need calendar library to discover leap years *)
-  match parse_string (date_parser <* end_of_input) str with
-  | Ok d -> d
+(* TODO need calendar library to discover leap years *)
+let date str = 
+  match parse_string (sep_by1 (char ',') date_parser <* end_of_input) str with
+  | Ok ds -> `Date ds
   | Error _ -> raise Parse_error
 
-let date str = `Date (raw_date str)
-
 let time_parser =
-  let hours = take 2 >>= ensure int_of_string >>= in_range 1 23
-  and minutes = take 2 >>= ensure int_of_string >>= in_range 1 59
-  and seconds = take 2 >>= ensure int_of_string >>= in_range 1 60
+  let hours = take 2 >>= ensure int_of_string >>= in_range 0 23
+  and minutes = take 2 >>= ensure int_of_string >>= in_range 0 59
+  and seconds = take 2 >>= ensure int_of_string >>= in_range 0 60
   and utc = option ' ' (char 'Z')
   in
   lift4 (fun h m s u -> ((h, m, s), u = 'Z'))
             hours minutes seconds utc
 
+let datetime_parser =
+  let ptime d (t, utc) = match Ptime.of_date_time (d, (t, 0)) with
+  | Some p -> p, utc
+  | None -> raise Parse_error in
+  lift2 ptime date_parser (char 'T' *> time_parser) 
+ 
 let datetime str =
-  let datetime = lift2 (fun d (t, utc) -> (d, t, utc))
-      date_parser (char 'T' *> time_parser <* end_of_input)
-  in
-  match parse_string datetime str with
+  match parse_string (datetime_parser <* end_of_input) str with
   | Ok d -> `Datetime d
   | Error _ -> raise Parse_error
 
@@ -92,7 +93,7 @@ let digits =
 
 let sign = option '+' (char '+' <|> char '-')
 
-let duration str =
+let duration_parser =
   let to_seconds p factor = p >>= ensure int_of_string >>| ( * ) factor in
   let second = to_seconds (digits <* char 'S') 1 in
   let minute = lift2 (+) (to_seconds (digits <* char 'M') 60) (option 0 second) in
@@ -102,9 +103,10 @@ let duration str =
   let date = lift2 (+) day (option 0 time) 
   and week = to_seconds (digits <* char 'W') (7 * 24 * 3600)
   and apply_sign s n = if s = '+' then n else (- n) in
-  let duration = lift2 apply_sign (sign <* char 'P') (date <|> time <|> week) <* end_of_input
-  in
-  match parse_string duration str with
+  lift2 apply_sign (sign <* char 'P') (date <|> time <|> week)
+
+let duration str =
+  match parse_string (duration_parser <* end_of_input) str with
   | Ok d -> `Duration d
   | Error _ -> raise Parse_error
 
@@ -123,16 +125,20 @@ let signed_integer str =
   let int = lift2 apply_sign sign (digits >>= ensure int_of_string >>= in_range (-2147483648) 2147483647) <* end_of_input
   in
   match parse_string int str with
-  | Ok f -> `Integer f
+  | Ok i -> `Integer i
   | Error _ -> raise Parse_error
 
-(*
 let period str =
-  let to_explicit dt dur = dt, dt+dur
-  let explicit = datetime char '/' datetime
-  let start = datetime char '/' duration
-  explicit <|> start <* end_of_input
-*)
+  let to_explicit (dt, utc) dur = match Ptime.add_span dt (Ptime.Span.of_int_s dur) with
+  | Some t -> (dt, t, utc)
+  | None -> raise Parse_error in
+  let to_period (tstart, utc) (tend, utc') = if utc = utc' then (tstart, tend, utc) else raise Parse_error in
+  let explicit = lift2 to_period datetime_parser (char '/' *> datetime_parser)
+  and start = lift2 to_explicit datetime_parser (char '/' *> duration_parser) in
+  let period = explicit <|> start <* end_of_input in
+  match parse_string period str with
+  | Ok p -> `Period p
+  | Error _ -> raise Parse_error
 
 (* param data structure *)
 type other = [
@@ -376,7 +382,6 @@ let collect_contentline key (params : icalparameter list) value =
   in
   let v = match t with
     | `Text -> `Text value
-    | `Date -> `Text value
     | `Binary ->
       let encoding =
         let is_encoding = function
@@ -396,6 +401,7 @@ let collect_contentline key (params : icalparameter list) value =
     | `Duration -> duration value
     | `Float -> float value
     | `Integer -> signed_integer value
+    | `Period -> period value
   in
   (key, params, v)
 
@@ -410,13 +416,13 @@ let is_safe_char = function x when is_control x -> false | '"' | ';' | ':' | ','
 let param_text = take_while1 is_safe_char
 let param_value = param_text <|> quoted_string (* in contrast to rfc we require at least 1 char for param_value *)
 
-let value_list = lift2 List.cons param_value (many (char ',' *> param_value))
+let value_list = sep_by1 (char ',') param_value
 
 let param = lift2 collect_param param_name (char '=' *> value_list)
 
 let value = take_while (fun x -> not (is_control x)) (* in fact it is more complicated *)
 
-let contentline = lift3 collect_contentline name (many ( char ';' *> param )) (char ':' *> value <* end_of_line)
+let contentline = lift3 collect_contentline name (many ((char ';') *> param)) (char ':' *> value <* end_of_line)
 let contentlines = many contentline <* end_of_input
 
 (* processing *)

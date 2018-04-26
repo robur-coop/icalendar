@@ -46,7 +46,7 @@ let line_with_parameters () =
 
 let line_with_parameter () =
   let line = "RDATE;VALUE=DATE:19970304,19970504,19970704,19970904\n"
-  and expected = Ok [("RDATE", [`Valuetype `Date], `Text "19970304,19970504,19970704,19970904")] in
+  and expected = Ok [("RDATE", [`Valuetype `Date], `Date [(1997, 03, 04) ; (1997, 05, 04) ; (1997, 07, 04) ; (1997, 09, 04) ])] in
   let f = Icalendar.parse line in
   Alcotest.check result __LOC__ expected f
 
@@ -153,6 +153,61 @@ let binary_b64_value () =
   let f = Icalendar.parse line in
   Alcotest.check result __LOC__ expected f
 
+let bool_value () =
+  let line = "KEY;VALUE=BOOLEAN:TRUE\n"
+  and expected = Ok [ ("KEY", [`Valuetype `Boolean], `Boolean true)]
+  in
+  let f = Icalendar.parse line in
+  Alcotest.check result __LOC__ expected f
+
+let date_value () =
+  let line = "KEY;VALUE=DATE:19970714\n"
+  and expected = Ok [ ("KEY", [`Valuetype `Date], `Date [(1997, 07, 14)]) ]
+  in
+  let f = Icalendar.parse line in
+  Alcotest.check result __LOC__ expected f
+
+let datetime_value () =
+  let fake_key s = "KEY;VALUE=DATE-TIME:" ^ s ^ "\n"
+  and to_ptime (date, time) utc = match Ptime.of_date_time (date, time) with
+    | None -> Alcotest.fail "invalid date time"
+    | Some p -> (p, utc)
+  in
+  let lines = List.map fake_key [ "19980118T230000" ; "19980119T070000Z" ; "19970630T235960Z" ]
+  and expected = [
+    Ok [ ("KEY", [`Valuetype `Datetime], `Datetime (to_ptime ((1998, 01, 18), ((23, 00, 00), 0)) false)) ] ;
+    Ok [ ("KEY", [`Valuetype `Datetime], `Datetime (to_ptime ((1998, 01, 19), ((07, 00, 00), 0)) true)) ] ;
+    Ok [ ("KEY", [`Valuetype `Datetime], `Datetime (to_ptime ((1997, 06, 30), ((23, 59, 60), 0)) true)) ] ;
+  ]
+  in
+  List.iter2 (fun l e -> 
+    let f = Icalendar.parse l in
+    Alcotest.check result __LOC__ e f
+  ) lines expected
+
+let datetime_with_timezone_value () =
+  let line = "KEY;VALUE=DATE-TIME;TZID=America/New_York:19980119T020000\n"
+  and to_ptime (date, time) utc = match Ptime.of_date_time (date, time) with
+    | None -> Alcotest.fail "invalid date time"
+    | Some p -> (p, utc) in
+  let expected = Ok [ ("KEY", [`Valuetype `Datetime; `Tzid (false, "America/New_York")], `Datetime (to_ptime ((1998, 01, 19), ((02, 00, 00), 0)) false)) ]
+  in 
+  let f = Icalendar.parse line in
+  Alcotest.check result __LOC__ expected f
+
+(*timezone normalization tests at end of 3.3.5 still TODO 
+
+Example:  The following represents July 14, 1997, at 1:30 PM in New
+      York City in each of the three time formats, using the "DTSTART"
+      property.
+
+       DTSTART:19970714T133000                   ; Local time
+       DTSTART:19970714T173000Z                  ; UTC time
+       DTSTART;TZID=America/New_York:19970714T133000
+                                                 ; Local time and time
+                                                 ; zone reference
+*)
+
 let duration_value () =
   let line = "KEY;VALUE=DURATION:P15DT5H0M20S\n"
   and expected = Ok [ ("KEY", [`Valuetype `Duration], `Duration 1314020) ]
@@ -189,11 +244,32 @@ let integer_value () =
     Alcotest.check result __LOC__ e f
   ) lines expected
 
+let period_value () =
+  let fake_key s = "KEY;VALUE=PERIOD:" ^ s ^ "\n" in
+  let lines = List.map fake_key ["19970101T180000Z/PT5H30M" ; "19970101T180000Z/19970102T070000Z" ]
+  and to_ptime (date, time) = match Ptime.of_date_time (date, time) with
+    | None -> Alcotest.fail "invalid date time"
+    | Some p -> p in
+  let expected = [
+   Ok [ ("KEY", [`Valuetype `Period], `Period (to_ptime ((1997, 01, 01), ((18, 0, 0), 0)) , to_ptime ((1997, 01, 01), ((23, 30, 0), 0)), true)) ] ;
+   Ok [ ("KEY", [`Valuetype `Period], `Period (to_ptime ((1997, 01, 01), ((18, 0, 0), 0)) , to_ptime ((1997, 01, 02), ((07, 00, 0), 0)), true)) ] ;
+  ]
+  in
+  List.iter2 (fun l e -> 
+    let f = Icalendar.parse l in
+    Alcotest.check result __LOC__ e f
+  ) lines expected
+
 let value_tests = [
   "Test base64 binary", `Quick, binary_b64_value ;
+  "Test bool", `Quick, bool_value ;
+  "Test date", `Quick, date_value ;
+  "Test datetime", `Quick, datetime_value ;
+  "Test datetime with timezone", `Quick, datetime_with_timezone_value ;
   "Test duration", `Quick, duration_value ;
   "Test float", `Quick, float_value ;
   "Test integer", `Quick, integer_value ;
+  "Test period", `Quick, period_value ;
 ]
 
 
@@ -202,4 +278,6 @@ let tests = [
   "Strongly typed value tests", value_tests ;
 ]
 
-let () = Alcotest.run "" tests
+let () = 
+  Printexc.record_backtrace true;
+  Alcotest.run "" tests
