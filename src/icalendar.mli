@@ -46,7 +46,6 @@ type recur = [
 ]
 
 type value = [
-  | `Text of string
   | `Boolean of bool
   | `Binary of Cstruct.t
   | `Caladdress of Uri.t
@@ -57,6 +56,10 @@ type value = [
   | `Integer of int
   | `Period of Ptime.t * Ptime.t * bool
   | `Recur of recur list
+  | `Text of string list
+  | `Time of Ptime.time * bool
+  | `Uri of Uri.t
+  | `Utcoffset of Ptime.span
 ]
 
 val pp_value : value Fmt.t

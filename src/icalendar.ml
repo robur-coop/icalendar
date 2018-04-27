@@ -63,7 +63,6 @@ let pp_recur fmt =
 
 (* value data structures *)
 type value = [
-  | `Text of string
   | `Boolean of bool
   | `Binary of Cstruct.t
   | `Caladdress of Uri.t
@@ -74,15 +73,15 @@ type value = [
   | `Integer of int
   | `Period of Ptime.t * Ptime.t * bool
   | `Recur of recur list
+  | `Text of string list
+  | `Time of Ptime.time * bool
+  | `Uri of Uri.t
+  | `Utcoffset of Ptime.span
 ]
-
-
-
 
 let pp_value fmt = 
   let pp_date fmt (y, m, d) = Fmt.pf fmt "%04d-%02d-%02d" y m d in
   function
-  | `Text str -> Fmt.pf fmt "text %s" str
   | `Boolean b -> Fmt.pf fmt "boolean %b" b
   | `Binary cs -> Fmt.pf fmt "binary %a" Cstruct.hexdump_pp cs
   | `Caladdress uri -> Fmt.pf fmt "caladdress %a" Uri.pp_hum uri
@@ -93,6 +92,10 @@ let pp_value fmt =
   | `Integer i -> Fmt.pf fmt "integer %d" i
   | `Period (s, e, u) -> Fmt.pf fmt "period %a - %a UTC? %b" Ptime.pp s Ptime.pp e u
   | `Recur recurs -> Fmt.pf fmt "recur %a" Fmt.(list ~sep:(unit "; ") pp_recur) recurs
+  | `Text lst -> Fmt.pf fmt "text %a" Fmt.(list ~sep:(unit ",@ ") string) lst
+  | `Time (((h, m, s), _), utc) -> Fmt.pf fmt "time %02d:%02d:%02d UTC? %b" h m s utc
+  | `Uri uri -> Fmt.pf fmt "uri %a" Uri.pp_hum uri
+  | `Utcoffset span -> Fmt.pf fmt "utcoffset %a" Ptime.Span.pp span
 
 let binary encoding str =
   let cs = Cstruct.of_string str in
@@ -121,12 +124,12 @@ let date_parser =
   let year = take 4 >>= ensure int_of_string
   and month = take 2 >>= ensure int_of_string >>= in_range 1 12
   and day = take 2 >>= ensure int_of_string >>= in_range 1 31
-  and to_ptime_date y m d = (y, m, d) 
+  and to_ptime_date y m d = (y, m, d)
   in
   lift3 to_ptime_date year month day
 
 (* TODO need calendar library to discover leap years *)
-let date str = 
+let date str =
   match parse_string (sep_by1 (char ',') date_parser <* end_of_input) str with
   | Ok ds -> `Date ds
   | Error _ -> raise Parse_error
@@ -139,6 +142,11 @@ let time_parser =
   in
   lift4 (fun h m s u -> ((h, m, s), u = 'Z'))
             hours minutes seconds utc
+
+let time str =
+  match parse_string (time_parser <* end_of_input) str with
+  | Ok (t, utc) -> `Time ((t, 0), utc)
+  | Error _ -> raise Parse_error
 
 let datetime_parser =
   let ptime d (t, utc) = match Ptime.of_date_time (d, (t, 0)) with
@@ -247,6 +255,49 @@ let recur str =
   let recur = sep_by1 (char ';') recur_rule_part in
   match parse_string (recur <* end_of_input) str with
   | Ok p -> `Recur p
+  | Error _ -> raise Parse_error
+
+let text str =
+  let escaped_char =
+    (string {_|\\|_} >>| fun _ -> {_|\|_})
+    <|> (string "\\;" >>| fun _ -> ";")
+    <|> (string "\\," >>| fun _ -> ",")
+    <|> (string "\\N" >>| fun _ -> "\n")
+    <|> (string "\\n" >>| fun _ -> "\n")
+  in
+  let is_control = function '\x00' .. '\x08' | '\x0a' .. '\x1f' | '\x7f' -> true | _ -> false in
+  let is_tsafe_char =
+    function x when is_control x -> false
+           | '"' | ';' | ':' | '\\' | ',' -> false
+           | _ -> true
+  in
+  let tsafe_char = take_while1 is_tsafe_char in
+  let text =
+    many1 (tsafe_char <|> string ":" <|> string "\"" <|> escaped_char) >>| Astring.String.concat ~sep:""
+  in
+  let texts = sep_by (char ',') text in
+  match parse_string (texts <* end_of_input) str with
+  | Ok p -> `Text p
+  | Error _ -> raise Parse_error
+
+let uri str = `Uri (Uri.of_string str)
+
+let utcoffset str =
+  let sign = char '+' <|> char '-'
+  and hours = take 2 >>= ensure int_of_string >>= in_range 0 23
+  and minutes = take 2 >>= ensure int_of_string >>= in_range 0 59
+  and seconds = take 2 >>= ensure int_of_string >>= in_range 0 60
+  in
+  let to_span sign h m s =
+    let factor = if sign = '+' then 1 else (-1)
+    and seconds = (h * 60 + m) * 60 + s in
+    if sign = '-' && seconds = 0
+    then raise Parse_error
+    else Ptime.Span.of_int_s (factor * seconds)
+  in
+  let offset = lift4 to_span sign hours minutes (option 0 seconds) in
+  match parse_string (offset <* end_of_input) str with
+  | Ok p -> `Utcoffset p
   | Error _ -> raise Parse_error
 
 (* param data structure *)
@@ -494,7 +545,6 @@ let collect_contentline key (params : icalparameter list) value =
     | _ -> `Text
   in
   let v = match t with
-    | `Text -> `Text value
     | `Binary ->
       let encoding =
         let is_encoding = function
@@ -516,6 +566,10 @@ let collect_contentline key (params : icalparameter list) value =
     | `Integer -> signed_integer value
     | `Period -> period value
     | `Recur -> recur value
+    | `Text -> text value
+    | `Time -> time value
+    | `Uri -> uri value
+    | `Utcoffset -> utcoffset value
   in
   (key, params, v)
 

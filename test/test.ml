@@ -25,7 +25,7 @@ let result = Alcotest.(result (list compare_t) string)
 
 let test_line () =
   let line = "DESCRIPTION:This is a long description that exists on a long line.\n" in
-  let expected = Ok [("DESCRIPTION", [], `Text "This is a long description that exists on a long line.")] in
+  let expected = Ok [("DESCRIPTION", [], `Text [ "This is a long description that exists on a long line." ])] in
   let f = Icalendar.parse line in
   Alcotest.check result "test short line" expected f
 
@@ -34,13 +34,13 @@ let test_multiline () =
  ng description
   that exists on a long line.
 |__} in
-  let expected = Ok [("DESCRIPTION", [], `Text "This is a long description that exists on a long line.")] in
+  let expected = Ok [("DESCRIPTION", [], `Text [ "This is a long description that exists on a long line." ])] in
   let f = Icalendar.parse multiline in
   Alcotest.check result "test short line" expected f
 
 let line_with_parameters () =
   let line = "ATTENDEE;RSVP=TRUE;ROLE=REQ-PARTICIPANT:mailto:jsmith@example.com\n"
-  and expected = Ok [("ATTENDEE", [`Rsvp true ; `Role `Reqparticipant], `Text "mailto:jsmith@example.com")] in
+  and expected = Ok [("ATTENDEE", [`Rsvp true ; `Role `Reqparticipant], `Text [ "mailto:jsmith@example.com" ])] in
   let f = Icalendar.parse line in
   Alcotest.check result __LOC__ expected f
 
@@ -52,7 +52,7 @@ let line_with_parameter () =
 
 let attach () =
   let line = "ATTACH:http://example.com/public/quarterly-report.doc\n"
-  and expected = Ok [("ATTACH", [], `Text "http://example.com/public/quarterly-report.doc")] in
+  and expected = Ok [("ATTACH", [], `Text [ "http://example.com/public/quarterly-report.doc" ])] in
   let f = Icalendar.parse line in
   Alcotest.check result __LOC__ expected f
 
@@ -75,7 +75,7 @@ let attach_inline_binary () =
 
 let quoted_prop () =
   let line = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA\n"
-  and expected = Ok [("DESCRIPTION",[`Altrep (Uri.of_string "cid:part1.0001@example.org")], `Text "The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA")] in
+  and expected = Ok [("DESCRIPTION",[`Altrep (Uri.of_string "cid:part1.0001@example.org")], `Text [ "The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA" ])] in
   let f = Icalendar.parse line in
   Alcotest.check result __LOC__ expected f
 
@@ -86,21 +86,21 @@ let altprep () =
  agement
 |__}
   and expected = Ok [("DESCRIPTION", [`Altrep (Uri.of_string "CID:part3.msg.970415T083000@example.com") ],
-                      `Text "Project XYZ Review Meeting will include the following agenda items: (a) Market Overview\\, (b) Finances\\, (c) Project Management") ]
+                      `Text [ "Project XYZ Review Meeting will include the following agenda items: (a) Market Overview, (b) Finances, (c) Project Management" ]) ]
   in
   let f = Icalendar.parse line in
   Alcotest.check result __LOC__ expected f
 
 let delegated_from () =
   let line = "ATTENDEE;DELEGATED-FROM=\"mailto:jsmith@example.com\":mailto:jdoe@example.com\n"
-  and expected = Ok [("ATTENDEE", [`Delfrom [ Uri.of_string "mailto:jsmith@example.com" ] ], `Text "mailto:jdoe@example.com") ] in
+  and expected = Ok [("ATTENDEE", [`Delfrom [ Uri.of_string "mailto:jsmith@example.com" ] ], `Text [ "mailto:jdoe@example.com" ]) ] in
   let f = Icalendar.parse line in
   Alcotest.check result __LOC__ expected f
 
 let multiple_delegated_to () =
   let line = "ATTENDEE;DELEGATED-TO=\"mailto:jdoe@example.com\",\"mailto:jqpublic@example.com\":mailto:jsmith@example.com\n"
   and expected = Ok [("ATTENDEE", [`Delto [ Uri.of_string "mailto:jdoe@example.com" ; Uri.of_string "mailto:jqpublic@example.com" ] ],
-                      `Text "mailto:jsmith@example.com") ] in
+                      `Text [ "mailto:jsmith@example.com" ]) ] in
   let f = Icalendar.parse line in
   Alcotest.check result __LOC__ expected f
 
@@ -320,7 +320,83 @@ let recur_every_day () =
     let f = Icalendar.parse l in
     Alcotest.check result __LOC__ e f
   ) lines expected
-  
+
+let text_value_newlines () =
+  let line = {_|KEY;VALUE=TEXT:Project XYZ Final Review\nConference Room - 3B\nCome Prepared.
+|_}
+  and expected = Ok [ ("KEY", [`Valuetype `Text], `Text [ {_|Project XYZ Final Review
+Conference Room - 3B
+Come Prepared.|_} ] ) ]
+  in
+  let f = Icalendar.parse line in
+  Alcotest.check result __LOC__ expected f
+
+let text_values () =
+  let line = {_|KEY;VALUE=TEXT:Project,abc,def
+|_}
+  and expected = Ok [ ("KEY", [`Valuetype `Text], `Text [ "Project" ; "abc" ; "def" ] ) ]
+  in
+  let f = Icalendar.parse line in
+  Alcotest.check result __LOC__ expected f
+
+let text_value_escape () =
+  let line = {_|KEY;VALUE=TEXT:Project\\abc\,def
+|_}
+  and expected = Ok [ ("KEY", [`Valuetype `Text], `Text [ "Project\\abc,def" ] ) ]
+  in
+  let f = Icalendar.parse line in
+  Alcotest.check result __LOC__ expected f
+
+let time_invalid_value () =
+  let line = "KEY;VALUE=TIME:230000-0800\n"
+  and expected = Error "parse error"
+  in
+  let f = Icalendar.parse line in
+  Alcotest.check result __LOC__ expected f
+
+let time_values () =
+  let fake_key s = "KEY;VALUE=TIME:" ^ s ^ "\n" in
+  let lines = List.map fake_key [ "230000" ; "070000Z" ]
+  and expected = [
+    Ok [ ("KEY", [`Valuetype `Time], `Time (((23, 00, 00), 0), false)) ] ;
+    Ok [ ("KEY", [`Valuetype `Time], `Time (((07, 00, 00), 0), true)) ]
+  ]
+  in
+  List.iter2 (fun l e -> 
+    let f = Icalendar.parse l in
+    Alcotest.check result __LOC__ e f
+  ) lines expected
+
+let uri_value () =
+  let line = "KEY;VALUE=URI:http://example.com/my-report.txt\n"
+  and expected = Ok [ ("KEY", [`Valuetype `Uri], `Uri (Uri.of_string "http://example.com/my-report.txt") ) ]
+  in
+  let f = Icalendar.parse line in
+  Alcotest.check result __LOC__ expected f
+
+let utcoffset_invalid_value () =
+  let fake_key s = "KEY;VALUE=UTC-OFFSET:" ^ s ^ "\n" in
+  let lines = List.map fake_key [ "-0000" ; "-000000" ; "0000" ; "0100" ]
+  and expected = [ Error "parse error" ; Error "parse error" ; Error "parse error" ; Error "parse error" ]
+  in
+  List.iter2 (fun l e ->
+    let f = Icalendar.parse l in
+    Alcotest.check result __LOC__ e f
+  ) lines expected
+
+let utcoffset_value () =
+  let fake_key s = "KEY;VALUE=UTC-OFFSET:" ^ s ^ "\n" in
+  let lines = List.map fake_key [ "-0500" ; "+0100" ]
+  and expected = [
+    Ok [("KEY", [`Valuetype `Utcoffset], `Utcoffset (Ptime.Span.of_int_s ((-5) * 60 * 60)))] ;
+    Ok [("KEY", [`Valuetype `Utcoffset], `Utcoffset (Ptime.Span.of_int_s (1 * 60 * 60))) ]
+  ]
+  in
+  List.iter2 (fun l e ->
+    let f = Icalendar.parse l in
+    Alcotest.check result __LOC__ e f
+  ) lines expected
+
 let value_tests = [
   "Test base64 binary", `Quick, binary_b64_value ;
   "Test bool", `Quick, bool_value ;
@@ -336,6 +412,14 @@ let value_tests = [
   "Test recur daily", `Quick, recur_daily ;
   "Test recur until", `Quick, recur_until ;
   "Test recur every day", `Quick, recur_every_day ;
+  "Test that in a text \\n are translated into newlines", `Quick, text_value_newlines ;
+  "Test text with commas", `Quick, text_values ;
+  "Test text with escaping (\\\\ and \\,)", `Quick, text_value_escape ;
+  "Test time parser with invalid time", `Quick, time_invalid_value ;
+  "Test time", `Quick, time_values ;
+  "Test uri", `Quick, uri_value ;
+  "Test utcoffset with invalid offset", `Quick, utcoffset_invalid_value ;
+  "Test utcoffset", `Quick, utcoffset_value ;
 ]
 
 
