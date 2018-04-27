@@ -167,30 +167,28 @@ let date_value () =
   let f = Icalendar.parse line in
   Alcotest.check result __LOC__ expected f
 
+let to_ptime date time =
+  match Ptime.of_date_time (date, (time, 0)) with
+  | None -> Alcotest.fail "invalid date time"
+  | Some p -> p
+
 let datetime_value () =
-  let fake_key s = "KEY;VALUE=DATE-TIME:" ^ s ^ "\n"
-  and to_ptime (date, time) utc = match Ptime.of_date_time (date, time) with
-    | None -> Alcotest.fail "invalid date time"
-    | Some p -> (p, utc)
-  in
+  let fake_key s = "KEY;VALUE=DATE-TIME:" ^ s ^ "\n" in
   let lines = List.map fake_key [ "19980118T230000" ; "19980119T070000Z" ; "19970630T235960Z" ]
   and expected = [
-    Ok [ ("KEY", [`Valuetype `Datetime], `Datetime (to_ptime ((1998, 01, 18), ((23, 00, 00), 0)) false)) ] ;
-    Ok [ ("KEY", [`Valuetype `Datetime], `Datetime (to_ptime ((1998, 01, 19), ((07, 00, 00), 0)) true)) ] ;
-    Ok [ ("KEY", [`Valuetype `Datetime], `Datetime (to_ptime ((1997, 06, 30), ((23, 59, 60), 0)) true)) ] ;
+    Ok [ ("KEY", [`Valuetype `Datetime], `Datetime (to_ptime (1998, 01, 18) (23, 00, 00), false)) ] ;
+    Ok [ ("KEY", [`Valuetype `Datetime], `Datetime (to_ptime (1998, 01, 19) (07, 00, 00), true)) ] ;
+    Ok [ ("KEY", [`Valuetype `Datetime], `Datetime (to_ptime (1997, 06, 30) (23, 59, 60), true)) ] ;
   ]
   in
   List.iter2 (fun l e -> 
-    let f = Icalendar.parse l in
-    Alcotest.check result __LOC__ e f
-  ) lines expected
+      let f = Icalendar.parse l in
+      Alcotest.check result __LOC__ e f
+    ) lines expected
 
 let datetime_with_timezone_value () =
-  let line = "KEY;VALUE=DATE-TIME;TZID=America/New_York:19980119T020000\n"
-  and to_ptime (date, time) utc = match Ptime.of_date_time (date, time) with
-    | None -> Alcotest.fail "invalid date time"
-    | Some p -> (p, utc) in
-  let expected = Ok [ ("KEY", [`Valuetype `Datetime; `Tzid (false, "America/New_York")], `Datetime (to_ptime ((1998, 01, 19), ((02, 00, 00), 0)) false)) ]
+  let line = "KEY;VALUE=DATE-TIME;TZID=America/New_York:19980119T020000\n" in
+  let expected = Ok [ ("KEY", [`Valuetype `Datetime; `Tzid (false, "America/New_York")], `Datetime (to_ptime (1998, 01, 19) (02, 00, 00), false)) ]
   in 
   let f = Icalendar.parse line in
   Alcotest.check result __LOC__ expected f
@@ -246,13 +244,10 @@ let integer_value () =
 
 let period_value () =
   let fake_key s = "KEY;VALUE=PERIOD:" ^ s ^ "\n" in
-  let lines = List.map fake_key ["19970101T180000Z/PT5H30M" ; "19970101T180000Z/19970102T070000Z" ]
-  and to_ptime (date, time) = match Ptime.of_date_time (date, time) with
-    | None -> Alcotest.fail "invalid date time"
-    | Some p -> p in
+  let lines = List.map fake_key ["19970101T180000Z/PT5H30M" ; "19970101T180000Z/19970102T070000Z" ] in
   let expected = [
-   Ok [ ("KEY", [`Valuetype `Period], `Period (to_ptime ((1997, 01, 01), ((18, 0, 0), 0)) , to_ptime ((1997, 01, 01), ((23, 30, 0), 0)), true)) ] ;
-   Ok [ ("KEY", [`Valuetype `Period], `Period (to_ptime ((1997, 01, 01), ((18, 0, 0), 0)) , to_ptime ((1997, 01, 02), ((07, 00, 0), 0)), true)) ] ;
+   Ok [ ("KEY", [`Valuetype `Period], `Period (to_ptime (1997, 01, 01) (18, 0, 0), to_ptime (1997, 01, 01) (23, 30, 0), true)) ] ;
+   Ok [ ("KEY", [`Valuetype `Period], `Period (to_ptime (1997, 01, 01) (18, 0, 0), to_ptime (1997, 01, 02) (07, 00, 0), true)) ] ;
   ]
   in
   List.iter2 (fun l e -> 
@@ -260,6 +255,72 @@ let period_value () =
     Alcotest.check result __LOC__ e f
   ) lines expected
 
+let recur_value () =
+  let line = "KEY;VALUE=RECUR:FREQ=MONTHLY;BYDAY=MO,TU,WE,TH,FR;BYSETPOS=-1\n"
+  and expected =
+    Ok [ ("KEY", [`Valuetype `Recur],
+          `Recur [`Frequency `Monthly;
+                  `Byday [('+', 0, `Monday) ; ('+', 0, `Tuesday) ; ('+', 0, `Wednesday) ; ('+', 0, `Thursday) ; ('+', 0, `Friday) ] ;
+                  `Bysetposday ('-', 1) ]) ]
+  in
+  let f = Icalendar.parse line in
+  Alcotest.check result __LOC__ expected f
+
+let recur_and_datetime_value () =
+  (* TODO example from rfc, but added a VALUE=DATE-TIME and VALUE=RECUR to force recur parsing *)
+  let line = "DTSTART;TZID=America/New_York;VALUE=DATE-TIME:19970105T083000\nRRULE;VALUE=RECUR:FREQ=YEARLY;INTERVAL=2;BYMONTH=1;BYDAY=SU;BYHOUR=8,9;BYMINUTE=30\n"
+  and expected =
+    Ok [ ("DTSTART", [`Tzid (false, "America/New_York"); `Valuetype `Datetime],
+          `Datetime (to_ptime (1997, 01, 05) (08, 30, 00), false)) ;
+         ("RRULE", [`Valuetype `Recur],
+          `Recur [`Frequency `Yearly ;
+                  `Interval 2 ;
+                  `Bymonth [('+', 1)] ;
+                  `Byday [('+', 0, `Sunday)] ;
+                  `Byhour [8;9] ;
+                  `Byminute [30] ]) ]
+  in
+  let f = Icalendar.parse line in
+  Alcotest.check result __LOC__ expected f
+
+let recur_daily () =
+  let line = "KEY;VALUE=RECUR:FREQ=DAILY;COUNT=10;INTERVAL=2\n"
+  and expected =
+    Ok [ ("KEY", [`Valuetype `Recur], `Recur [
+        `Frequency `Daily ;
+        `Count 10 ;
+        `Interval 2 ]) ]
+  in
+  let f = Icalendar.parse line in
+  Alcotest.check result __LOC__ expected f
+
+let recur_until () =
+  let line = "RRULE;VALUE=RECUR:FREQ=DAILY;UNTIL=19971224T000000Z\n"
+  and expected =
+    Ok [ ("RRULE", [`Valuetype `Recur], `Recur [
+        `Frequency `Daily ; `Until (to_ptime (1997, 12, 24) (0, 0, 0), true) ] ) ]
+  in
+  let f = Icalendar.parse line in
+  Alcotest.check result __LOC__ expected f
+
+let recur_every_day () =
+  (* TODO according to rfc, both evaluate to the same occurences *)
+  let lines = List.map (fun x -> x ^ "\n") [
+    "RRULE;VALUE=RECUR:FREQ=YEARLY;UNTIL=20000131T140000Z;BYMONTH=1;BYDAY=SU,MO,TU,WE,TH,FR,SA" ;
+    "RRULE;VALUE=RECUR:FREQ=DAILY;UNTIL=20000131T140000Z;BYMONTH=1"
+  ]
+  and expected = [
+    Ok [ ("RRULE", [`Valuetype `Recur], `Recur [
+        `Frequency `Yearly ; `Until (to_ptime (2000, 01, 31) (14, 00, 00), true) ; `Bymonth [('+', 1)] ; `Byday [ ('+', 0, `Sunday) ; ('+', 0, `Monday) ; ('+', 0, `Tuesday) ; ('+', 0, `Wednesday) ; ('+', 0, `Thursday) ; ('+', 0, `Friday) ; ('+', 0, `Saturday) ] ]) ] ;
+    Ok [ ( "RRULE", [`Valuetype `Recur], `Recur [
+        `Frequency `Daily ; `Until (to_ptime (2000, 01, 31) (14, 00, 00), true) ; `Bymonth [('+', 1)] ] ) ]
+  ]
+  in
+  List.iter2 (fun l e -> 
+    let f = Icalendar.parse l in
+    Alcotest.check result __LOC__ e f
+  ) lines expected
+  
 let value_tests = [
   "Test base64 binary", `Quick, binary_b64_value ;
   "Test bool", `Quick, bool_value ;
@@ -270,6 +331,11 @@ let value_tests = [
   "Test float", `Quick, float_value ;
   "Test integer", `Quick, integer_value ;
   "Test period", `Quick, period_value ;
+  "Test recur", `Quick, recur_value ;
+  "Test recur and datetime", `Quick, recur_and_datetime_value ;
+  "Test recur daily", `Quick, recur_daily ;
+  "Test recur until", `Quick, recur_until ;
+  "Test recur every day", `Quick, recur_every_day ;
 ]
 
 

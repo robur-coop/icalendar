@@ -26,6 +26,25 @@ type icalparameter = [`Altrep of Uri.t | `Cn of string | `Cutype of cutype
 
 val pp_icalparameter : icalparameter Fmt.t
 
+type weekday = [ `Friday | `Monday | `Saturday | `Sunday | `Thursday | `Tuesday | `Wednesday ]
+
+type recur = [
+  | `Byminute of int list
+  | `Byday of (char * int * weekday) list
+  | `Byhour of int list
+  | `Bymonth of (char * int) list
+  | `Bymonthday of (char * int) list
+  | `Bysecond of int list
+  | `Bysetposday of char * int
+  | `Byweek of (char * int) list
+  | `Byyearday of (char * int) list
+  | `Count of int
+  | `Frequency of [ `Daily | `Hourly | `Minutely | `Monthly | `Secondly | `Weekly | `Yearly ]
+  | `Interval of int
+  | `Until of Ptime.t * bool
+  | `Weekday of weekday
+]
+
 type value = [
   | `Text of string
   | `Boolean of bool
@@ -37,6 +56,7 @@ type value = [
   | `Float of float
   | `Integer of int
   | `Period of Ptime.t * Ptime.t * bool
+  | `Recur of recur list
 ]
 
 val pp_value : value Fmt.t

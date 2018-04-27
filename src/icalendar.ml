@@ -2,6 +2,65 @@ open Angstrom
 
 exception Parse_error
 
+type weekday = [ `Friday | `Monday | `Saturday | `Sunday | `Thursday | `Tuesday | `Wednesday ]
+
+let pp_weekday fmt wd =
+  Fmt.string fmt @@ match wd with
+  | `Friday -> "friday"
+  | `Monday -> "monday"
+  | `Saturday -> "saturday"
+  | `Sunday -> "sunday"
+  | `Thursday -> "thursday"
+  | `Tuesday -> "tuesday"
+  | `Wednesday -> "wednesday"
+
+type recur = [
+  | `Byminute of int list
+  | `Byday of (char * int * weekday) list
+  | `Byhour of int list
+  | `Bymonth of (char * int) list
+  | `Bymonthday of (char * int) list
+  | `Bysecond of int list
+  | `Bysetposday of char * int
+  | `Byweek of (char * int) list
+  | `Byyearday of (char * int) list
+  | `Count of int
+  | `Frequency of [ `Daily | `Hourly | `Minutely | `Monthly | `Secondly | `Weekly | `Yearly ]
+  | `Interval of int
+  | `Until of Ptime.t * bool
+  | `Weekday of weekday
+]
+
+let pp_recur fmt =
+  let pp_list pp_e fmt xs = Fmt.(list ~sep:(unit ",@ ") pp_e) fmt xs
+  and pp_triple pp_a pp_b pp_c fmt (a, b, c) =
+    Fmt.pf fmt "%a, %a, %a" pp_a a pp_b b pp_c c
+  and pp_frequency fmt f =
+    Fmt.string fmt @@ match f with
+    | `Daily -> "daily"
+    | `Hourly -> "hourly"
+    | `Minutely -> "minutely"
+    | `Monthly -> "monthly"
+    | `Secondly -> "secondly"
+    | `Weekly -> "weekly"
+    | `Yearly -> "yearly"
+  in
+  function
+  | `Byminute ms -> Fmt.pf fmt "byminute %a" (pp_list Fmt.int) ms
+  | `Byday days -> Fmt.pf fmt "byday %a" (pp_list (pp_triple Fmt.char Fmt.int pp_weekday)) days
+  | `Byhour hours -> Fmt.pf fmt "byhour %a" (pp_list Fmt.int) hours
+  | `Bymonth months -> Fmt.pf fmt "bymonth %a" (pp_list Fmt.(pair ~sep:(unit ", ") char int)) months
+  | `Bymonthday monthdays -> Fmt.pf fmt "bymonthday %a" (pp_list Fmt.(pair ~sep:(unit ", ") char int)) monthdays
+  | `Bysecond seconds -> Fmt.pf fmt "bysecond %a" (pp_list Fmt.int) seconds
+  | `Bysetposday (s, i) -> Fmt.pf fmt "bysetposday %a %d" Fmt.char s i
+  | `Byweek weeks -> Fmt.pf fmt "byweek %a" (pp_list Fmt.(pair ~sep:(unit ", ") char int)) weeks
+  | `Byyearday days -> Fmt.pf fmt "byyearday %a" (pp_list Fmt.(pair ~sep:(unit ", ") char int)) days
+  | `Count n -> Fmt.pf fmt "count %d" n
+  | `Frequency f -> Fmt.pf fmt "frequency %a" pp_frequency f
+  | `Interval i -> Fmt.pf fmt "interval %d" i
+  | `Until (ts, utc) -> Fmt.pf fmt "until %a UTC? %b" Ptime.pp ts utc
+  | `Weekday wd -> Fmt.pf fmt "weekday %a" pp_weekday wd
+
 (* value data structures *)
 type value = [
   | `Text of string
@@ -14,7 +73,11 @@ type value = [
   | `Float of float
   | `Integer of int
   | `Period of Ptime.t * Ptime.t * bool
+  | `Recur of recur list
 ]
+
+
+
 
 let pp_value fmt = 
   let pp_date fmt (y, m, d) = Fmt.pf fmt "%04d-%02d-%02d" y m d in
@@ -29,6 +92,7 @@ let pp_value fmt =
   | `Float f -> Fmt.pf fmt "float %.10f" f
   | `Integer i -> Fmt.pf fmt "integer %d" i
   | `Period (s, e, u) -> Fmt.pf fmt "period %a - %a UTC? %b" Ptime.pp s Ptime.pp e u
+  | `Recur recurs -> Fmt.pf fmt "recur %a" Fmt.(list ~sep:(unit "; ") pp_recur) recurs
 
 let binary encoding str =
   let cs = Cstruct.of_string str in
@@ -157,8 +221,8 @@ let recur str =
             <|> ( string "TH" >>| fun _ -> `Thursday )
             <|> ( string "FR" >>| fun _ -> `Friday )
             <|> ( string "SA" >>| fun _ -> `Saturday ) in
-  let build_weekdaynum s wn wd = `Weekdaynum (s, wn, wd) in
-  let weekdaynum = lift3 build_weekdaynum sign (option 0 (up_to_two_digits >>= in_range 1 53) ) weekday in
+  let triple a b c = (a, b, c) in
+  let weekdaynum = lift3 triple sign (option 0 (up_to_two_digits >>= in_range 1 53) ) weekday in
   let pair a b = (a, b) in
   let monthdaynum = lift2 pair sign (up_to_two_digits >>= in_range 1 31) 
   and yeardaynum = lift2 pair sign (up_to_three_digits >>= in_range 1 366)
@@ -166,22 +230,22 @@ let recur str =
   and monthnum = lift2 pair sign (up_to_two_digits >>= in_range 1 12)
   and ptime = date_parser >>= fun d -> match Ptime.of_date d with None -> fail "Parse_error" | Some x -> return (x, true) in
   let recur_rule_part = 
-       ( string "FREQ" *> freq >>| fun f -> `Frequency f )
-   <|> ( string "UNTIL" *> (ptime <|> datetime_parser) >>| fun u -> `Until u )
-   <|> ( string "COUNT" *> digits >>= ensure int_of_string >>| fun c -> `Count c ) 
-   <|> ( string "INTERVAL" *> digits >>= ensure int_of_string >>| fun i -> `Interval i )
-   <|> ( string "BYSECOND" *> (sep_by1 (char ',') (up_to_two_digits >>= in_range 0 60)) >>| fun s -> `Bysecond s )
-   <|> ( string "BYMINUTE" *> (sep_by1 (char ',') (up_to_two_digits >>= in_range 0 59)) >>| fun m -> `Bminute m )
-   <|> ( string "BYHOUR" *> (sep_by1 (char ',') (up_to_two_digits >>= in_range 0 23)) >>| fun h -> `Byhour h )
-   <|> ( string "BYDAY" *> (sep_by1 (char ',') weekdaynum) >>| fun d -> `Byday d )
-   <|> ( string "BYMONTHDAY" *> (sep_by1 (char ',') monthdaynum) >>| fun d -> `Bymonthday d )
-   <|> ( string "BYYEARDAY" *> (sep_by1 (char ',') yeardaynum) >>| fun d -> `Byyearday d )
-   <|> ( string "BYWEEKNO" *> (sep_by1 (char ',') weeknum) >>| fun w -> `Byweek w )
-   <|> ( string "BYMONTH" *> (sep_by1 (char ',') monthnum) >>| fun m -> `Bymonth m )
-   <|> ( string "BYSETPOS" *> yeardaynum >>| fun d -> `Bysetposday d )
-   <|> ( string "WKST" *> weekday >>| fun d -> `Weekday d ) in
+       ( string "FREQ=" *> freq >>| fun f -> `Frequency f )
+   <|> ( string "UNTIL=" *> (datetime_parser <|> ptime) >>| fun u -> `Until u )
+   <|> ( string "COUNT=" *> digits >>= ensure int_of_string >>| fun c -> `Count c ) 
+   <|> ( string "INTERVAL=" *> digits >>= ensure int_of_string >>| fun i -> `Interval i )
+   <|> ( string "BYSECOND=" *> (sep_by1 (char ',') (up_to_two_digits >>= in_range 0 60)) >>| fun s -> `Bysecond s )
+   <|> ( string "BYMINUTE=" *> (sep_by1 (char ',') (up_to_two_digits >>= in_range 0 59)) >>| fun m -> `Byminute m )
+   <|> ( string "BYHOUR=" *> (sep_by1 (char ',') (up_to_two_digits >>= in_range 0 23)) >>| fun h -> `Byhour h )
+   <|> ( string "BYDAY=" *> (sep_by1 (char ',') weekdaynum) >>| fun d -> `Byday d )
+   <|> ( string "BYMONTHDAY=" *> (sep_by1 (char ',') monthdaynum) >>| fun d -> `Bymonthday d )
+   <|> ( string "BYYEARDAY=" *> (sep_by1 (char ',') yeardaynum) >>| fun d -> `Byyearday d )
+   <|> ( string "BYWEEKNO=" *> (sep_by1 (char ',') weeknum) >>| fun w -> `Byweek w )
+   <|> ( string "BYMONTH=" *> (sep_by1 (char ',') monthnum) >>| fun m -> `Bymonth m )
+   <|> ( string "BYSETPOS=" *> yeardaynum >>| fun d -> `Bysetposday d )
+   <|> ( string "WKST=" *> weekday >>| fun d -> `Weekday d ) in
   let recur = sep_by1 (char ';') recur_rule_part in
-  match parse_string recur str with
+  match parse_string (recur <* end_of_input) str with
   | Ok p -> `Recur p
   | Error _ -> raise Parse_error
 
@@ -376,6 +440,11 @@ let collect_param key value =
     | "URI" -> `Uri
     | "UTC-OFFSET" -> `Utcoffset
     | x -> parse_other x
+
+  and trigrel = function
+    | "START" -> `Start
+    | "END" -> `End
+    | _ -> raise Parse_error
   in
 
   match key, value with
@@ -396,8 +465,7 @@ let collect_param key value =
   | "MEMBER", values -> `Member (List.map raw_caladdress values)
   | "PARTSTAT", [ value ] -> `Partstat (partstat value)
   | "RANGE", [ "THISANDFUTURE" ] -> `Range
-  | "RELATED", [ value ] ->
-    `Trigrel (match value with "START" -> `Start | "END" -> `End)
+  | "RELATED", [ value ] -> `Trigrel (trigrel value)
   | "RELTYPE", [ value ] -> `Reltype (reltype value)
   | "ROLE", [ value ] -> `Role (role value)
   | "RSVP", [ value ] -> `Rsvp (raw_boolean value)
@@ -447,6 +515,7 @@ let collect_contentline key (params : icalparameter list) value =
     | `Float -> float value
     | `Integer -> signed_integer value
     | `Period -> period value
+    | `Recur -> recur value
   in
   (key, params, v)
 
