@@ -257,7 +257,7 @@ let recur str =
   | Ok p -> `Recur p
   | Error _ -> raise Parse_error
 
-let text str =
+let text_parser =
   let escaped_char =
     (string {_|\\|_} >>| fun _ -> {_|\|_})
     <|> (string "\\;" >>| fun _ -> ";")
@@ -272,11 +272,12 @@ let text str =
            | _ -> true
   in
   let tsafe_char = take_while1 is_tsafe_char in
-  let text =
-    many1 (tsafe_char <|> string ":" <|> string "\"" <|> escaped_char) >>| Astring.String.concat ~sep:""
-  in
-  let texts = sep_by (char ',') text in
-  match parse_string (texts <* end_of_input) str with
+  many1 (tsafe_char <|> string ":" <|> string "\"" <|> escaped_char) >>| Astring.String.concat ~sep:""
+
+let texts_parser = sep_by (char ',') text_parser
+
+let text str =
+  match parse_string (texts_parser <* end_of_input) str with
   | Ok p -> `Text p
   | Error _ -> raise Parse_error
 
@@ -600,5 +601,106 @@ let normalize_lines s =
   Re.replace_string ~all:true re ~by:"" s
 
 let parse (str:string) =
-  try parse_string contentlines (normalize_lines str)
+  try parse_string (* calobject *) contentlines (normalize_lines str)
+  with Parse_error -> Error "parse error"
+
+
+
+let pair a b = (a, b)
+let triple a b c = (a, b, c)
+
+let iana_token = name
+
+let iana_param = lift2 (fun k v -> `Iana_param (k, v))
+    (iana_token <* (char '=')) value_list
+
+let is_valid p str =
+  if Astring.String.for_all p str then
+    return str
+  else
+    fail "parse error"
+
+let up_to_two p = (take 2 >>= is_valid p) <|> (take 1 >>= is_valid p)
+let up_to_three p = (take 3 >>= is_valid p) <|> up_to_two p
+
+let is_alpha_digit = function '0' .. '9' | 'a' .. 'z' -> true | _ -> false
+let vendorid = up_to_three is_alpha_digit
+
+let x_name = lift3 triple
+    (string "X-") (option "" (vendorid <* char '-'))
+    (take_while1 is_alpha_digit_minus)
+
+let x_param = lift2 (fun k v -> `Xparam (k, v))
+    (x_name <* char '=') value_list
+
+let other_param = iana_param <|> x_param
+
+let pidparam = many (char ';' *> other_param)
+
+let pidvalue = text_parser
+
+(* NOTE grammar in RFC 3.7.3 regards pidvalue as text, thus it could be a list, but we forbid that *)
+let prodid = lift2 (fun a b -> `Prodid (a, b))
+    ((string "PRODID") *> pidparam <* char ':') (pidvalue <* end_of_line)
+
+let vervalue = string "2.0"
+
+let verparam = many ((char ';') *> other_param)
+
+let version = lift2 (fun a b -> `Version (a, b))
+    ((string "VERSION") *> verparam <* (char ':')) (vervalue <* end_of_line)
+
+let calprops = many (prodid <|> version (* <|> calscale <|> meth *) )
+
+(* let eventprop =
+   dtstamp <|> uid <|>
+   dtstart <|>
+   clazz <|> created <|> description <|> geo <|>
+   last_mod <|> location <|> organizer <|> priority <|>
+   seq <|> status <|> summary <|> transp <|>
+   url <|> recurid <|>
+   rrule <|>
+   dtend <|> duration <|>
+   attach <|> attendee <|> categories <|> comment <|>
+   contact <|> exdate <|> rstatus <|> related <|>
+   resources <|> rdate
+                 *)
+
+let eventc =
+  string "BEGIN:VEVENT" *> end_of_line *> (* lift2 eventprop (many alarmc) *)
+  (many_till contentline (string "END:VEVENT" <* end_of_line))
+
+let component = many1 (eventc (* <|> todoc <|> journalc <|> freebusyc <|> timezonec *))
+
+let icalbody = lift2 pair calprops component
+
+let calobject =
+  string "BEGIN:VCALENDAR" *> end_of_line *> icalbody <* string "END:VCALENDAR" <* end_of_line <* end_of_input
+
+type other_param =
+  [ `Iana_param of string * string list
+  | `Xparam of (string * string * string) * string list ]
+
+type calprops =
+  [ `Prodid of other_param list * string
+  | `Version of other_param list * string ]
+
+type component =
+  (string * icalparameter list * value) list
+
+type calendar = calprops list * component list
+
+(*
+type calendar = {
+  version : version ;
+  productid : string ;
+  calendarscale : foo option ;
+  ... : .. option ;
+  other_properties : properties list / map ;
+  components : component list
+}
+*)
+
+let parse_calobject (str : string) : (calendar, string) result =
+  try parse_string calobject (normalize_lines str)
   with Parse_error -> Error "parse error"

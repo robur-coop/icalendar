@@ -65,3 +65,17 @@ type value = [
 val pp_value : value Fmt.t
 
 val parse : string -> ((string * icalparameter list * value) list, string) result
+
+type other_param =
+  [ `Iana_param of string * string list
+  | `Xparam of (string * string * string) * string list ]
+
+type calprops =
+  [ `Prodid of other_param list * string
+  | `Version of other_param list * string ]
+
+type component = (string * icalparameter list * value) list
+
+type calendar = calprops list * component list
+
+val parse_calobject : string -> (calendar, string) result

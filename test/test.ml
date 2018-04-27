@@ -422,10 +422,52 @@ let value_tests = [
   "Test utcoffset", `Quick, utcoffset_value ;
 ]
 
+let compare_calendar =
+  let module M = struct
+    type t = Icalendar.calendar
+    let pp f _c = Fmt.pf f "such a calendar"
+    let equal a b = compare a b = 0
+  end in (module M: Alcotest.TESTABLE with type t = M.t)
+
+let result_c = Alcotest.(result compare_calendar string)
+
+let calendar_object () =
+  let input =
+{_|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+BEGIN:VEVENT
+UID:19970610T172345Z-AF23B2@example.com
+DTSTAMP:19970610T172345Z
+DTSTART:19970714T170000Z
+DTEND:19970715T040000Z
+SUMMARY:Bastille Day Party
+END:VEVENT
+END:VCALENDAR
+|_}
+  and expected = Ok
+      ( [ `Version ([], "2.0") ;
+          `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
+        [
+          [ ("UID", [], `Text [ "19970610T172345Z-AF23B2@example.com" ]) ;
+            ("DTSTAMP", [], `Text [ "19970610T172345Z" ]) ;
+            ("DTSTART", [], `Text [ "19970714T170000Z" ]) ;
+            ("DTEND", [], `Text [ "19970715T040000Z" ]) ;
+            ("SUMMARY", [], `Text [ "Bastille Day Party" ]) ;
+            ]
+        ])
+  in
+  let f = Icalendar.parse_calobject input in
+  Alcotest.check result_c __LOC__ expected f
+
+let object_tests = [
+  "calendar object parsing", `Quick, calendar_object
+]
 
 let tests = [
   "Line parsing tests", line_tests ;
   "Strongly typed value tests", value_tests ;
+  "Object tests", object_tests ;
 ]
 
 let () = 
