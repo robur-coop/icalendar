@@ -635,22 +635,30 @@ let x_param = lift2 (fun k v -> `Xparam (k, v))
 
 let other_param = iana_param <|> x_param
 
-let pidparam = many (char ';' *> other_param)
+let other_params = many (char ';' *> other_param)
 
 let pidvalue = text_parser
 
 (* NOTE grammar in RFC 3.7.3 regards pidvalue as text, thus it could be a list, but we forbid that *)
 let prodid = lift2 (fun a b -> `Prodid (a, b))
-    ((string "PRODID") *> pidparam <* char ':') (pidvalue <* end_of_line)
+    (string "PRODID" *> other_params <* char ':') (pidvalue <* end_of_line)
 
 let vervalue = string "2.0"
 
-let verparam = many ((char ';') *> other_param)
-
 let version = lift2 (fun a b -> `Version (a, b))
-    ((string "VERSION") *> verparam <* (char ':')) (vervalue <* end_of_line)
+    (string "VERSION" *> other_params <* char ':') (vervalue <* end_of_line)
 
-let calprops = many (prodid <|> version (* <|> calscale <|> meth *) )
+let calvalue = string "GREGORIAN"
+
+let calscale = lift2 (fun a b -> `Calscale (a, b))
+    (string "CALSCALE" *> other_params <* char ':') (calvalue <* end_of_line)
+
+let metvalue = iana_token
+
+let meth = lift2 (fun a b -> `Method (a, b))
+    (string "METHOD" *> other_params <* char ':') (metvalue <* end_of_line)
+
+let calprops = many (prodid <|> version <|> calscale <|> meth)
 
 (* let eventprop =
    dtstamp <|> uid <|>
@@ -683,7 +691,10 @@ type other_param =
 
 type calprops =
   [ `Prodid of other_param list * string
-  | `Version of other_param list * string ]
+  | `Version of other_param list * string
+  | `Calscale of other_param list * string
+  | `Method of other_param list * string
+  ]
 
 type component =
   (string * icalparameter list * value) list

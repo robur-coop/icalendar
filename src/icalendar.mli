@@ -72,7 +72,10 @@ type other_param =
 
 type calprops =
   [ `Prodid of other_param list * string
-  | `Version of other_param list * string ]
+  | `Version of other_param list * string
+  | `Calscale of other_param list * string
+  | `Method of other_param list * string
+  ]
 
 type component = (string * icalparameter list * value) list
 
