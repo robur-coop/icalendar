@@ -183,13 +183,14 @@ let duration str =
   | Ok d -> `Duration d
   | Error _ -> raise Parse_error
 
-let float str =
+let float_parser =
   let make_float s i f = 
     let n = try float_of_string (i ^ "." ^ f) with Failure _ -> raise Parse_error in
     if s = '+' then n else (-. n) in
-  let float = lift3 make_float sign digits (option "" ((char '.') *> digits)) <* end_of_input
-  in
-  match parse_string float str with
+  lift3 make_float sign digits (option "" ((char '.') *> digits))
+ 
+let float str =
+  match parse_string (float_parser <* end_of_input) str with
   | Ok f -> `Float f
   | Error _ -> raise Parse_error
 
@@ -708,11 +709,23 @@ let description =
   lift2 (fun a b -> `Description (a, b))
   (string "DESCRIPTION" *> desc_params <* char ':') (text_parser <* end_of_line)
 
+let geo = 
+  lift3 (fun a b c -> `Geo (a, (b, c)))
+  (string "GEO" *> other_params <* char ':') (float_parser <* char ';') float_parser <* end_of_line
+
+let last_mod = lift2 (fun a b -> `Lastmod (a, b))
+  (string "LAST-MODIFIED" *> other_params <* char ':') (datetime_parser <* end_of_line)
+
+let location =   
+  let loc_params = many (char ';' *> (altrepparam <|> languageparam <|> other_param)) in
+  lift2 (fun a b -> `Location (a, b))
+  (string "LOCATION" *> loc_params <* char ':') (text_parser <* end_of_line)
+
 let eventprop =
   dtstamp <|> uid <|>
   dtstart <|>
-  class_ <|> created <|> description (*<|> geo <|>
-  last_mod <|> location <|> organizer <|> priority <|>
+  class_ <|> created <|> description <|> geo <|>
+  last_mod <|> location (*<|> organizer <|> priority <|>
   seq <|> status <|> summary <|> transp <|>
   url <|> recurid <|>
   rrule <|>
@@ -775,6 +788,9 @@ type eventprop =
   | `Class of other_param list * class_ 
   | `Created of other_param list * (Ptime.t * bool)
   | `Description of [other_param | `Altrep of Uri.t | `Language of string ] list * string
+  | `Geo of other_param list * (float * float)
+  | `Lastmod of other_param list * (Ptime.t * bool)
+  | `Location of [other_param | `Altrep of Uri.t | `Language of string ] list * string
   ]
 
 let pp_dtstart_param fmt = function
@@ -799,6 +815,9 @@ let pp_eventprop fmt = function
   | `Class (l, v) -> Fmt.pf fmt "class %a %a" pp_other_params l pp_class v
   | `Created (l, (p, utc)) -> Fmt.pf fmt "created %a %a %b" pp_other_params l Ptime.pp p utc
   | `Description (l, v) -> Fmt.pf fmt "description %a %s" (Fmt.list pp_desc_param) l v
+  | `Geo (l, (lat, lon)) -> Fmt.pf fmt "geo %a lat %f lon %f" pp_other_params l lat lon
+  | `Lastmod (l, (p, utc)) -> Fmt.pf fmt "last modified %a %a %b" pp_other_params l Ptime.pp p utc
+  | `Location (l, v) -> Fmt.pf fmt "location %a %s" (Fmt.list pp_desc_param) l v
 
 type component =
   eventprop list * 

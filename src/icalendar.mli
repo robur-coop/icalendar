@@ -86,6 +86,9 @@ type eventprop =
   | `Class of other_param list * class_
   | `Created of other_param list * (Ptime.t * bool)
   | `Description of [other_param | `Altrep of Uri.t | `Language of string ] list * string
+  | `Geo of other_param list * (float * float)
+  | `Lastmod of other_param list * (Ptime.t * bool)
+  | `Location of [other_param | `Altrep of Uri.t | `Language of string ] list * string
   ]
 
 type component =
