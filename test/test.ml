@@ -425,7 +425,7 @@ let value_tests = [
 let compare_calendar =
   let module M = struct
     type t = Icalendar.calendar
-    let pp f _c = Fmt.pf f "such a calendar"
+    let pp = Icalendar.pp_calendar
     let equal a b = compare a b = 0
   end in (module M: Alcotest.TESTABLE with type t = M.t)
 
@@ -449,10 +449,11 @@ END:VCALENDAR
       ( [ `Version ([], "2.0") ;
           `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
         [
-          [ ("UID", [], `Text [ "19970610T172345Z-AF23B2@example.com" ]) ;
-            ("DTSTAMP", [], `Text [ "19970610T172345Z" ]) ;
-            ("DTSTART", [], `Text [ "19970714T170000Z" ]) ;
-            ("DTEND", [], `Text [ "19970715T040000Z" ]) ;
+          [ `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
+            `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+            `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+          ],
+          [ ("DTEND", [], `Text [ "19970715T040000Z" ]) ;
             ("SUMMARY", [], `Text [ "Bastille Day Party" ]) ;
             ]
         ])
@@ -460,8 +461,40 @@ END:VCALENDAR
   let f = Icalendar.parse_calobject input in
   Alcotest.check result_c __LOC__ expected f
 
+let calendar_object_with_tzid () =
+  let input =
+{_|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+BEGIN:VEVENT
+UID:19970610T172345Z-AF23B2@example.com
+DTSTAMP:19970610T172345Z
+DTSTART;TZID=America/New_York:19970714T170000Z
+DTEND:19970715T040000Z
+SUMMARY:Bastille Day Party
+END:VEVENT
+END:VCALENDAR
+|_}
+  and expected = Ok
+      ( [ `Version ([], "2.0") ;
+          `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
+        [
+          [ `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
+            `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+            `Dtstart ([`Tzid (false, "America/New_York")], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+          ],
+          [ ("DTEND", [], `Text [ "19970715T040000Z" ]) ;
+            ("SUMMARY", [], `Text [ "Bastille Day Party" ]) ;
+            ]
+        ])
+  in
+  let f = Icalendar.parse_calobject input in
+  Alcotest.check result_c __LOC__ expected f
+
+
 let object_tests = [
-  "calendar object parsing", `Quick, calendar_object
+  "calendar object parsing", `Quick, calendar_object ;
+  "calendar object parsing with tzid", `Quick, calendar_object_with_tzid ;
 ]
 
 let tests = [

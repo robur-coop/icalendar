@@ -68,17 +68,25 @@ val parse : string -> ((string * icalparameter list * value) list, string) resul
 
 type other_param =
   [ `Iana_param of string * string list
-  | `Xparam of (string * string * string) * string list ]
+  | `Xparam of (string * string) * string list ]
 
-type calprops =
+type calprop =
   [ `Prodid of other_param list * string
   | `Version of other_param list * string
   | `Calscale of other_param list * string
   | `Method of other_param list * string
   ]
 
-type component = (string * icalparameter list * value) list
+type eventprop =
+  [ `Dtstamp of other_param list * (Ptime.t * bool)
+  | `Uid of other_param list * string
+  | `Dtstart of [ other_param | `Valuetype of [`Datetime | `Date ] | `Tzid of bool * string ] list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ] ]
 
-type calendar = calprops list * component list
+type component =
+  eventprop list * 
+  (string * icalparameter list * value) list
+
+type calendar = calprop list * component list
 
 val parse_calobject : string -> (calendar, string) result
+val pp_calendar : calendar Fmt.t 

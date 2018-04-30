@@ -79,8 +79,9 @@ type value = [
   | `Utcoffset of Ptime.span
 ]
 
+let pp_date fmt (y, m, d) = Fmt.pf fmt "%04d-%02d-%02d" y m d
+
 let pp_value fmt = 
-  let pp_date fmt (y, m, d) = Fmt.pf fmt "%04d-%02d-%02d" y m d in
   function
   | `Boolean b -> Fmt.pf fmt "boolean %b" b
   | `Binary cs -> Fmt.pf fmt "binary %a" Cstruct.hexdump_pp cs
@@ -626,8 +627,8 @@ let up_to_three p = (take 3 >>= is_valid p) <|> up_to_two p
 let is_alpha_digit = function '0' .. '9' | 'a' .. 'z' -> true | _ -> false
 let vendorid = up_to_three is_alpha_digit
 
-let x_name = lift3 triple
-    (string "X-") (option "" (vendorid <* char '-'))
+let x_name = lift2 pair
+    ((string "X-") *> (option "" (vendorid <* char '-')))
     (take_while1 is_alpha_digit_minus)
 
 let x_param = lift2 (fun k v -> `Xparam (k, v))
@@ -660,22 +661,48 @@ let meth = lift2 (fun a b -> `Method (a, b))
 
 let calprops = many (prodid <|> version <|> calscale <|> meth)
 
-(* let eventprop =
-   dtstamp <|> uid <|>
-   dtstart <|>
-   clazz <|> created <|> description <|> geo <|>
-   last_mod <|> location <|> organizer <|> priority <|>
-   seq <|> status <|> summary <|> transp <|>
-   url <|> recurid <|>
-   rrule <|>
-   dtend <|> duration <|>
-   attach <|> attendee <|> categories <|> comment <|>
-   contact <|> exdate <|> rstatus <|> related <|>
-   resources <|> rdate
-                 *)
+let dtstamp = lift2 (fun a b -> `Dtstamp (a, b))
+  (string "DTSTAMP" *> other_params <* char ':') (datetime_parser <* end_of_line)
+
+let uid = lift2 (fun a b -> `Uid (a, b))
+  (string "UID" *> other_params <* char ':') (text_parser <* end_of_line)
+
+let tzidparam = 
+ lift2 (fun a b -> `Tzid (a = '/', b))
+ (string "TZID=" *> option ' ' (char '/')) param_text
+
+let dtstart = 
+  let valueparam = string "VALUE=" *> (string "DATE-TIME" <|> string "DATE") >>| 
+    function "DATE-TIME" -> `Valuetype `Datetime | "DATE" -> `Valuetype `Date | _ -> raise Parse_error in
+  let dtstparam = many (char ';' *> (valueparam <|> tzidparam <|> other_param)) in
+  lift2 (fun a b -> 
+    let valuetype = try List.find(function `Valuetype _ -> true | _ -> false) a with Not_found -> `Valuetype `Datetime in
+    match valuetype, b with
+     | `Valuetype `Datetime, `Datetime dt -> `Dtstart (a, b)
+     | `Valuetype `Date, `Date d -> `Dtstart (a, b)
+     | _ -> raise Parse_error)
+  (string "DTSTART" *> dtstparam <* char ':') 
+    (((datetime_parser >>| fun dt -> `Datetime dt) 
+      <|> (date_parser >>| fun d -> `Date d)) <* end_of_line)
+
+let eventprop =
+  dtstamp <|> uid <|>
+  dtstart (*<|>
+  clazz <|> created <|> description <|> geo <|>
+  last_mod <|> location <|> organizer <|> priority <|>
+  seq <|> status <|> summary <|> transp <|>
+  url <|> recurid <|>
+  rrule <|>
+  dtend <|> duration <|>
+  attach <|> attendee <|> categories <|> comment <|>
+  contact <|> exdate <|> rstatus <|> related <|>
+  resources <|> rdate*)
+
+let eventprops = many eventprop
+(*let alarmc = *)
 
 let eventc =
-  string "BEGIN:VEVENT" *> end_of_line *> (* lift2 eventprop (many alarmc) *)
+  string "BEGIN:VEVENT" *> end_of_line *> lift2 pair eventprops (*(many alarmc)*)
   (many_till contentline (string "END:VEVENT" <* end_of_line))
 
 let component = many1 (eventc (* <|> todoc <|> journalc <|> freebusyc <|> timezonec *))
@@ -687,20 +714,58 @@ let calobject =
 
 type other_param =
   [ `Iana_param of string * string list
-  | `Xparam of (string * string * string) * string list ]
+  | `Xparam of (string * string) * string list ]
 
-type calprops =
+let pp_other_param fmt = function
+  | `Iana_param (k, v) -> Fmt.pf fmt "key %s value %a" k (Fmt.list Fmt.string) v
+  | `Xparam ((vendor, name), v) -> Fmt.pf fmt "vendor %s key %s value %a" vendor name (Fmt.list Fmt.string) v
+
+type calprop =
   [ `Prodid of other_param list * string
   | `Version of other_param list * string
   | `Calscale of other_param list * string
   | `Method of other_param list * string
   ]
 
+let pp_other_params = Fmt.list pp_other_param
+
+let pp_calprop fmt = function
+  | `Prodid (l, s) -> Fmt.pf fmt "product id %a %s" pp_other_params l s
+  | `Version (l, s) -> Fmt.pf fmt "version %a %s" pp_other_params l s
+  | `Calscale (l, s) -> Fmt.pf fmt "calscale %a %s" pp_other_params l s
+  | `Method (l, s) -> Fmt.pf fmt "method %a %s" pp_other_params l s
+  
+type eventprop =
+  [ `Dtstamp of other_param list * (Ptime.t * bool)
+  | `Uid of other_param list * string
+  | `Dtstart of [ other_param | `Valuetype of [`Datetime | `Date ] | `Tzid of bool * string ] list * 
+    [ `Datetime of Ptime.t * bool | `Date of Ptime.date ] ]
+
+let pp_dtstart_param fmt = function
+  | #other_param as p -> pp_other_param fmt p
+  | `Valuetype `Datetime -> Fmt.string fmt "valuetype datetime"
+  | `Valuetype `Date -> Fmt.string fmt "valuetype date"
+  | `Tzid (prefix, name) -> Fmt.pf fmt "tzid prefix %b %s" prefix name
+
+let pp_dtstart_value fmt = function
+  | `Datetime (p, utc) -> Fmt.pf fmt "datetime %a Utc?%b" Ptime.pp p utc 
+  | `Date d -> Fmt.pf fmt "date %a" pp_date d
+
+let pp_eventprop fmt = function
+  | `Dtstamp (l, (p, utc)) -> Fmt.pf fmt "dtstamp %a %a %b" pp_other_params l Ptime.pp p utc
+  | `Uid (l, s) -> Fmt.pf fmt "uid %a %s" pp_other_params l s 
+  | `Dtstart (l, v) -> Fmt.pf fmt "dtstart %a %a" (Fmt.list pp_dtstart_param) l pp_dtstart_value v
+
 type component =
+  eventprop list * 
   (string * icalparameter list * value) list
 
-type calendar = calprops list * component list
+let pp_content_line fmt (k, params, v) = Fmt.pf fmt "key %s params %a value %a" k (Fmt.list pp_icalparameter) params pp_value v
+let pp_component fmt (props, lines) = Fmt.pf fmt "props: %a @.lines:%a" (Fmt.list pp_eventprop) props (Fmt.list pp_content_line) lines
 
+type calendar = calprop list * component list
+
+let pp_calendar: calendar Fmt.t = fun fmt (props, comps) -> Fmt.pf fmt "properties %a components %a" (Fmt.list pp_calprop) props (Fmt.list pp_component) comps
 (*
 type calendar = {
   version : version ;
