@@ -84,6 +84,8 @@ type eventprop =
   | `Uid of other_param list * string
   | `Dtstart of [ other_param | `Valuetype of [`Datetime | `Date ] | `Tzid of bool * string ] list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ] 
   | `Class of other_param list * class_
+  | `Created of other_param list * (Ptime.t * bool)
+  | `Description of [other_param | `Altrep of Uri.t | `Language of string ] list * string
   ]
 
 type component =

@@ -694,11 +694,24 @@ let class_ =
   lift2 (fun a b -> `Class (a, b))
   (string "CLASS" *> other_params <* char ':') (class_value <* end_of_line)
 
+let created = lift2 (fun a b -> `Created (a, b))
+  (string "CREATED" *> other_params <* char ':') (datetime_parser <* end_of_line)
+  
+(* TODO use uri parser here *)
+let altrepparam = (string "ALTREP=") *> quoted_string >>| fun uri -> `Altrep (Uri.of_string uri)
+
+(* TODO use language tag rfc5646 parser *)
+let languageparam = (string "LANGUAGE=") *> param_text >>| fun l -> `Language l 
+
+let description = 
+  let desc_params = many (char ';' *> (altrepparam <|> languageparam <|> other_param)) in
+  lift2 (fun a b -> `Description (a, b))
+  (string "DESCRIPTION" *> desc_params <* char ':') (text_parser <* end_of_line)
 
 let eventprop =
   dtstamp <|> uid <|>
   dtstart <|>
-  class_ (*<|> created <|> description <|> geo <|>
+  class_ <|> created <|> description (*<|> geo <|>
   last_mod <|> location <|> organizer <|> priority <|>
   seq <|> status <|> summary <|> transp <|>
   url <|> recurid <|>
@@ -760,6 +773,8 @@ type eventprop =
   | `Dtstart of [ other_param | `Valuetype of [`Datetime | `Date ] | `Tzid of bool * string ] list * 
     [ `Datetime of Ptime.t * bool | `Date of Ptime.date ] 
   | `Class of other_param list * class_ 
+  | `Created of other_param list * (Ptime.t * bool)
+  | `Description of [other_param | `Altrep of Uri.t | `Language of string ] list * string
   ]
 
 let pp_dtstart_param fmt = function
@@ -772,11 +787,18 @@ let pp_dtstart_value fmt = function
   | `Datetime (p, utc) -> Fmt.pf fmt "datetime %a Utc?%b" Ptime.pp p utc 
   | `Date d -> Fmt.pf fmt "date %a" pp_date d
 
+let pp_desc_param fmt = function
+  | #other_param as p -> pp_other_param fmt p
+  | `Altrep uri -> Fmt.pf fmt "altrep uri %a" Uri.pp_hum uri
+  | `Language l -> Fmt.pf fmt "language %s" l
+
 let pp_eventprop fmt = function
   | `Dtstamp (l, (p, utc)) -> Fmt.pf fmt "dtstamp %a %a %b" pp_other_params l Ptime.pp p utc
   | `Uid (l, s) -> Fmt.pf fmt "uid %a %s" pp_other_params l s 
   | `Dtstart (l, v) -> Fmt.pf fmt "dtstart %a %a" (Fmt.list pp_dtstart_param) l pp_dtstart_value v
   | `Class (l, v) -> Fmt.pf fmt "class %a %a" pp_other_params l pp_class v
+  | `Created (l, (p, utc)) -> Fmt.pf fmt "created %a %a %b" pp_other_params l Ptime.pp p utc
+  | `Description (l, v) -> Fmt.pf fmt "description %a %s" (Fmt.list pp_desc_param) l v
 
 type component =
   eventprop list * 
