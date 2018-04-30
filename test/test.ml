@@ -686,6 +686,72 @@ END:VCALENDAR
   let f = Icalendar.parse_calobject input in
   Alcotest.check result_c __LOC__ expected f
 
+let calendar_object_with_organizer () =
+  let input =
+{_|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+BEGIN:VEVENT
+ORGANIZER;SENT-BY="mailto:sray@example.com":mailto:
+ jsmith@example.com
+UID:19970610T172345Z-AF23B2@example.com
+DTSTAMP:19970610T172345Z
+DTSTART:19970714T170000Z
+DTEND:19970715T040000Z
+SUMMARY:Bastille Day Party
+END:VEVENT
+END:VCALENDAR
+|_}
+  and expected = Ok
+      ( [ `Version ([], "2.0") ;
+          `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
+        [
+          [ `Organizer([`Sentby (Uri.of_string "mailto:sray@example.com")], Uri.of_string "mailto:jsmith@example.com") ;
+            `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
+            `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+            `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+          ],
+          [ ("DTEND", [], `Text [ "19970715T040000Z" ]) ;
+            ("SUMMARY", [], `Text [ "Bastille Day Party" ]) ;
+            ]
+        ])
+  in
+  let f = Icalendar.parse_calobject input in
+  Alcotest.check result_c __LOC__ expected f
+
+let calendar_object_with_priority () =
+  let input =
+{_|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+BEGIN:VEVENT
+PRIORITY:2
+UID:19970610T172345Z-AF23B2@example.com
+DTSTAMP:19970610T172345Z
+DTSTART:19970714T170000Z
+DTEND:19970715T040000Z
+SUMMARY:Bastille Day Party
+END:VEVENT
+END:VCALENDAR
+|_}
+  and expected = Ok
+      ( [ `Version ([], "2.0") ;
+          `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
+        [
+          [ `Priority ([], 2) ;
+            `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
+            `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+            `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+          ],
+          [ ("DTEND", [], `Text [ "19970715T040000Z" ]) ;
+            ("SUMMARY", [], `Text [ "Bastille Day Party" ]) ;
+            ]
+        ])
+  in
+  let f = Icalendar.parse_calobject input in
+  Alcotest.check result_c __LOC__ expected f
+
+
 let object_tests = [
   "calendar object parsing", `Quick, calendar_object ;
   "calendar object parsing with tzid", `Quick, calendar_object_with_tzid ;
@@ -695,6 +761,8 @@ let object_tests = [
   "calendar object parsing with geo", `Quick, calendar_object_with_geo ;
   "calendar object parsing with last modified", `Quick, calendar_object_with_last_mod ;
   "calendar object parsing with location", `Quick, calendar_object_with_location ;
+  "calendar object parsing with organizer", `Quick, calendar_object_with_organizer ;
+  "calendar object parsing with priority", `Quick, calendar_object_with_priority ;
 ]
 
 let tests = [

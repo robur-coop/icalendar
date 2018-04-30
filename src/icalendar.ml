@@ -160,9 +160,9 @@ let datetime str =
   | Ok d -> `Datetime d
   | Error _ -> raise Parse_error
 
-let digits = 
-  let is_digit = function '0' .. '9' -> true | _ -> false in
-  take_while1 is_digit
+let is_digit = function '0' .. '9' -> true | _ -> false
+
+let digits = take_while1 is_digit
 
 let sign = option '+' (char '+' <|> char '-')
 
@@ -721,11 +721,26 @@ let location =
   lift2 (fun a b -> `Location (a, b))
   (string "LOCATION" *> loc_params <* char ':') (text_parser <* end_of_line)
 
+let caladdress = take_while1 is_qsafe_char >>| Uri.of_string
+
+let organizer =
+  let cnparam = string "CN=" *> param_value >>| fun cn -> `Cn cn
+  and dirparam = string "DIR=" *> quoted_string >>| fun s -> `Dir (Uri.of_string s)
+  and sentbyparam = string "SENT-BY=" *> char '"' *> caladdress <* char '"' >>| fun s -> `Sentby s in
+  let orgparams = many (char ';' *> (cnparam <|> dirparam <|> sentbyparam <|> languageparam <|> other_param)) in
+  lift2 (fun a b -> `Organizer (a, b))
+  (string "ORGANIZER" *> orgparams <* char ':') (caladdress <* end_of_line)
+
+let priority =
+  let digit = satisfy is_digit >>= fun c -> ensure int_of_string @@ String.make 1 c in
+  lift2 (fun a b -> `Priority (a, b))
+  (string "PRIORITY" *> other_params <* char ':') (digit <* end_of_line)
+
 let eventprop =
   dtstamp <|> uid <|>
   dtstart <|>
   class_ <|> created <|> description <|> geo <|>
-  last_mod <|> location (*<|> organizer <|> priority <|>
+  last_mod <|> location <|> organizer <|> priority (*<|>
   seq <|> status <|> summary <|> transp <|>
   url <|> recurid <|>
   rrule <|>
@@ -791,6 +806,8 @@ type eventprop =
   | `Geo of other_param list * (float * float)
   | `Lastmod of other_param list * (Ptime.t * bool)
   | `Location of [other_param | `Altrep of Uri.t | `Language of string ] list * string
+  | `Organizer of [other_param | `Cn of string | `Dir of Uri.t | `Sentby of Uri.t | `Language of string] list * Uri.t
+  | `Priority of other_param list * int
   ]
 
 let pp_dtstart_param fmt = function
@@ -808,6 +825,13 @@ let pp_desc_param fmt = function
   | `Altrep uri -> Fmt.pf fmt "altrep uri %a" Uri.pp_hum uri
   | `Language l -> Fmt.pf fmt "language %s" l
 
+let pp_organizer_param fmt = function
+  | #other_param as p -> pp_other_param fmt p
+  | `Language l -> Fmt.pf fmt "language %s" l
+  | `Cn c -> Fmt.pf fmt "cn %s" c
+  | `Dir d -> Fmt.pf fmt "dir %a" Uri.pp_hum d
+  | `Sentby s -> Fmt.pf fmt "sent-by %a" Uri.pp_hum s
+  
 let pp_eventprop fmt = function
   | `Dtstamp (l, (p, utc)) -> Fmt.pf fmt "dtstamp %a %a %b" pp_other_params l Ptime.pp p utc
   | `Uid (l, s) -> Fmt.pf fmt "uid %a %s" pp_other_params l s 
@@ -818,6 +842,8 @@ let pp_eventprop fmt = function
   | `Geo (l, (lat, lon)) -> Fmt.pf fmt "geo %a lat %f lon %f" pp_other_params l lat lon
   | `Lastmod (l, (p, utc)) -> Fmt.pf fmt "last modified %a %a %b" pp_other_params l Ptime.pp p utc
   | `Location (l, v) -> Fmt.pf fmt "location %a %s" (Fmt.list pp_desc_param) l v
+  | `Organizer (l, v) -> Fmt.pf fmt "organizer %a %a" (Fmt.list pp_organizer_param) l Uri.pp_hum v
+  | `Priority (l, v) -> Fmt.pf fmt "priority %a %d" pp_other_params l v
 
 type component =
   eventprop list * 
