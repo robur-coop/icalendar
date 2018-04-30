@@ -491,10 +491,42 @@ END:VCALENDAR
   let f = Icalendar.parse_calobject input in
   Alcotest.check result_c __LOC__ expected f
 
+let calendar_object_with_class () =
+  let input =
+{_|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+BEGIN:VEVENT
+CLASS:PUBLIC
+UID:19970610T172345Z-AF23B2@example.com
+DTSTAMP:19970610T172345Z
+DTSTART:19970714T170000Z
+DTEND:19970715T040000Z
+SUMMARY:Bastille Day Party
+END:VEVENT
+END:VCALENDAR
+|_}
+  and expected = Ok
+      ( [ `Version ([], "2.0") ;
+          `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
+        [
+          [ `Class ([], `Public) ;
+            `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
+            `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+            `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+          ],
+          [ ("DTEND", [], `Text [ "19970715T040000Z" ]) ;
+            ("SUMMARY", [], `Text [ "Bastille Day Party" ]) ;
+            ]
+        ])
+  in
+  let f = Icalendar.parse_calobject input in
+  Alcotest.check result_c __LOC__ expected f
 
 let object_tests = [
   "calendar object parsing", `Quick, calendar_object ;
   "calendar object parsing with tzid", `Quick, calendar_object_with_tzid ;
+  "calendar object parsing with class", `Quick, calendar_object_with_class ;
 ]
 
 let tests = [

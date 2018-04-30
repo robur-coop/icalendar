@@ -685,10 +685,20 @@ let dtstart =
     (((datetime_parser >>| fun dt -> `Datetime dt) 
       <|> (date_parser >>| fun d -> `Date d)) <* end_of_line)
 
+let class_ = 
+  let class_value = (string "PUBLIC" >>| fun _ -> `Public) 
+   <|> (string "PRIVATE" >>| fun _ -> `Private)
+   <|> (string "CONFIDENTIAL" >>| fun _ -> `Confidential)
+   <|> (iana_token >>| fun x -> `Ianatoken x)
+   <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name)) in
+  lift2 (fun a b -> `Class (a, b))
+  (string "CLASS" *> other_params <* char ':') (class_value <* end_of_line)
+
+
 let eventprop =
   dtstamp <|> uid <|>
-  dtstart (*<|>
-  clazz <|> created <|> description <|> geo <|>
+  dtstart <|>
+  class_ (*<|> created <|> description <|> geo <|>
   last_mod <|> location <|> organizer <|> priority <|>
   seq <|> status <|> summary <|> transp <|>
   url <|> recurid <|>
@@ -735,11 +745,22 @@ let pp_calprop fmt = function
   | `Calscale (l, s) -> Fmt.pf fmt "calscale %a %s" pp_other_params l s
   | `Method (l, s) -> Fmt.pf fmt "method %a %s" pp_other_params l s
   
+type class_ = [ `Public | `Private | `Confidential | `Ianatoken of string | `Xname of string * string ]
+
+let pp_class fmt = function 
+  | `Public -> Fmt.string fmt "public"
+  | `Private -> Fmt.string fmt "private"
+  | `Confidential -> Fmt.string fmt "confidential"
+  | `Ianatoken t -> Fmt.pf fmt "ianatoken %s" t
+  | `Xname (v, t) -> Fmt.pf fmt "xname vendor %s %s" v t
+
 type eventprop =
   [ `Dtstamp of other_param list * (Ptime.t * bool)
   | `Uid of other_param list * string
   | `Dtstart of [ other_param | `Valuetype of [`Datetime | `Date ] | `Tzid of bool * string ] list * 
-    [ `Datetime of Ptime.t * bool | `Date of Ptime.date ] ]
+    [ `Datetime of Ptime.t * bool | `Date of Ptime.date ] 
+  | `Class of other_param list * class_ 
+  ]
 
 let pp_dtstart_param fmt = function
   | #other_param as p -> pp_other_param fmt p
@@ -755,6 +776,7 @@ let pp_eventprop fmt = function
   | `Dtstamp (l, (p, utc)) -> Fmt.pf fmt "dtstamp %a %a %b" pp_other_params l Ptime.pp p utc
   | `Uid (l, s) -> Fmt.pf fmt "uid %a %s" pp_other_params l s 
   | `Dtstart (l, v) -> Fmt.pf fmt "dtstart %a %a" (Fmt.list pp_dtstart_param) l pp_dtstart_value v
+  | `Class (l, v) -> Fmt.pf fmt "class %a %a" pp_other_params l pp_class v
 
 type component =
   eventprop list * 

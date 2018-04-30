@@ -77,10 +77,14 @@ type calprop =
   | `Method of other_param list * string
   ]
 
+type class_ = [ `Public | `Private | `Confidential | `Ianatoken of string | `Xname of string * string ]
+
 type eventprop =
   [ `Dtstamp of other_param list * (Ptime.t * bool)
   | `Uid of other_param list * string
-  | `Dtstart of [ other_param | `Valuetype of [`Datetime | `Date ] | `Tzid of bool * string ] list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ] ]
+  | `Dtstart of [ other_param | `Valuetype of [`Datetime | `Date ] | `Tzid of bool * string ] list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ] 
+  | `Class of other_param list * class_
+  ]
 
 type component =
   eventprop list * 
