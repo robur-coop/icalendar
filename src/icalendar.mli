@@ -101,10 +101,11 @@ type eventprop =
   | `Transparency of other_param list * [ `Transparent | `Opaque ]
   | `Url of other_param list * Uri.t
   | `Recur_id of [ other_param | `Tzid of bool * string | `Valuetype of [ `Datetime | `Date ] | `Range of [ `Thisandfuture ] ] list *
-    [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+                 [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Rrule of other_param list * recur list
   | `Dtend of [ other_param | `Valuetype of [`Datetime | `Date ] | `Tzid of bool * string ] list * 
-    [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+              [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Duration of other_param list * int
   ]
 
 type component =

@@ -613,6 +613,21 @@ let parse (str:string) =
 let pair a b = (a, b)
 let triple a b c = (a, b, c)
 
+(* from RFC 4288 Section 4.2 *)
+let media_type_chars = function
+  | 'A' .. 'Z' | 'a' .. 'z' | '0' .. '9'
+  | '!' | '#' | '$' | '&' | '.' | '+' | '-' | '^' | '_' -> true
+  | _ -> false
+
+let media_type_name =
+  take_while1 media_type_chars >>= fun data ->
+  if String.length data < 128
+  then return data
+  else fail "parse error"
+
+let media_type =
+  lift2 pair (media_type_name <* char '/') media_type_name
+
 let iana_token = name
 
 let iana_param = lift2 (fun k v -> `Iana_param (k, v))
@@ -808,6 +823,48 @@ let dtend =
     (string "DTEND" *> dtend_params <* char ':')
     (time_or_date_parser <* end_of_line)
 
+let duration =
+  lift2 (fun a b -> `Duration (a, b))
+    (string "DURATION" *> other_params <* char ':')
+    (duration_parser <* end_of_line)
+
+(*
+let binary =
+  let is_b_char = function 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '+' | '/' -> true | _ -> false in
+  let b_end =
+    (lift2 (fun a b -> String.make 1 a ^ String.make 1 b)
+       (char is_b_char) (char is_b_char <* string "==")) <|>
+    (lift3 (fun a b c -> String.make 1 a ^ String.make 1 b ^ String.make 1 c)
+       (char is_b_char) (char is_b_char) (char is_b_char <* string "="))
+  in
+  lift2 (^)
+    many (lift4
+            (fun a b c d -> String.make 1 a ^ String.make 1 b ^ String.make 1 c ^ String.make 1 d)
+            (char is_b_char) (char is_b_char) (char is_b_char) (char is_b_char))
+    b_end
+
+
+let attach =
+  let fmttype_param =
+    string "FMTTYPE=" *> media_type >>| fun m -> `Media_type m
+  and value_param =
+    string "VALUE=BINARY" >>| fun _ -> `Valuetype `Binary
+  and encoding_param =
+    string "ENCODING=BASE64" >>| fun _ -> `Encoding `Base64
+  in
+  let attach_params = many (char ';' *> (fmttype_param <|> value_param <|> encoding_param <|> other_param)) in
+  lift2 (fun a b ->
+      let valuetype = try Some (List.find (function `Valuetype _ -> true | _ -> false) a) with Not_found -> None
+      and encoding = try Some (List.find (function `Encoding _ -> true | _ -> false) a) with Not_found -> None
+      in
+      match valuetype, encoding, b with
+      | None, None, `Uri uri -> `Attach (a, `Uri uri)
+      | Some `Binary, Some `Base64, `Binary b -> `Attach (a,`Binary b)
+      | _ -> raise Parse_error)
+    (string "ATTACH" *> attach_params <* char ':')
+    ((binary >>= fun b -> `Binary b) <|> (caladress >>= fun a -> `Uri a) <* end_of_line)
+*)
+    
 let eventprop =
   dtstamp <|> uid <|>
   dtstart <|>
@@ -816,7 +873,7 @@ let eventprop =
   seq <|> status <|> summary <|> transp <|>
   url  <|> recurid <|>
   rrule <|>
-  dtend (* <|> duration <|>
+  dtend <|> duration (* <|>
   attach <|> attendee <|> categories <|> comment <|>
   contact <|> exdate <|> rstatus <|> related <|>
   resources <|> rdate*)
@@ -857,10 +914,10 @@ let pp_calprop fmt = function
   | `Version (l, s) -> Fmt.pf fmt "version %a %s" pp_other_params l s
   | `Calscale (l, s) -> Fmt.pf fmt "calscale %a %s" pp_other_params l s
   | `Method (l, s) -> Fmt.pf fmt "method %a %s" pp_other_params l s
-  
+
 type class_ = [ `Public | `Private | `Confidential | `Ianatoken of string | `Xname of string * string ]
 
-let pp_class fmt = function 
+let pp_class fmt = function
   | `Public -> Fmt.string fmt "public"
   | `Private -> Fmt.string fmt "private"
   | `Confidential -> Fmt.string fmt "confidential"
@@ -893,7 +950,10 @@ type eventprop =
                  [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Rrule of other_param list * recur list
   | `Dtend of [ other_param | `Valuetype of [`Datetime | `Date ] | `Tzid of bool * string ] list * 
-    [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+              [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Duration of other_param list * int
+(*  | `Attach of [`Mediatype of string * string | `Encoding of [ `Base64 ] | `Valuetype of [ `Binary ] | other_param ] list *
+               [ `Uri of Uri.t | `Binary of string ] *)
   ]
 
 let pp_dtstart_param fmt = function
@@ -958,6 +1018,7 @@ let pp_eventprop fmt = function
   | `Recur_id (l, v) -> Fmt.pf fmt "recur-id %a %a" (Fmt.list pp_recur_param) l pp_dtstart_value v
   | `Rrule (l, v) -> Fmt.pf fmt "rrule %a %a" pp_other_params l (Fmt.list pp_recur) v
   | `Dtend (l, v) -> Fmt.pf fmt "dtend %a %a" (Fmt.list pp_dtstart_param) l pp_dtstart_value v
+  | `Duration (l, v) -> Fmt.pf fmt "duration %a %d seconds" pp_other_params l v
 
 type component =
   eventprop list * 
