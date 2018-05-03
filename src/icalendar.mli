@@ -79,6 +79,10 @@ type calprop =
 
 type class_ = [ `Public | `Private | `Confidential | `Ianatoken of string | `Xname of string * string ]
 
+type status = [ `Draft | `Final | `Cancelled |
+                `Needs_action | `Completed | `In_process | (* `Cancelled *)
+                `Tentative | `Confirmed (* | `Cancelled *) ]
+
 type eventprop =
   [ `Dtstamp of other_param list * (Ptime.t * bool)
   | `Uid of other_param list * string
@@ -91,6 +95,16 @@ type eventprop =
   | `Location of [other_param | `Altrep of Uri.t | `Language of string ] list * string
   | `Organizer of [other_param | `Cn of string | `Dir of Uri.t | `Sentby of Uri.t | `Language of string] list * Uri.t
   | `Priority of other_param list * int
+  | `Seq of other_param list * int
+  | `Status of other_param list * status
+  | `Summary of [other_param | `Altrep of Uri.t | `Language of string ] list * string
+  | `Transparency of other_param list * [ `Transparent | `Opaque ]
+  | `Url of other_param list * Uri.t
+  | `Recur_id of [ other_param | `Tzid of bool * string | `Valuetype of [ `Datetime | `Date ] | `Range of [ `Thisandfuture ] ] list *
+    [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Rrule of other_param list * recur list
+  | `Dtend of [ other_param | `Valuetype of [`Datetime | `Date ] | `Tzid of bool * string ] list * 
+    [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   ]
 
 type component =

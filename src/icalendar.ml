@@ -214,7 +214,7 @@ let period str =
   | Ok p -> `Period p
   | Error _ -> raise Parse_error
 
-let recur str =
+let recur_parser =
   let up_to_two_digits = (take 2 >>= ensure int_of_string) <|> (take 1 >>= ensure int_of_string) in
   let up_to_three_digits = (take 3 >>= ensure int_of_string) <|> up_to_two_digits in
   let freq = ( string "SECONDLY" >>| fun _ -> `Secondly )
@@ -254,8 +254,10 @@ let recur str =
    <|> ( string "BYMONTH=" *> (sep_by1 (char ',') monthnum) >>| fun m -> `Bymonth m )
    <|> ( string "BYSETPOS=" *> yeardaynum >>| fun d -> `Bysetposday d )
    <|> ( string "WKST=" *> weekday >>| fun d -> `Weekday d ) in
-  let recur = sep_by1 (char ';') recur_rule_part in
-  match parse_string (recur <* end_of_input) str with
+  sep_by1 (char ';') recur_rule_part
+
+let recur str =
+  match parse_string (recur_parser <* end_of_input) str with
   | Ok p -> `Recur p
   | Error _ -> raise Parse_error
 
@@ -668,26 +670,36 @@ let dtstamp = lift2 (fun a b -> `Dtstamp (a, b))
 let uid = lift2 (fun a b -> `Uid (a, b))
   (string "UID" *> other_params <* char ':') (text_parser <* end_of_line)
 
-let tzidparam = 
+let tzidparam =
  lift2 (fun a b -> `Tzid (a = '/', b))
  (string "TZID=" *> option ' ' (char '/')) param_text
 
-let dtstart = 
-  let valueparam = string "VALUE=" *> (string "DATE-TIME" <|> string "DATE") >>| 
-    function "DATE-TIME" -> `Valuetype `Datetime | "DATE" -> `Valuetype `Date | _ -> raise Parse_error in
-  let dtstparam = many (char ';' *> (valueparam <|> tzidparam <|> other_param)) in
-  lift2 (fun a b -> 
-    let valuetype = try List.find(function `Valuetype _ -> true | _ -> false) a with Not_found -> `Valuetype `Datetime in
-    match valuetype, b with
-     | `Valuetype `Datetime, `Datetime dt -> `Dtstart (a, b)
-     | `Valuetype `Date, `Date d -> `Dtstart (a, b)
-     | _ -> raise Parse_error)
-  (string "DTSTART" *> dtstparam <* char ':') 
-    (((datetime_parser >>| fun dt -> `Datetime dt) 
-      <|> (date_parser >>| fun d -> `Date d)) <* end_of_line)
+let time_or_date_param =
+  string "VALUE=" *>
+  (string "DATE-TIME" <|> string "DATE") >>| function
+  | "DATE-TIME" -> `Valuetype `Datetime
+  | "DATE" -> `Valuetype `Date
+  | _ -> raise Parse_error
 
-let class_ = 
-  let class_value = (string "PUBLIC" >>| fun _ -> `Public) 
+let build_time_or_date a b =
+  let valuetype = try List.find(function `Valuetype _ -> true | _ -> false) a with Not_found -> `Valuetype `Datetime in
+  match valuetype, b with
+  | `Valuetype `Datetime, `Datetime dt -> (a, b)
+  | `Valuetype `Date, `Date d -> (a, b)
+  | _ -> raise Parse_error
+
+let time_or_date_parser =
+  (datetime_parser >>| fun dt -> `Datetime dt)
+  <|> (date_parser >>| fun d -> `Date d)
+
+let dtstart =
+  let dtstparam = many (char ';' *> (time_or_date_param <|> tzidparam <|> other_param)) in
+  lift2 (fun a b -> `Dtstart (build_time_or_date a b))
+    (string "DTSTART" *> dtstparam <* char ':')
+    (time_or_date_parser <* end_of_line)
+
+let class_ =
+  let class_value = (string "PUBLIC" >>| fun _ -> `Public)
    <|> (string "PRIVATE" >>| fun _ -> `Private)
    <|> (string "CONFIDENTIAL" >>| fun _ -> `Confidential)
    <|> (iana_token >>| fun x -> `Ianatoken x)
@@ -697,26 +709,26 @@ let class_ =
 
 let created = lift2 (fun a b -> `Created (a, b))
   (string "CREATED" *> other_params <* char ':') (datetime_parser <* end_of_line)
-  
+
 (* TODO use uri parser here *)
 let altrepparam = (string "ALTREP=") *> quoted_string >>| fun uri -> `Altrep (Uri.of_string uri)
 
 (* TODO use language tag rfc5646 parser *)
 let languageparam = (string "LANGUAGE=") *> param_text >>| fun l -> `Language l 
 
-let description = 
+let description =
   let desc_params = many (char ';' *> (altrepparam <|> languageparam <|> other_param)) in
   lift2 (fun a b -> `Description (a, b))
   (string "DESCRIPTION" *> desc_params <* char ':') (text_parser <* end_of_line)
 
-let geo = 
+let geo =
   lift3 (fun a b c -> `Geo (a, (b, c)))
   (string "GEO" *> other_params <* char ':') (float_parser <* char ';') float_parser <* end_of_line
 
 let last_mod = lift2 (fun a b -> `Lastmod (a, b))
   (string "LAST-MODIFIED" *> other_params <* char ':') (datetime_parser <* end_of_line)
 
-let location =   
+let location =
   let loc_params = many (char ';' *> (altrepparam <|> languageparam <|> other_param)) in
   lift2 (fun a b -> `Location (a, b))
   (string "LOCATION" *> loc_params <* char ':') (text_parser <* end_of_line)
@@ -736,15 +748,75 @@ let priority =
   lift2 (fun a b -> `Priority (a, b))
   (string "PRIORITY" *> other_params <* char ':') (digit <* end_of_line)
 
+let seq =
+  lift2 (fun a b -> `Seq (a, b))
+  (string "SEQUENCE" *> other_params <* char ':') (digits >>= ensure int_of_string >>= in_range 0 max_int <* end_of_line)
+
+let status =
+  let statvalue_jour =
+    (string "DRAFT" >>| fun _ -> `Draft) <|>
+    (string "FINAL" >>| fun _ -> `Final) <|>
+    (string "CANCELLED" >>| fun _ -> `Cancelled)
+  and statvalue_todo =
+    (string "NEEDS-ACTION" >>| fun _ -> `Needs_action) <|>
+    (string "COMPLETED" >>| fun _ -> `Completed) <|>
+    (string "IN-PROCESS" >>| fun _ -> `In_process) <|>
+    (string "CANCELLED" >>| fun _ -> `Cancelled)
+  and statvalue_event =
+    (string "TENTATIVE" >>| fun _ -> `Tentative) <|>
+    (string "CONFIRMED" >>| fun _ -> `Confirmed) <|>
+    (string "CANCELLED" >>| fun _ -> `Cancelled)
+  in
+  let statvalue = statvalue_event <|> statvalue_todo <|> statvalue_jour in
+  lift2 (fun a b -> `Status (a, b))
+    (string "STATUS" *> other_params <* char ':')
+    (statvalue <* end_of_line)
+
+let summary =
+  let summ_params = many (char ';' *> (altrepparam <|> languageparam <|> other_param)) in
+  lift2 (fun a b -> `Summary (a, b))
+  (string "SUMMARY" *> summ_params <* char ':') (text_parser <* end_of_line)
+
+let transp =
+  let t_value =
+    (string "TRANSPARENT" >>| fun _ -> `Transparent) <|>
+    (string "OPAQUE" >>| fun _ -> `Opaque)
+  in
+  lift2 (fun a b -> `Transparency (a, b))
+  (string "TRANSP" *> other_params <* char ':') (t_value <* end_of_line)
+
+let url =
+  lift2 (fun a b -> `Url (a, b))
+    (string "URL" *> other_params <* char ':')
+    (caladdress <* end_of_line)
+
+let recurid =
+  let range_param = string "RANGE=THISANDFUTURE" >>| fun _ -> `Range `Thisandfuture in
+  let recur_params = many (char ';' *> (tzidparam <|> time_or_date_param <|> range_param <|> other_param)) in
+  lift2 (fun a b -> `Recur_id (build_time_or_date a b))
+    (string "RECURRENCE-ID" *> recur_params <* char ':')
+    (time_or_date_parser <* end_of_line)
+
+let rrule =
+  lift2 (fun a b -> `Rrule (a, b))
+    (string "RRULE" *> other_params <* char ':')
+    (recur_parser <* end_of_line)
+
+let dtend =
+  let dtend_params = many (char ';' *> (tzidparam <|> time_or_date_param <|> other_param)) in
+  lift2 (fun a b -> `Dtend (build_time_or_date a b))
+    (string "DTEND" *> dtend_params <* char ':')
+    (time_or_date_parser <* end_of_line)
+
 let eventprop =
   dtstamp <|> uid <|>
   dtstart <|>
   class_ <|> created <|> description <|> geo <|>
-  last_mod <|> location <|> organizer <|> priority (*<|>
+  last_mod <|> location <|> organizer <|> priority <|>
   seq <|> status <|> summary <|> transp <|>
-  url <|> recurid <|>
+  url  <|> recurid <|>
   rrule <|>
-  dtend <|> duration <|>
+  dtend (* <|> duration <|>
   attach <|> attendee <|> categories <|> comment <|>
   contact <|> exdate <|> rstatus <|> related <|>
   resources <|> rdate*)
@@ -795,12 +867,16 @@ let pp_class fmt = function
   | `Ianatoken t -> Fmt.pf fmt "ianatoken %s" t
   | `Xname (v, t) -> Fmt.pf fmt "xname vendor %s %s" v t
 
+type status = [ `Draft | `Final | `Cancelled |
+                `Needs_action | `Completed | `In_process | (* `Cancelled *)
+                `Tentative | `Confirmed (* | `Cancelled *) ]
+
 type eventprop =
   [ `Dtstamp of other_param list * (Ptime.t * bool)
   | `Uid of other_param list * string
   | `Dtstart of [ other_param | `Valuetype of [`Datetime | `Date ] | `Tzid of bool * string ] list * 
-    [ `Datetime of Ptime.t * bool | `Date of Ptime.date ] 
-  | `Class of other_param list * class_ 
+    [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Class of other_param list * class_
   | `Created of other_param list * (Ptime.t * bool)
   | `Description of [other_param | `Altrep of Uri.t | `Language of string ] list * string
   | `Geo of other_param list * (float * float)
@@ -808,6 +884,16 @@ type eventprop =
   | `Location of [other_param | `Altrep of Uri.t | `Language of string ] list * string
   | `Organizer of [other_param | `Cn of string | `Dir of Uri.t | `Sentby of Uri.t | `Language of string] list * Uri.t
   | `Priority of other_param list * int
+  | `Seq of other_param list * int
+  | `Status of other_param list * status
+  | `Summary of [other_param | `Altrep of Uri.t | `Language of string ] list * string
+  | `Transparency of other_param list * [ `Transparent | `Opaque ]
+  | `Url of other_param list * Uri.t
+  | `Recur_id of [ other_param | `Tzid of bool * string | `Valuetype of [ `Datetime | `Date ] | `Range of [ `Thisandfuture ] ] list *
+                 [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Rrule of other_param list * recur list
+  | `Dtend of [ other_param | `Valuetype of [`Datetime | `Date ] | `Tzid of bool * string ] list * 
+    [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   ]
 
 let pp_dtstart_param fmt = function
@@ -831,7 +917,26 @@ let pp_organizer_param fmt = function
   | `Cn c -> Fmt.pf fmt "cn %s" c
   | `Dir d -> Fmt.pf fmt "dir %a" Uri.pp_hum d
   | `Sentby s -> Fmt.pf fmt "sent-by %a" Uri.pp_hum s
-  
+
+let pp_recur_param fmt = function
+  | #other_param as p -> pp_other_param fmt p
+  | `Valuetype `Datetime -> Fmt.string fmt "valuetype datetime"
+  | `Valuetype `Date -> Fmt.string fmt "valuetype date"
+  | `Tzid (prefix, name) -> Fmt.pf fmt "tzid prefix %b %s" prefix name
+  | `Range `Thisandfuture -> Fmt.string fmt "range: thisandfuture"
+
+let pp_status fmt s =
+  Fmt.string fmt @@
+  match s with
+  | `Draft -> "draft"
+  | `Final -> "final"
+  | `Cancelled -> "cancelled"
+  | `Needs_action -> "needs-action"
+  | `Completed -> "completed"
+  | `In_process -> "in-process"
+  | `Tentative -> "tentative"
+  | `Confirmed -> "confirmed"
+
 let pp_eventprop fmt = function
   | `Dtstamp (l, (p, utc)) -> Fmt.pf fmt "dtstamp %a %a %b" pp_other_params l Ptime.pp p utc
   | `Uid (l, s) -> Fmt.pf fmt "uid %a %s" pp_other_params l s 
@@ -844,6 +949,15 @@ let pp_eventprop fmt = function
   | `Location (l, v) -> Fmt.pf fmt "location %a %s" (Fmt.list pp_desc_param) l v
   | `Organizer (l, v) -> Fmt.pf fmt "organizer %a %a" (Fmt.list pp_organizer_param) l Uri.pp_hum v
   | `Priority (l, v) -> Fmt.pf fmt "priority %a %d" pp_other_params l v
+  | `Seq (l, v) -> Fmt.pf fmt "seq %a %d" pp_other_params l v
+  | `Status (l, v) -> Fmt.pf fmt "status %a %a" pp_other_params l pp_status v
+  | `Summary (l, v) -> Fmt.pf fmt "summary %a %s" (Fmt.list pp_desc_param) l v
+  | `Transparency (l, v) -> Fmt.pf fmt "transparency %a %s" pp_other_params l
+                              (match v with `Transparent -> "transparent" | `Opaque -> "opaque")
+  | `Url (l, v) -> Fmt.pf fmt "url %a %a" pp_other_params l Uri.pp_hum v
+  | `Recur_id (l, v) -> Fmt.pf fmt "recur-id %a %a" (Fmt.list pp_recur_param) l pp_dtstart_value v
+  | `Rrule (l, v) -> Fmt.pf fmt "rrule %a %a" pp_other_params l (Fmt.list pp_recur) v
+  | `Dtend (l, v) -> Fmt.pf fmt "dtend %a %a" (Fmt.list pp_dtstart_param) l pp_dtstart_value v
 
 type component =
   eventprop list * 

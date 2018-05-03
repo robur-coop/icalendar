@@ -452,10 +452,9 @@ END:VCALENDAR
           [ `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
             `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
             `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-          ],
-          [ ("DTEND", [], `Text [ "19970715T040000Z" ]) ;
-            ("SUMMARY", [], `Text [ "Bastille Day Party" ]) ;
-            ]
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], []
         ])
   in
   let f = Icalendar.parse_calobject input in
@@ -482,10 +481,9 @@ END:VCALENDAR
           [ `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
             `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
             `Dtstart ([`Tzid (false, "America/New_York")], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-          ],
-          [ ("DTEND", [], `Text [ "19970715T040000Z" ]) ;
-            ("SUMMARY", [], `Text [ "Bastille Day Party" ]) ;
-            ]
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], []
         ])
   in
   let f = Icalendar.parse_calobject input in
@@ -514,10 +512,9 @@ END:VCALENDAR
             `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
             `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
             `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-          ],
-          [ ("DTEND", [], `Text [ "19970715T040000Z" ]) ;
-            ("SUMMARY", [], `Text [ "Bastille Day Party" ]) ;
-            ]
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], []
         ])
   in
   let f = Icalendar.parse_calobject input in
@@ -546,10 +543,9 @@ END:VCALENDAR
             `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
             `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
             `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-          ],
-          [ ("DTEND", [], `Text [ "19970715T040000Z" ]) ;
-            ("SUMMARY", [], `Text [ "Bastille Day Party" ]) ;
-            ]
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], []
         ])
   in
   let f = Icalendar.parse_calobject input in
@@ -580,10 +576,9 @@ END:VCALENDAR
             `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
             `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
             `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-          ],
-          [ ("DTEND", [], `Text [ "19970715T040000Z" ]) ;
-            ("SUMMARY", [], `Text [ "Bastille Day Party" ]) ;
-            ]
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], []
         ])
   in
   let f = Icalendar.parse_calobject input in
@@ -612,10 +607,9 @@ END:VCALENDAR
             `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
             `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
             `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-          ],
-          [ ("DTEND", [], `Text [ "19970715T040000Z" ]) ;
-            ("SUMMARY", [], `Text [ "Bastille Day Party" ]) ;
-            ]
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], []
         ])
   in
   let f = Icalendar.parse_calobject input in
@@ -644,10 +638,9 @@ END:VCALENDAR
             `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
             `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
             `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-          ],
-          [ ("DTEND", [], `Text [ "19970715T040000Z" ]) ;
-            ("SUMMARY", [], `Text [ "Bastille Day Party" ]) ;
-            ]
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], []
         ])
   in
   let f = Icalendar.parse_calobject input in
@@ -677,10 +670,9 @@ END:VCALENDAR
             `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
             `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
             `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-          ],
-          [ ("DTEND", [], `Text [ "19970715T040000Z" ]) ;
-            ("SUMMARY", [], `Text [ "Bastille Day Party" ]) ;
-            ]
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], []
         ])
   in
   let f = Icalendar.parse_calobject input in
@@ -710,10 +702,9 @@ END:VCALENDAR
             `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
             `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
             `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-          ],
-          [ ("DTEND", [], `Text [ "19970715T040000Z" ]) ;
-            ("SUMMARY", [], `Text [ "Bastille Day Party" ]) ;
-            ]
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], []
         ])
   in
   let f = Icalendar.parse_calobject input in
@@ -742,15 +733,230 @@ END:VCALENDAR
             `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
             `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
             `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-          ],
-          [ ("DTEND", [], `Text [ "19970715T040000Z" ]) ;
-            ("SUMMARY", [], `Text [ "Bastille Day Party" ]) ;
-            ]
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], []
         ])
   in
   let f = Icalendar.parse_calobject input in
   Alcotest.check result_c __LOC__ expected f
 
+let calendar_object_with_seq () =
+  let input =
+{_|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+BEGIN:VEVENT
+SEQUENCE:1234
+UID:19970610T172345Z-AF23B2@example.com
+DTSTAMP:19970610T172345Z
+DTSTART:19970714T170000Z
+DTEND:19970715T040000Z
+SUMMARY:Bastille Day Party
+END:VEVENT
+END:VCALENDAR
+|_}
+  and expected = Ok
+      ( [ `Version ([], "2.0") ;
+          `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
+        [
+          [ `Seq ([], 1234) ;
+            `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
+            `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+            `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], []
+        ])
+  in
+  let f = Icalendar.parse_calobject input in
+  Alcotest.check result_c __LOC__ expected f
+
+let calendar_object_with_status () =
+  let input =
+{_|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+BEGIN:VEVENT
+STATUS:TENTATIVE
+UID:19970610T172345Z-AF23B2@example.com
+DTSTAMP:19970610T172345Z
+DTSTART:19970714T170000Z
+DTEND:19970715T040000Z
+SUMMARY:Bastille Day Party
+END:VEVENT
+END:VCALENDAR
+|_}
+  and expected = Ok
+      ( [ `Version ([], "2.0") ;
+          `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
+        [
+          [ `Status ([], `Tentative) ;
+            `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
+            `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+            `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], []
+        ])
+  in
+  let f = Icalendar.parse_calobject input in
+  Alcotest.check result_c __LOC__ expected f
+
+let calendar_object_with_summary () =
+  let input =
+{_|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+BEGIN:VEVENT
+SUMMARY:Department Party
+UID:19970610T172345Z-AF23B2@example.com
+DTSTAMP:19970610T172345Z
+DTSTART:19970714T170000Z
+DTEND:19970715T040000Z
+SUMMARY:Bastille Day Party
+END:VEVENT
+END:VCALENDAR
+|_}
+  and expected = Ok
+      ( [ `Version ([], "2.0") ;
+          `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
+        [
+          [ `Summary ([], "Department Party") ;
+            `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
+            `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+            `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], []
+        ])
+  in
+  let f = Icalendar.parse_calobject input in
+  Alcotest.check result_c __LOC__ expected f
+
+let calendar_object_with_transp () =
+  let input =
+{_|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+BEGIN:VEVENT
+TRANSP:TRANSPARENT
+UID:19970610T172345Z-AF23B2@example.com
+DTSTAMP:19970610T172345Z
+DTSTART:19970714T170000Z
+DTEND:19970715T040000Z
+SUMMARY:Bastille Day Party
+END:VEVENT
+END:VCALENDAR
+|_}
+  and expected = Ok
+      ( [ `Version ([], "2.0") ;
+          `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
+        [
+          [ `Transparency ([], `Transparent) ;
+            `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
+            `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+            `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], []
+        ])
+  in
+  let f = Icalendar.parse_calobject input in
+  Alcotest.check result_c __LOC__ expected f
+
+let calendar_object_with_url () =
+  let input =
+{_|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+BEGIN:VEVENT
+URL:http://example.com/pub/busy/jpublic-01.ifb
+UID:19970610T172345Z-AF23B2@example.com
+DTSTAMP:19970610T172345Z
+DTSTART:19970714T170000Z
+DTEND:19970715T040000Z
+SUMMARY:Bastille Day Party
+END:VEVENT
+END:VCALENDAR
+|_}
+  and expected = Ok
+      ( [ `Version ([], "2.0") ;
+          `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
+        [
+          [ `Url ([], Uri.of_string "http://example.com/pub/busy/jpublic-01.ifb") ;
+            `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
+            `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+            `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], []
+        ])
+  in
+  let f = Icalendar.parse_calobject input in
+  Alcotest.check result_c __LOC__ expected f
+
+let calendar_object_with_recur_id () =
+  let input =
+{_|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+BEGIN:VEVENT
+RECURRENCE-ID;RANGE=THISANDFUTURE:19960120T120000Z
+UID:19970610T172345Z-AF23B2@example.com
+DTSTAMP:19970610T172345Z
+DTSTART:19970714T170000Z
+DTEND:19970715T040000Z
+SUMMARY:Bastille Day Party
+END:VEVENT
+END:VCALENDAR
+|_}
+  and expected = Ok
+      ( [ `Version ([], "2.0") ;
+          `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
+        [
+          [ `Recur_id ([ `Range `Thisandfuture ], `Datetime (to_ptime (1996, 01, 20) (12,00,00), true)) ;
+            `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
+            `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+            `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], []
+        ])
+  in
+  let f = Icalendar.parse_calobject input in
+  Alcotest.check result_c __LOC__ expected f
+
+let calendar_object_with_rrule () =
+  let input =
+{_|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+BEGIN:VEVENT
+RRULE:FREQ=DAILY;UNTIL=19971224T000000Z
+UID:19970610T172345Z-AF23B2@example.com
+DTSTAMP:19970610T172345Z
+DTSTART:19970714T170000Z
+DTEND:19970715T040000Z
+SUMMARY:Bastille Day Party
+END:VEVENT
+END:VCALENDAR
+|_}
+  and expected = Ok
+      ( [ `Version ([], "2.0") ;
+          `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
+        [
+          [ `Rrule ([], [ `Frequency `Daily ; `Until (to_ptime (1997, 12, 24) (00, 00, 00), true)]) ;
+            `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
+            `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+            `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], []
+        ])
+  in
+  let f = Icalendar.parse_calobject input in
+  Alcotest.check result_c __LOC__ expected f
 
 let object_tests = [
   "calendar object parsing", `Quick, calendar_object ;
@@ -763,6 +969,13 @@ let object_tests = [
   "calendar object parsing with location", `Quick, calendar_object_with_location ;
   "calendar object parsing with organizer", `Quick, calendar_object_with_organizer ;
   "calendar object parsing with priority", `Quick, calendar_object_with_priority ;
+  "calendar object parsing with seq", `Quick, calendar_object_with_seq ;
+  "calendar object parsing with status", `Quick, calendar_object_with_status ;
+  "calendar object parsing with summary", `Quick, calendar_object_with_summary ;
+  "calendar object parsing with transp", `Quick, calendar_object_with_transp ;
+  "calendar object parsing with url", `Quick, calendar_object_with_url ;
+  "calendar object parsing with recur_id", `Quick, calendar_object_with_recur_id ;
+  "calendar object parsing with rrule", `Quick, calendar_object_with_rrule ;
 ]
 
 let tests = [
