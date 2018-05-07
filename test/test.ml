@@ -1040,6 +1040,60 @@ BkZXNlcnVudCBtb2xsaXQgYW5pbSBpZCBlc3QgbGFib3J1bS4=") ;
   let f = Icalendar.parse_calobject input in
   Alcotest.check result_c __LOC__ expected f
 
+let calendar_object_with_attendee () =
+  let input l =
+{_|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+BEGIN:VEVENT
+ATTENDEE|_} ^ l ^ {_|
+UID:19970610T172345Z-AF23B2@example.com
+DTSTAMP:19970610T172345Z
+DTSTART:19970714T170000Z
+DTEND:19970715T040000Z
+SUMMARY:Bastille Day Party
+END:VEVENT
+END:VCALENDAR
+|_}
+  and expected l = Ok
+      ( [ `Version ([], "2.0") ;
+          `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
+        [
+          [ l ; 
+            `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
+            `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+            `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], []
+        ])
+  in
+  let inputs = List.map input [
+    {_|;MEMBER="mailto:DEV-GROUP@example.com":mailto:joecool@example.com|_} ;
+    {_|;ROLE=REQ-PARTICIPANT:mailto:hcabot@example.com|_} ;
+    {_|;DELEGATED-FROM="mailto:immud@example.com":mailto:ildoit@example.com|_} ;
+    {_|;ROLE=REQ-PARTICIPANT;PARTSTAT=TENTATIVE;CN=Henry Cabot:mailto:hcabot@example.com|_} ;
+    {_|;ROLE=REQ-PARTICIPANT;DELEGATED-FROM="mailto:bob@example.com";PARTSTAT=ACCEPTED;CN=Jane Doe:mailto:jdoe@example.com|_} ;
+    (*{_|;CN=John Smith;DIR="ldap://example.com:6666/o=ABC%20Industries,c=US???(cn=Jim%20Dolittle)":mailto:jimdo@example.com|_} ;*)
+    {_|;CN=John Smith;DIR="ldap://example.com:6666":mailto:jimdo@example.com|_} ;
+    {_|;ROLE=REQ-PARTICIPANT;PARTSTAT=TENTATIVE;DELEGATED-FROM="mailto:iamboss@example.com";CN=Henry Cabot:mailto:hcabot@example.com|_} ;
+    {_|;ROLE=NON-PARTICIPANT;PARTSTAT=DELEGATED;DELEGATED-TO="mailto:hcabot@example.com";CN=The Big Cheese:mailto:iamboss@example.com|_} ;
+    {_|;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;CN=Jane Doe:mailto:jdoe@example.com|_} ;
+  ]
+  and expecteds = List.map expected [
+    `Attendee ([`Member [Uri.of_string "mailto:DEV-GROUP@example.com"]], Uri.of_string "mailto:joecool@example.com") ;
+    `Attendee ([`Role `Reqparticipant  ], Uri.of_string "mailto:hcabot@example.com") ;
+    `Attendee ([`Delegated_from [Uri.of_string "mailto:immud@example.com"]], Uri.of_string "mailto:ildoit@example.com") ;
+    `Attendee ([`Role `Reqparticipant ; `Partstat `Tentative ; `Cn "Henry Cabot"], Uri.of_string "mailto:hcabot@example.com") ;
+    `Attendee ([`Role `Reqparticipant ; `Delegated_from [Uri.of_string "mailto:bob@example.com"] ; `Partstat `Accepted ; `Cn "Jane Doe"], Uri.of_string "mailto:jdoe@example.com") ;
+    (*`Attendee ([`Cn "John Smith" ; `Dir (Uri.of_string "ldap://example.com:6666/o=ABC%20Industries,c=US???(cn=Jim%20Dolittle)")], Uri.of_string "mailto:jimdo@example.com") ;*)
+    `Attendee ([`Cn "John Smith" ; `Dir (Uri.of_string "ldap://example.com:6666")], Uri.of_string "mailto:jimdo@example.com") ;
+    `Attendee ([`Role `Reqparticipant ; `Partstat `Tentative ; `Delegated_from [Uri.of_string "mailto:iamboss@example.com"] ;`Cn "Henry Cabot"], Uri.of_string "mailto:hcabot@example.com") ;
+    `Attendee ([`Role `Nonparticipant ; `Partstat `Delegated ; `Delegated_to [Uri.of_string "mailto:hcabot@example.com"] ; `Cn "The Big Cheese"], Uri.of_string "mailto:iamboss@example.com") ;
+    `Attendee ([`Role `Reqparticipant ; `Partstat `Accepted ; `Cn "Jane Doe"], Uri.of_string "mailto:jdoe@example.com") ;
+  ] in
+  List.iter2 (fun i e -> let f = Icalendar.parse_calobject i in
+  Alcotest.check result_c __LOC__ e f) inputs expecteds
 
 let object_tests = [
   "calendar object parsing", `Quick, calendar_object ;
@@ -1061,6 +1115,7 @@ let object_tests = [
   "calendar object parsing with rrule", `Quick, calendar_object_with_rrule ;
   "calendar object parsing with duration", `Quick, calendar_object_with_duration ;
   "calendar object parsing with attach", `Quick, calendar_object_with_attach ;
+  "calendar object parsing with attendee", `Quick, calendar_object_with_attendee ;
 ]
 
 let tests = [

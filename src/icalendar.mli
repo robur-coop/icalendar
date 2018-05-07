@@ -3,25 +3,25 @@ type other = [
   | `Ianatoken of string
 ]
 
-type cutype = [ `Individual | `Group | `Resource | `Room | `Unknown | other ]
+type cutype' = [ `Individual | `Group | `Resource | `Room | `Unknown | other ]
 type encoding = [`Eightbit | `Base64 ]
 type typename = string
 type subtypename = string
 type fbtype = [ `Free | `Busy | `Busyunavailable | `Busytentative | other ]
-type partstat = [ `Needsaction | `Accepted | `Declined | `Tentative | `Delegated | `Completed | `Inprocess | other ]
+type partstat' = [ `Needsaction | `Accepted | `Declined | `Tentative | `Delegated | `Completed | `Inprocess | other ]
 type trigrel = [ `Start | `End ]
 type reltype = [ `Parent | `Child | `Sibling | other ]
-type role = [ `Chair | `Reqparticipant | `Optparticipant | `Nonparticipant | other ]
+type role' = [ `Chair | `Reqparticipant | `Optparticipant | `Nonparticipant | other ]
 type caladdress = Uri.t
 type languagetag = string
 type valuetype = [ `Binary | `Boolean | `Caladdress | `Date | `Datetime | `Duration 
  | `Float | `Integer | `Period | `Recur | `Text | `Time | `Uri | `Utcoffset | other ]
 
-type icalparameter = [`Altrep of Uri.t | `Cn of string | `Cutype of cutype 
+type icalparameter = [`Altrep of Uri.t | `Cn of string | `Cutype of cutype' 
  | `Delfrom of caladdress list | `Delto of caladdress list | `Dir of Uri.t 
  | `Encoding of encoding | `Fmttype of typename * subtypename | `Fbtype of fbtype
- | `Language of languagetag | `Member of caladdress list | `Partstat of partstat 
- | `Range | `Trigrel of trigrel | `Reltype of reltype | `Role of role | `Rsvp of bool 
+ | `Language of languagetag | `Member of caladdress list | `Partstat of partstat' 
+ | `Range | `Trigrel of trigrel | `Reltype of reltype | `Role of role' | `Rsvp of bool 
  | `Sentby of caladdress | `Tzid of bool * string | `Valuetype of valuetype | `Other ]
 
 val pp_icalparameter : icalparameter Fmt.t
@@ -83,6 +83,16 @@ type status = [ `Draft | `Final | `Cancelled |
                 `Needs_action | `Completed | `In_process | (* `Cancelled *)
                 `Tentative | `Confirmed (* | `Cancelled *) ]
 
+type cutype = [ `Group | `Individual | `Resource | `Room | `Unknown
+              | `Ianatoken of string | `Xname of string * string ]
+
+type partstat = [ `Accepted | `Completed | `Declined | `Delegated
+                | `In_process | `Needs_action | `Tentative
+                | `Ianatoken of string | `Xname of string * string ]
+
+type role = [ `Chair | `Nonparticipant | `Optparticipant | `Reqparticipant
+            | `Ianatoken of string | `Xname of string * string ]
+
 type eventprop =
   [ `Dtstamp of other_param list * (Ptime.t * bool)
   | `Uid of other_param list * string
@@ -108,6 +118,19 @@ type eventprop =
   | `Duration of other_param list * int
   | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | `Valuetype of [ `Binary ] | other_param ] list *
                [ `Uri of Uri.t | `Binary of string ]
+  | `Attendee of [ `Cn of string
+                  | `Cutype of cutype
+                  | `Delegated_from of Uri.t list
+                  | `Delegated_to of Uri.t list
+                  | `Dir of Uri.t
+                  | `Iana_param of string * string list
+                  | `Language of string
+                  | `Member of Uri.t list
+                  | `Partstat of partstat
+                  | `Role of role
+                  | `Rsvp of bool
+                  | `Sentby of Uri.t
+                  | `Xparam of (string * string) * string list ] list * Uri.t
   ]
 
 type component =

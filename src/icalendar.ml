@@ -311,25 +311,25 @@ type other = [
   | `Ianatoken of string
 ]
 
-type cutype = [ `Individual | `Group | `Resource | `Room | `Unknown | other ]
+type cutype' = [ `Individual | `Group | `Resource | `Room | `Unknown | other ]
 type encoding = [`Eightbit | `Base64 ]
 type typename = string
 type subtypename = string
 type fbtype = [ `Free | `Busy | `Busyunavailable | `Busytentative | other ]
-type partstat = [ `Needsaction | `Accepted | `Declined | `Tentative | `Delegated | `Completed | `Inprocess | other ]
+type partstat' = [ `Needsaction | `Accepted | `Declined | `Tentative | `Delegated | `Completed | `Inprocess | other ]
 type trigrel = [ `Start | `End ]
 type reltype = [ `Parent | `Child | `Sibling | other ]
-type role = [ `Chair | `Reqparticipant | `Optparticipant | `Nonparticipant | other ]
+type role' = [ `Chair | `Reqparticipant | `Optparticipant | `Nonparticipant | other ]
 type caladdress = Uri.t
 type languagetag = string
 type valuetype = [ `Binary | `Boolean | `Caladdress | `Date | `Datetime | `Duration
  | `Float | `Integer | `Period | `Recur | `Text | `Time | `Uri | `Utcoffset | other ]
 
-type icalparameter = [`Altrep of Uri.t | `Cn of string | `Cutype of cutype
+type icalparameter = [`Altrep of Uri.t | `Cn of string | `Cutype of cutype'
  | `Delfrom of caladdress list | `Delto of caladdress list | `Dir of Uri.t
  | `Encoding of encoding | `Fmttype of typename * subtypename | `Fbtype of fbtype
- | `Language of languagetag | `Member of caladdress list | `Partstat of partstat
- | `Range | `Trigrel of trigrel | `Reltype of reltype | `Role of role | `Rsvp of bool
+ | `Language of languagetag | `Member of caladdress list | `Partstat of partstat'
+ | `Range | `Trigrel of trigrel | `Reltype of reltype | `Role of role' | `Rsvp of bool
  | `Sentby of caladdress | `Tzid of bool * string | `Valuetype of valuetype | `Other ]
 
 let pp_other fmt = function
@@ -750,10 +750,13 @@ let location =
 
 let caladdress = take_while1 is_qsafe_char >>| Uri.of_string
 
+let quoted_caladdress = char '"' *> caladdress <* char '"' 
+
+let cnparam = string "CN=" *> param_value >>| fun cn -> `Cn cn
+let dirparam = string "DIR=" *> quoted_string >>| fun s -> `Dir (Uri.of_string s)
+let sentbyparam = string "SENT-BY=" *> quoted_caladdress >>| fun s -> `Sentby s
+ 
 let organizer =
-  let cnparam = string "CN=" *> param_value >>| fun cn -> `Cn cn
-  and dirparam = string "DIR=" *> quoted_string >>| fun s -> `Dir (Uri.of_string s)
-  and sentbyparam = string "SENT-BY=" *> char '"' *> caladdress <* char '"' >>| fun s -> `Sentby s in
   let orgparams = many (char ';' *> (cnparam <|> dirparam <|> sentbyparam <|> languageparam <|> other_param)) in
   lift2 (fun a b -> `Organizer (a, b))
   (string "ORGANIZER" *> orgparams <* char ':') (caladdress <* end_of_line)
@@ -864,6 +867,73 @@ let attach =
     (string "ATTACH" *> attach_params <* char ':')
     (((binary >>| fun b -> `Binary b) <|> (caladdress >>| fun a -> `Uri a)) <* end_of_line)
 
+(* Default is INDIVIDUAL *)
+let cutypeparam = lift (fun x -> `Cutype x) ((string "CUTYPE=") *> 
+      ((string "INDIVIDUAL" >>| fun _ -> `Individual)
+   <|> (string "GROUP" >>| fun _ -> `Group)
+   <|> (string "RESOURCE" >>| fun _ -> `Resource)
+   <|> (string "ROOM" >>| fun _ -> `Room)
+   <|> (string "UNKNOWN" >>| fun _ -> `Unknown)
+   <|> (iana_token >>| fun x -> `Ianatoken x)
+   <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
+
+let memberparam = lift (fun x -> `Member x)
+  ((string "MEMBER=") *> sep_by1 (char ',') quoted_caladdress)
+
+(* Default is REQ-PARTICIPANT *)
+let roleparam = lift (fun x -> `Role x) ((string "ROLE=") *>
+      ((string "CHAIR" >>| fun _ -> `Chair)  
+   <|> (string "REQ-PARTICIPANT" >>| fun _ -> `Reqparticipant )  
+   <|> (string "OPT-PARTICIPANT" >>| fun _ -> `Optparticipant )  
+   <|> (string "NON-PARTICIPANT" >>| fun _ -> `Nonparticipant )  
+   <|> (iana_token >>| fun x -> `Ianatoken x)
+   <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
+
+let partstatparam = 
+  let statvalue_jour =
+    (string "NEEDS-ACTION" >>| fun _ -> `Needs_action) <|>
+    (string "ACCEPTED" >>| fun _ -> `Accepted) <|>
+    (string "DECLINED" >>| fun _ -> `Declined)
+  and statvalue_todo =
+    (string "NEEDS-ACTION" >>| fun _ -> `Needs_action) <|>
+    (string "ACCEPTED" >>| fun _ -> `Accepted) <|>
+    (string "DECLINED" >>| fun _ -> `Declined) <|>
+    (string "TENTATIVE" >>| fun _ -> `Tentative) <|>
+    (string "DELEGATED" >>| fun _ -> `Delegated) <|>
+    (string "COMPLETED" >>| fun _ -> `Completed) <|>
+    (string "IN-PROCESS" >>| fun _ -> `In_process)
+  and statvalue_event =
+    (string "NEEDS-ACTION" >>| fun _ -> `Needs_action) <|>
+    (string "ACCEPTED" >>| fun _ -> `Accepted) <|>
+    (string "DECLINED" >>| fun _ -> `Declined) <|>
+    (string "TENTATIVE" >>| fun _ -> `Tentative) <|>
+    (string "DELEGATED" >>| fun _ -> `Delegated)
+  and other =
+       (iana_token >>| fun x -> `Ianatoken x)
+   <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))
+  in
+  let statvalue = statvalue_event <|> statvalue_todo <|> statvalue_jour <|> other in
+  lift (fun x -> `Partstat x) ((string "PARTSTAT=") *> statvalue)
+
+let rsvpparam = lift (fun r -> `Rsvp r) (string "RSVP=" *> ((string "TRUE" >>| fun _ -> true) <|> (string "FALSE" >>| fun _ -> false )))
+
+let deltoparam = lift (fun x -> `Delegated_to x)
+  ((string "DELEGATED-TO=") *> sep_by1 (char ',') quoted_caladdress)
+
+let delfromparam = lift (fun x -> `Delegated_from x)
+  ((string "DELEGATED-FROM=") *> sep_by1 (char ',') quoted_caladdress)
+
+let attendee = 
+  let attparam = many (char ';' *> (
+    cutypeparam <|> memberparam <|>
+    roleparam <|> partstatparam <|>
+    rsvpparam <|> deltoparam <|>
+    delfromparam <|> sentbyparam <|>
+    cnparam <|> dirparam <|>
+    languageparam <|>
+    other_param)) in
+  lift2 (fun a b -> `Attendee (a, b)) (string "ATTENDEE" *> attparam) (char ':' *> caladdress <* end_of_line) 
+                  
     
 let eventprop =
   dtstamp <|> uid <|>
@@ -874,7 +944,7 @@ let eventprop =
   url  <|> recurid <|>
   rrule <|>
   dtend <|> duration <|>
-  attach (*<|> attendee <|> categories <|> comment <|>
+  attach <|> attendee (*<|> categories <|> comment <|>
   contact <|> exdate <|> rstatus <|> related <|>
   resources <|> rdate*)
 
@@ -928,6 +998,16 @@ type status = [ `Draft | `Final | `Cancelled |
                 `Needs_action | `Completed | `In_process | (* `Cancelled *)
                 `Tentative | `Confirmed (* | `Cancelled *) ]
 
+type cutype = [ `Group | `Individual | `Resource | `Room | `Unknown
+              | `Ianatoken of string | `Xname of string * string ]
+
+type partstat = [ `Accepted | `Completed | `Declined | `Delegated
+                | `In_process | `Needs_action | `Tentative
+                | `Ianatoken of string | `Xname of string * string ]
+
+type role = [ `Chair | `Nonparticipant | `Optparticipant | `Reqparticipant
+            | `Ianatoken of string | `Xname of string * string ]
+
 type eventprop =
   [ `Dtstamp of other_param list * (Ptime.t * bool)
   | `Uid of other_param list * string
@@ -954,6 +1034,19 @@ type eventprop =
   | `Duration of other_param list * int
   | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | `Valuetype of [ `Binary ] | other_param ] list *
                [ `Uri of Uri.t | `Binary of string ]
+  | `Attendee of [ `Cn of string
+                  | `Cutype of cutype
+                  | `Delegated_from of Uri.t list
+                  | `Delegated_to of Uri.t list
+                  | `Dir of Uri.t
+                  | `Iana_param of string * string list
+                  | `Language of string
+                  | `Member of Uri.t list
+                  | `Partstat of partstat
+                  | `Role of role
+                  | `Rsvp of bool
+                  | `Sentby of Uri.t
+                  | `Xparam of (string * string) * string list ] list * Uri.t
   ]
 
 let pp_dtstart_param fmt = function
@@ -1007,6 +1100,48 @@ let pp_attach_value fmt = function
   | `Binary b -> Fmt.string fmt b
   | `Uri u -> Uri.pp_hum fmt u
 
+let pp_cutype fmt = function
+  | `Individual -> Fmt.string fmt "individual"
+  | `Group -> Fmt.string fmt "group"
+  | `Resource -> Fmt.string fmt "resource"
+  | `Room -> Fmt.string fmt "room"
+  | `Unknown -> Fmt.string fmt "unknown"
+  | `Ianatoken t -> Fmt.pf fmt "ianatoken %s" t
+  | `Xname (x, y) -> Fmt.pf fmt "xname %s,%s" x y
+
+let pp_role fmt = function
+  | `Chair -> Fmt.string fmt "chair"
+  | `Reqparticipant -> Fmt.string fmt "required participant"
+  | `Optparticipant -> Fmt.string fmt "optional participant"
+  | `Nonparticipant -> Fmt.string fmt "non participant"
+  | `Ianatoken t -> Fmt.pf fmt "ianatoken %s" t
+  | `Xname (x, y) -> Fmt.pf fmt "xname %s,%s" x y
+
+let pp_partstat fmt = function
+  | `Needs_action -> Fmt.string fmt "needs action"
+  | `Accepted -> Fmt.string fmt "accepted"
+  | `Declined -> Fmt.string fmt "declined"
+  | `Tentative -> Fmt.string fmt "tentative"
+  | `Delegated -> Fmt.string fmt "delegated"
+  | `Completed -> Fmt.string fmt "completed"
+  | `In_process -> Fmt.string fmt "in-process"
+  | `Ianatoken t -> Fmt.pf fmt "ianatoken %s" t
+  | `Xname (x, y) -> Fmt.pf fmt "xname %s,%s" x y
+
+let pp_attendee_param fmt = function
+  | #other_param as p -> pp_other_param fmt p
+  | `Cn c -> Fmt.pf fmt "cn %s" c
+  | `Cutype c -> Fmt.pf fmt "cutype %a" pp_cutype c
+  | `Delegated_from l -> Fmt.pf fmt "delegated from %a" (Fmt.list Uri.pp_hum) l
+  | `Delegated_to l -> Fmt.pf fmt "delegated to %a" (Fmt.list Uri.pp_hum) l
+  | `Dir d -> Fmt.pf fmt "dir %a" Uri.pp_hum d
+  | `Language l -> Fmt.pf fmt "language %s" l
+  | `Member l -> Fmt.pf fmt "member %a" (Fmt.list Uri.pp_hum) l
+  | `Partstat s -> Fmt.pf fmt "partstat %a" pp_partstat s
+  | `Role r -> Fmt.pf fmt "role %a" pp_role r
+  | `Rsvp b -> Fmt.pf fmt "rsvp %b" b
+  | `Sentby s -> Fmt.pf fmt "sent-by %a" Uri.pp_hum s
+
 let pp_eventprop fmt = function
   | `Dtstamp (l, (p, utc)) -> Fmt.pf fmt "dtstamp %a %a %b" pp_other_params l Ptime.pp p utc
   | `Uid (l, s) -> Fmt.pf fmt "uid %a %s" pp_other_params l s 
@@ -1030,7 +1165,7 @@ let pp_eventprop fmt = function
   | `Dtend (l, v) -> Fmt.pf fmt "dtend %a %a" (Fmt.list pp_dtstart_param) l pp_dtstart_value v
   | `Duration (l, v) -> Fmt.pf fmt "duration %a %d seconds" pp_other_params l v
   | `Attach (l, v) -> Fmt.pf fmt "attach %a %a" (Fmt.list pp_attach_param) l pp_attach_value v 
- 
+  | `Attendee (l, v) -> Fmt.pf fmt "attendee %a %a" (Fmt.list pp_attendee_param) l Uri.pp_hum v
 
 type component =
   eventprop list * 
