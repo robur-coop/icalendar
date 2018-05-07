@@ -828,19 +828,19 @@ let duration =
     (string "DURATION" *> other_params <* char ':')
     (duration_parser <* end_of_line)
 
-(*
+
 let binary =
   let is_b_char = function 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '+' | '/' -> true | _ -> false in
   let b_end =
-    (lift2 (fun a b -> String.make 1 a ^ String.make 1 b)
-       (char is_b_char) (char is_b_char <* string "==")) <|>
-    (lift3 (fun a b c -> String.make 1 a ^ String.make 1 b ^ String.make 1 c)
-       (char is_b_char) (char is_b_char) (char is_b_char <* string "="))
+    (lift3 (fun a b c -> String.make 1 a ^ String.make 1 b ^ c)
+       (satisfy is_b_char) (satisfy is_b_char) (string "==")) <|>
+    (lift4 (fun a b c d -> String.make 1 a ^ String.make 1 b ^ String.make 1 c ^ d)
+       (satisfy is_b_char) (satisfy is_b_char) (satisfy is_b_char) (string "="))
   in
-  lift2 (^)
-    many (lift4
+  lift2 (fun a b -> String.concat "" a ^ b)
+    (many (lift4
             (fun a b c d -> String.make 1 a ^ String.make 1 b ^ String.make 1 c ^ String.make 1 d)
-            (char is_b_char) (char is_b_char) (char is_b_char) (char is_b_char))
+            (satisfy is_b_char) (satisfy is_b_char) (satisfy is_b_char) (satisfy is_b_char)))
     b_end
 
 
@@ -859,11 +859,11 @@ let attach =
       in
       match valuetype, encoding, b with
       | None, None, `Uri uri -> `Attach (a, `Uri uri)
-      | Some `Binary, Some `Base64, `Binary b -> `Attach (a,`Binary b)
+      | Some (`Valuetype `Binary), Some (`Encoding `Base64), `Binary b -> `Attach (a,`Binary b)
       | _ -> raise Parse_error)
     (string "ATTACH" *> attach_params <* char ':')
-    ((binary >>= fun b -> `Binary b) <|> (caladress >>= fun a -> `Uri a) <* end_of_line)
-*)
+    (((binary >>| fun b -> `Binary b) <|> (caladdress >>| fun a -> `Uri a)) <* end_of_line)
+
     
 let eventprop =
   dtstamp <|> uid <|>
@@ -873,8 +873,8 @@ let eventprop =
   seq <|> status <|> summary <|> transp <|>
   url  <|> recurid <|>
   rrule <|>
-  dtend <|> duration (* <|>
-  attach <|> attendee <|> categories <|> comment <|>
+  dtend <|> duration <|>
+  attach (*<|> attendee <|> categories <|> comment <|>
   contact <|> exdate <|> rstatus <|> related <|>
   resources <|> rdate*)
 
@@ -952,8 +952,8 @@ type eventprop =
   | `Dtend of [ other_param | `Valuetype of [`Datetime | `Date ] | `Tzid of bool * string ] list * 
               [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Duration of other_param list * int
-(*  | `Attach of [`Mediatype of string * string | `Encoding of [ `Base64 ] | `Valuetype of [ `Binary ] | other_param ] list *
-               [ `Uri of Uri.t | `Binary of string ] *)
+  | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | `Valuetype of [ `Binary ] | other_param ] list *
+               [ `Uri of Uri.t | `Binary of string ]
   ]
 
 let pp_dtstart_param fmt = function
@@ -997,6 +997,16 @@ let pp_status fmt s =
   | `Tentative -> "tentative"
   | `Confirmed -> "confirmed"
 
+let pp_attach_param fmt = function
+  | #other_param as p -> pp_other_param fmt p
+  | `Valuetype `Binary -> Fmt.string fmt "valuetype binary"
+  | `Encoding `Base64 -> Fmt.string fmt "encoding base64"
+  | `Media_type (typename, subtypename) -> Fmt.pf fmt "mediatype %s/%s" typename subtypename
+
+let pp_attach_value fmt = function
+  | `Binary b -> Fmt.string fmt b
+  | `Uri u -> Uri.pp_hum fmt u
+
 let pp_eventprop fmt = function
   | `Dtstamp (l, (p, utc)) -> Fmt.pf fmt "dtstamp %a %a %b" pp_other_params l Ptime.pp p utc
   | `Uid (l, s) -> Fmt.pf fmt "uid %a %s" pp_other_params l s 
@@ -1019,6 +1029,8 @@ let pp_eventprop fmt = function
   | `Rrule (l, v) -> Fmt.pf fmt "rrule %a %a" pp_other_params l (Fmt.list pp_recur) v
   | `Dtend (l, v) -> Fmt.pf fmt "dtend %a %a" (Fmt.list pp_dtstart_param) l pp_dtstart_value v
   | `Duration (l, v) -> Fmt.pf fmt "duration %a %d seconds" pp_other_params l v
+  | `Attach (l, v) -> Fmt.pf fmt "attach %a %a" (Fmt.list pp_attach_param) l pp_attach_value v 
+ 
 
 type component =
   eventprop list * 

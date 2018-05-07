@@ -106,6 +106,8 @@ type eventprop =
   | `Dtend of [ other_param | `Valuetype of [`Datetime | `Date ] | `Tzid of bool * string ] list * 
               [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Duration of other_param list * int
+  | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | `Valuetype of [ `Binary ] | other_param ] list *
+               [ `Uri of Uri.t | `Binary of string ]
   ]
 
 type component =
