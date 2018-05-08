@@ -66,7 +66,7 @@ let pp_date fmt (y, m, d) = Fmt.pf fmt "%04d-%02d-%02d" y m d
 let ensure f x = try return (f x) with Failure _ -> fail "parse error"
 let in_range min max v = if min <= v && v <= max then return v else fail "parse error"
 
-let date_parser =
+let date =
   let year = take 4 >>= ensure int_of_string
   and month = take 2 >>= ensure int_of_string >>= in_range 1 12
   and day = take 2 >>= ensure int_of_string >>= in_range 1 31
@@ -74,7 +74,7 @@ let date_parser =
   in
   lift3 to_ptime_date year month day
 
-let time_parser =
+let time =
   let hours = take 2 >>= ensure int_of_string >>= in_range 0 23
   and minutes = take 2 >>= ensure int_of_string >>= in_range 0 59
   and seconds = take 2 >>= ensure int_of_string >>= in_range 0 60
@@ -83,11 +83,11 @@ let time_parser =
   lift4 (fun h m s u -> ((h, m, s), u = 'Z'))
             hours minutes seconds utc
 
-let datetime_parser =
+let datetime =
   let ptime d (t, utc) = match Ptime.of_date_time (d, (t, 0)) with
   | Some p -> p, utc
   | None -> raise Parse_error in
-  lift2 ptime date_parser (char 'T' *> time_parser) 
+  lift2 ptime date (char 'T' *> time) 
 
 let is_digit = function '0' .. '9' -> true | _ -> false
 
@@ -95,7 +95,7 @@ let digits = take_while1 is_digit
 
 let sign = option '+' (char '+' <|> char '-')
 
-let duration_parser =
+let dur_value =
   let to_seconds p factor = p >>= ensure int_of_string >>| ( * ) factor in
   let second = to_seconds (digits <* char 'S') 1 in
   let minute = lift2 (+) (to_seconds (digits <* char 'M') 60) (option 0 second) in
@@ -107,22 +107,22 @@ let duration_parser =
   and apply_sign s n = if s = '+' then n else (- n) in
   lift2 apply_sign (sign <* char 'P') (date <|> time <|> week)
 
-let float_parser =
+let float =
   let make_float s i f = 
     let n = try float_of_string (i ^ "." ^ f) with Failure _ -> raise Parse_error in
     if s = '+' then n else (-. n) in
   lift3 make_float sign digits (option "" ((char '.') *> digits))
 
-let period_parser =
+let period =
   let to_explicit (dt, utc) dur = match Ptime.add_span dt (Ptime.Span.of_int_s dur) with
   | Some t -> (dt, t, utc)
   | None -> raise Parse_error in
   let to_period (tstart, utc) (tend, utc') = if utc = utc' then (tstart, tend, utc) else raise Parse_error in
-  let explicit = lift2 to_period datetime_parser (char '/' *> datetime_parser)
-  and start = lift2 to_explicit datetime_parser (char '/' *> duration_parser) in
+  let explicit = lift2 to_period datetime (char '/' *> datetime)
+  and start = lift2 to_explicit datetime (char '/' *> dur_value) in
   explicit <|> start
 
-let recur_parser =
+let recur =
   let up_to_two_digits = (take 2 >>= ensure int_of_string) <|> (take 1 >>= ensure int_of_string) in
   let up_to_three_digits = (take 3 >>= ensure int_of_string) <|> up_to_two_digits in
   let freq = ( string "SECONDLY" >>| fun _ -> `Secondly )
@@ -146,10 +146,10 @@ let recur_parser =
   and yeardaynum = lift2 pair sign (up_to_three_digits >>= in_range 1 366)
   and weeknum = lift2 pair sign (up_to_two_digits >>= in_range 1 53)
   and monthnum = lift2 pair sign (up_to_two_digits >>= in_range 1 12)
-  and ptime = date_parser >>= fun d -> match Ptime.of_date d with None -> fail "Parse_error" | Some x -> return (x, true) in
+  and ptime = date >>= fun d -> match Ptime.of_date d with None -> fail "Parse_error" | Some x -> return (x, true) in
   let recur_rule_part = 
        ( string "FREQ=" *> freq >>| fun f -> `Frequency f )
-   <|> ( string "UNTIL=" *> (datetime_parser <|> ptime) >>| fun u -> `Until u )
+   <|> ( string "UNTIL=" *> (datetime <|> ptime) >>| fun u -> `Until u )
    <|> ( string "COUNT=" *> digits >>= ensure int_of_string >>| fun c -> `Count c ) 
    <|> ( string "INTERVAL=" *> digits >>= ensure int_of_string >>| fun i -> `Interval i )
    <|> ( string "BYSECOND=" *> (sep_by1 (char ',') (up_to_two_digits >>= in_range 0 60)) >>| fun s -> `Bysecond s )
@@ -164,7 +164,7 @@ let recur_parser =
    <|> ( string "WKST=" *> weekday >>| fun d -> `Weekday d ) in
   sep_by1 (char ';') recur_rule_part
 
-let text_parser =
+let text =
   let escaped_char =
     (string {_|\\|_} >>| fun _ -> {_|\|_})
     <|> (string "\\;" >>| fun _ -> ";")
@@ -181,7 +181,7 @@ let text_parser =
   let tsafe_char = take_while1 is_tsafe_char in
   many1 (tsafe_char <|> string ":" <|> string "\"" <|> escaped_char) >>| Astring.String.concat ~sep:""
 
-let texts_parser = sep_by (char ',') text_parser
+let texts = sep_by (char ',') text
 
 let utcoffset str =
   let sign = char '+' <|> char '-'
@@ -276,7 +276,7 @@ let propparser id pparser vparser lift =
 
 (* NOTE grammar in RFC 3.7.3 regards pidvalue as text, thus it could be a list, but we forbid that *)
 let prodid =
-  propparser "PRODID" other_param text_parser (fun a b -> `Prodid (a, b))
+  propparser "PRODID" other_param text (fun a b -> `Prodid (a, b))
 
 let version =
   let vervalue = string "2.0" in
@@ -295,10 +295,10 @@ let calprops =
   many (prodid <|> version <|> calscale <|> meth)
 
 let dtstamp =
-  propparser "DTSTAMP" other_param datetime_parser (fun a b -> `Dtstamp (a, b))
+  propparser "DTSTAMP" other_param datetime (fun a b -> `Dtstamp (a, b))
 
 let uid =
-  propparser "UID" other_param text_parser (fun a b -> `Uid (a, b))
+  propparser "UID" other_param text (fun a b -> `Uid (a, b))
 
 let tzidparam =
  lift2 (fun a b -> `Tzid (a = '/', b))
@@ -318,13 +318,13 @@ let build_time_or_date a b =
   | `Valuetype `Date, `Date d -> b
   | _ -> raise Parse_error
 
-let time_or_date_parser =
-  (datetime_parser >>| fun dt -> `Datetime dt)
-  <|> (date_parser >>| fun d -> `Date d)
+let time_or_date =
+  (datetime >>| fun dt -> `Datetime dt)
+  <|> (date >>| fun d -> `Date d)
 
 let dtstart =
   let dtstparam = time_or_date_param <|> tzidparam <|> other_param in
-  propparser "DTSTART" dtstparam time_or_date_parser
+  propparser "DTSTART" dtstparam time_or_date
     (fun a b -> `Dtstart (a, build_time_or_date a b))
 
 let class_ =
@@ -338,7 +338,7 @@ let class_ =
   propparser "CLASS" other_param class_value (fun a b -> `Class (a, b))
 
 let created =
-  propparser "CREATED" other_param datetime_parser (fun a b -> `Created (a, b))
+  propparser "CREATED" other_param datetime (fun a b -> `Created (a, b))
 
 (* TODO use uri parser here *)
 let altrepparam = (string "ALTREP=") *> quoted_string >>| fun uri -> `Altrep (Uri.of_string uri)
@@ -348,22 +348,22 @@ let languageparam = (string "LANGUAGE=") *> param_text >>| fun l -> `Language l
 
 let description =
   let desc_param = altrepparam <|> languageparam <|> other_param in
-  propparser "DESCRIPTION" desc_param text_parser
+  propparser "DESCRIPTION" desc_param text
     (fun a b -> `Description (a, b))
 
 let geo =
   let latlon =
-    lift2 pair (float_parser <* char ';') float_parser
+    lift2 pair (float <* char ';') float
   in
   propparser "GEO" other_param latlon (fun a b -> `Geo (a, b))
 
 let last_mod =
-  propparser "LAST-MODIFIED" other_param datetime_parser
+  propparser "LAST-MODIFIED" other_param datetime
     (fun a b -> `Lastmod (a, b))
 
 let location =
   let loc_param = altrepparam <|> languageparam <|> other_param in
-  propparser "LOCATION" loc_param text_parser (fun a b -> `Location (a, b))
+  propparser "LOCATION" loc_param text (fun a b -> `Location (a, b))
 
 let caladdress = take_while1 is_qsafe_char >>| Uri.of_string
 
@@ -406,7 +406,7 @@ let status =
 
 let summary =
   let summ_param = altrepparam <|> languageparam <|> other_param in
-  propparser "SUMMARY" summ_param text_parser (fun a b -> `Summary (a, b))
+  propparser "SUMMARY" summ_param text (fun a b -> `Summary (a, b))
 
 let transp =
   let t_value =
@@ -421,19 +421,19 @@ let url =
 let recurid =
   let range_param = string "RANGE=THISANDFUTURE" >>| fun _ -> `Range `Thisandfuture in
   let recur_param = tzidparam <|> time_or_date_param <|> range_param <|> other_param in
-  propparser "RECURRENCE-ID" recur_param time_or_date_parser
+  propparser "RECURRENCE-ID" recur_param time_or_date
     (fun a b -> `Recur_id (a, build_time_or_date a b))
 
 let rrule =
-  propparser "RRULE" other_param recur_parser (fun a b -> `Rrule (a, b))
+  propparser "RRULE" other_param recur (fun a b -> `Rrule (a, b))
 
 let dtend =
   let dtend_param = tzidparam <|> time_or_date_param <|> other_param in
-  propparser "DTEND" dtend_param time_or_date_parser
+  propparser "DTEND" dtend_param time_or_date
     (fun a b -> `Dtend (a, build_time_or_date a b))
 
 let duration =
-  propparser "DURATION" other_param duration_parser (fun a b -> `Duration (a, b))
+  propparser "DURATION" other_param dur_value (fun a b -> `Duration (a, b))
 
 let binary =
   let is_b_char = function 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '+' | '/' -> true | _ -> false in
@@ -537,19 +537,19 @@ let attendee =
 
 let categories =
   let catparam = languageparam <|> other_param in
-  propparser "CATEGORIES" catparam texts_parser (fun a b -> `Categories (a, b))
+  propparser "CATEGORIES" catparam texts (fun a b -> `Categories (a, b))
 
 let comment =
   let commparam = languageparam <|> altrepparam <|> other_param in
-  propparser "COMMENT" commparam text_parser (fun a b -> `Comment (a, b))
+  propparser "COMMENT" commparam text (fun a b -> `Comment (a, b))
 
 let contact =
   let contactparam = languageparam <|> altrepparam <|> other_param in
-  propparser "CONTACT" contactparam text_parser (fun a b -> `Contact (a, b))
+  propparser "CONTACT" contactparam text (fun a b -> `Contact (a, b))
 
 let exdate =
   let exdtparam = time_or_date_param <|> tzidparam <|> other_param in
-  let exdtvalue = sep_by1 (char ',') time_or_date_parser in
+  let exdtvalue = sep_by1 (char ',') time_or_date in
   propparser "EXDATE" exdtparam exdtvalue
     (fun a b ->
        let dates = List.map (build_time_or_date a) b in
@@ -577,8 +577,8 @@ let rstatus =
   let rstatvalue =
     lift3 triple
       (statcode <* char ';')
-      text_parser
-      (option None (char ';' *> (text_parser >>| fun t -> Some t)))
+      text
+      (option None (char ';' *> (text >>| fun t -> Some t)))
   in
   propparser "REQUEST-STATUS" rstatparam rstatvalue
     (fun a b -> `Rstatus (a, b))
@@ -594,12 +594,12 @@ let reltypeparam =
 
 let related =
   let relparam = reltypeparam <|> other_param in
-  propparser "RELATED-TO" relparam text_parser
+  propparser "RELATED-TO" relparam text
     (fun a b -> `Related (a, b))
 
 let resources =
   let resrcparam = languageparam <|> altrepparam <|> other_param in
-  propparser "RESOURCES" resrcparam texts_parser
+  propparser "RESOURCES" resrcparam texts
     (fun a b -> `Resource (a, b))
 
 let time_or_date_or_period_param =
@@ -618,14 +618,14 @@ let build_time_or_date_or_period a b =
   | `Valuetype `Period, `Period p -> b
   | _ -> raise Parse_error
 
-let time_or_date_or_period_parser =
-      (period_parser >>| fun p -> `Period p)
-  <|> (datetime_parser >>| fun dt -> `Datetime dt)
-  <|> (date_parser >>| fun d -> `Date d)
+let time_or_date_or_period =
+      (period >>| fun p -> `Period p)
+  <|> (datetime >>| fun dt -> `Datetime dt)
+  <|> (date >>| fun d -> `Date d)
 
 let rdate =
   let rdtparam = tzidparam <|> time_or_date_or_period_param <|> other_param in
-  let rdtvalue = sep_by1 (char ',') time_or_date_or_period_parser in
+  let rdtvalue = sep_by1 (char ',') time_or_date_or_period in
   propparser "RDATE" rdtparam rdtvalue
     (fun a b ->
        let dates = List.map (build_time_or_date_or_period a) b in
@@ -685,8 +685,8 @@ let trigger =
   in
   let trigparam = trigrelparam <|> valueparam <|> other_param in
   let trigvalue =
-        (duration_parser >>| fun d -> `Duration d)
-    <|> (datetime_parser >>| fun d -> `Datetime d)
+        (dur_value >>| fun d -> `Duration d)
+    <|> (datetime >>| fun d -> `Datetime d)
   in
   propparser "TRIGGER" trigparam trigvalue
     (fun a b ->
