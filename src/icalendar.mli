@@ -154,6 +154,7 @@ type alarm = [
   | `Repeat of other_param list * int
   | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | `Valuetype of [ `Binary ] | other_param ] list *
                [ `Uri of Uri.t | `Binary of string ]
+  | `Description of [other_param | `Altrep of Uri.t | `Language of string ] list * string
 ] list
 
 type component = eventprop list * alarm list
