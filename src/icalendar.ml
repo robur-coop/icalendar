@@ -930,6 +930,10 @@ let comment =
   let commparam = languageparam <|> altrepparam <|> other_param in
   propparser "COMMENT" commparam text_parser (fun a b -> `Comment (a, b))
 
+let contact =
+  let contactparam = languageparam <|> altrepparam <|> other_param in
+  propparser "CONTACT" contactparam text_parser (fun a b -> `Contact (a, b))
+
 let eventprop =
   dtstamp <|> uid <|>
   dtstart <|>
@@ -939,8 +943,8 @@ let eventprop =
   url  <|> recurid <|>
   rrule <|>
   dtend <|> duration <|>
-  attach <|> attendee <|> categories <|> comment (* <|>
-  contact <|> exdate <|> rstatus <|> related <|>
+  attach <|> attendee <|> categories <|> comment <|>
+  contact (* <|> exdate <|> rstatus <|> related <|>
   resources <|> rdate*)
 
 let eventprops = many eventprop
@@ -1043,6 +1047,7 @@ type eventprop =
                  | `Sentby of Uri.t ] list * Uri.t
   | `Categories of [ other_param | `Language of string ] list * string list
   | `Comment of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
+  | `Contact of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
   ]
 
 let pp_dtstart_param fmt = function
@@ -1168,6 +1173,7 @@ let pp_eventprop fmt = function
   | `Attendee (l, v) -> Fmt.pf fmt "attendee %a %a" (Fmt.list pp_attendee_param) l Uri.pp_hum v
   | `Categories (l, v) -> Fmt.pf fmt "categories %a %a" (Fmt.list pp_categories_param) l (Fmt.list Fmt.string) v
   | `Comment (l, v) -> Fmt.pf fmt "comment %a %s" (Fmt.list pp_desc_param) l v
+  | `Contact (l, v) -> Fmt.pf fmt "contact %a %s" (Fmt.list pp_desc_param) l v
 
 type component =
   eventprop list * 

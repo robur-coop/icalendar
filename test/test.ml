@@ -1126,6 +1126,71 @@ END:VCALENDAR
   let f = Icalendar.parse_calobject input in
   Alcotest.check result_c __LOC__ expected f
 
+let calendar_object_with_comment () =
+  let input =
+{_|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+BEGIN:VEVENT
+COMMENT:The meeting really needs to include both ourselves
+  and the customer. We can't hold this meeting without them.
+  As a matter of fact\, the venue for the meeting ought to be at
+  their site. - - John
+UID:19970610T172345Z-AF23B2@example.com
+DTSTAMP:19970610T172345Z
+DTSTART:19970714T170000Z
+DTEND:19970715T040000Z
+SUMMARY:Bastille Day Party
+END:VEVENT
+END:VCALENDAR
+|_}
+  and expected = Ok
+      ( [ `Version ([], "2.0") ;
+          `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
+        [
+          [ `Comment ([], "The meeting really needs to include both ourselves and the customer. We can't hold this meeting without them. As a matter of fact, the venue for the meeting ought to be at their site. - - John") ;
+            `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
+            `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+            `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], []
+        ])
+  in
+  let f = Icalendar.parse_calobject input in
+  Alcotest.check result_c __LOC__ expected f
+
+let calendar_object_with_contact () =
+  let input =
+{_|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+BEGIN:VEVENT
+CONTACT;ALTREP="CID:part3.msg970930T083000SILVER@example.com":
+ Jim Dolittle\, ABC Industries\, +1-919-555-1234
+UID:19970610T172345Z-AF23B2@example.com
+DTSTAMP:19970610T172345Z
+DTSTART:19970714T170000Z
+DTEND:19970715T040000Z
+SUMMARY:Bastille Day Party
+END:VEVENT
+END:VCALENDAR
+|_}
+  and expected = Ok
+      ( [ `Version ([], "2.0") ;
+          `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
+        [
+          [ `Contact ([ `Altrep (Uri.of_string "CID:part3.msg970930T083000SILVER@example.com") ], "Jim Dolittle, ABC Industries, +1-919-555-1234") ;
+            `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
+            `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+            `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], []
+        ])
+  in
+  let f = Icalendar.parse_calobject input in
+  Alcotest.check result_c __LOC__ expected f
 
 let object_tests = [
   "calendar object parsing", `Quick, calendar_object ;
@@ -1149,6 +1214,8 @@ let object_tests = [
   "calendar object parsing with attach", `Quick, calendar_object_with_attach ;
   "calendar object parsing with attendee", `Quick, calendar_object_with_attendee ;
   "calendar object parsing with categories", `Quick, calendar_object_with_categories ;
+  "calendar object parsing with comment", `Quick, calendar_object_with_comment ;
+  "calendar object parsing with contact", `Quick, calendar_object_with_contact ;
 ]
 
 let tests = [
