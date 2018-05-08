@@ -131,6 +131,7 @@ type eventprop =
                  | `Rsvp of bool
                  | `Sentby of Uri.t ] list * Uri.t
   | `Categories of [ other_param | `Language of string ] list * string list
+  | `Comment of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
   ]
 
 type component =
