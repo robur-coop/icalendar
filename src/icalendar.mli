@@ -146,9 +146,11 @@ type eventprop =
               [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
   ]
 
-type component =
-  eventprop list * 
-  (string * icalparameter list * value) list
+type alarm = [
+  | `Action of other_param list * [ `Audio | `Display | `Email | `Ianatoken of string | `Xname of string * string ]
+] list
+
+type component = eventprop list * alarm list
 
 type calendar = calprop list * component list
 

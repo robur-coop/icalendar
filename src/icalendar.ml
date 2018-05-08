@@ -1047,14 +1047,46 @@ let eventprop =
   dtend <|> duration <|>
   attach <|> attendee <|> categories <|> comment <|>
   contact <|> exdate <|> rstatus <|> related <|>
-  resources <|> rdate
+  resources <|> rdate (* iana_prop <|> x_prop *)
 
 let eventprops = many eventprop
-(*let alarmc = *)
+
+let action =
+  let actionvalue =
+        (string "AUDIO" >>| fun _ -> `Audio)
+    <|> (string "DISPLAY" >>| fun _ -> `Display)
+    <|> (string "EMAIL" >>| fun _ -> `Email)
+    <|> (iana_token >>| fun x -> `Ianatoken x)
+    <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))
+  in
+  propparser "ACTION" other_param actionvalue (fun a b -> `Action (a, b))
+
+let audioprop =
+  action (* <|> trigger <|>
+  duration <|> repeat <|>
+            attach *)
+
+let dispprop =
+  (* action <|> *) description (* <|> trigger <|>
+   duration <|> repeat *)
+
+let emailprop =
+  (* action <|> description <|> trigger <|> *) summary <|>
+  attendee (* <|>
+  duration <|> repeat <|>
+    attach *)
+
+(* let otherprop = x_prop <|> iana_prop *)
+
+let alarmc =
+  string "BEGIN:VALARM" *> end_of_line *>
+  many (audioprop (* <|> dispprop <|> emailprop  *) (* <|> otherprop *))
+  <* string "END:VALARM" <* end_of_line
 
 let eventc =
-  string "BEGIN:VEVENT" *> end_of_line *> lift2 pair eventprops (*(many alarmc)*)
-  (many_till contentline (string "END:VEVENT" <* end_of_line))
+  string "BEGIN:VEVENT" *> end_of_line *>
+  lift2 pair eventprops (many alarmc)
+  <* string "END:VEVENT" <* end_of_line
 
 let component = many1 (eventc (* <|> todoc <|> journalc <|> freebusyc <|> timezonec *))
 
@@ -1326,12 +1358,29 @@ let pp_eventprop fmt = function
   | `Resource (l, v) -> Fmt.pf fmt "resource %a %a" (Fmt.list pp_desc_param) l Fmt.(list string) v
   | `Rdate (l, v) -> Fmt.pf fmt "rdate %a %a" (Fmt.list pp_rdate_param) l pp_rdate_value v
 
-type component =
-  eventprop list * 
-  (string * icalparameter list * value) list
+type alarm = [
+  | `Action of other_param list * [ `Audio | `Display | `Email | `Ianatoken of string | `Xname of string * string ]
+] list
 
-let pp_content_line fmt (k, params, v) = Fmt.pf fmt "key %s params %a value %a" k (Fmt.list pp_icalparameter) params pp_value v
-let pp_component fmt (props, lines) = Fmt.pf fmt "props: %a @.lines:%a" (Fmt.list pp_eventprop) props (Fmt.list pp_content_line) lines
+let pp_action fmt = function
+  | `Audio -> Fmt.string fmt "audio"
+  | `Display -> Fmt.string fmt "display"
+  | `Email -> Fmt.string fmt "email"
+  | `Ianatoken a -> Fmt.pf fmt "ianatoken %s" a
+  | `Xname (a, b) -> Fmt.pf fmt "xname %s %s" a b
+
+let pp_alarm_element fmt = function
+  | `Action (params, action) -> Fmt.pf fmt "action %a %a" pp_other_params params pp_action action
+
+let pp_alarm fmt data =
+  (Fmt.list pp_alarm_element) fmt data
+
+type component = eventprop list * alarm list
+
+let pp_component fmt (props, alarms) =
+  Fmt.pf fmt "props: %a @.alarms:%a"
+    (Fmt.list pp_eventprop) props
+    (Fmt.list pp_alarm) alarms
 
 type calendar = calprop list * component list
 
