@@ -151,6 +151,7 @@ type alarm = [
   | `Trigger of [ other_param | `Valuetype of [ `Datetime | `Duration ] | `Related of [ `Start | `End ] ] list *
                 [ `Duration of int | `Datetime of (Ptime.t * bool) ]
   | `Duration of other_param list * int
+  | `Repeat of other_param list * int
 ] list
 
 type component = eventprop list * alarm list
