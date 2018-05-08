@@ -702,8 +702,8 @@ let time_or_date_param =
 let build_time_or_date a b =
   let valuetype = try List.find (function `Valuetype _ -> true | _ -> false) a with Not_found -> `Valuetype `Datetime in
   match valuetype, b with
-  | `Valuetype `Datetime, `Datetime dt -> (a, b)
-  | `Valuetype `Date, `Date d -> (a, b)
+  | `Valuetype `Datetime, `Datetime dt -> b
+  | `Valuetype `Date, `Date d -> b
   | _ -> raise Parse_error
 
 let time_or_date_parser =
@@ -713,7 +713,7 @@ let time_or_date_parser =
 let dtstart =
   let dtstparam = time_or_date_param <|> tzidparam <|> other_param in
   propparser "DTSTART" dtstparam time_or_date_parser
-    (fun a b -> `Dtstart (build_time_or_date a b))
+    (fun a b -> `Dtstart (a, build_time_or_date a b))
 
 let class_ =
   let class_value =
@@ -809,7 +809,7 @@ let recurid =
   let range_param = string "RANGE=THISANDFUTURE" >>| fun _ -> `Range `Thisandfuture in
   let recur_param = tzidparam <|> time_or_date_param <|> range_param <|> other_param in
   propparser "RECURRENCE-ID" recur_param time_or_date_parser
-    (fun a b -> `Recur_id (build_time_or_date a b))
+    (fun a b -> `Recur_id (a, build_time_or_date a b))
 
 let rrule =
   propparser "RRULE" other_param recur_parser (fun a b -> `Rrule (a, b))
@@ -817,7 +817,7 @@ let rrule =
 let dtend =
   let dtend_param = tzidparam <|> time_or_date_param <|> other_param in
   propparser "DTEND" dtend_param time_or_date_parser
-    (fun a b -> `Dtend (build_time_or_date a b))
+    (fun a b -> `Dtend (a, build_time_or_date a b))
 
 let duration =
   propparser "DURATION" other_param duration_parser (fun a b -> `Duration (a, b))
@@ -934,6 +934,25 @@ let contact =
   let contactparam = languageparam <|> altrepparam <|> other_param in
   propparser "CONTACT" contactparam text_parser (fun a b -> `Contact (a, b))
 
+let exdate =
+  let exdtparam = time_or_date_param <|> tzidparam <|> other_param in
+  let exdtvalue = sep_by1 (char ',') time_or_date_parser in
+  propparser "EXDATE" exdtparam exdtvalue
+    (fun a b ->
+       let dates = List.map (build_time_or_date a) b in
+       let date =
+         if List.for_all (function `Date _ -> true | _ -> false) dates then
+           `Dates (List.map
+                     (function `Date d -> d | _ -> raise Parse_error)
+                     dates)
+         else if List.for_all (function `Datetime _ -> true | _ -> false) dates then
+           `Datetimes (List.map
+                         (function `Datetime d -> d | _ -> raise Parse_error)
+                         dates)
+         else raise Parse_error
+       in
+       `Exdate (a, date))
+
 let eventprop =
   dtstamp <|> uid <|>
   dtstart <|>
@@ -944,7 +963,7 @@ let eventprop =
   rrule <|>
   dtend <|> duration <|>
   attach <|> attendee <|> categories <|> comment <|>
-  contact (* <|> exdate <|> rstatus <|> related <|>
+  contact <|> exdate (* <|> rstatus <|> related <|>
   resources <|> rdate*)
 
 let eventprops = many eventprop
@@ -1048,6 +1067,8 @@ type eventprop =
   | `Categories of [ other_param | `Language of string ] list * string list
   | `Comment of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
   | `Contact of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
+  | `Exdate of [ other_param | `Valuetype of [`Datetime | `Date ] | `Tzid of bool * string ] list * 
+    [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list ]
   ]
 
 let pp_dtstart_param fmt = function
@@ -1057,7 +1078,7 @@ let pp_dtstart_param fmt = function
   | `Tzid (prefix, name) -> Fmt.pf fmt "tzid prefix %b %s" prefix name
 
 let pp_dtstart_value fmt = function
-  | `Datetime (p, utc) -> Fmt.pf fmt "datetime %a Utc?%b" Ptime.pp p utc 
+  | `Datetime (p, utc) -> Fmt.pf fmt "datetime %a Utc?%b" Ptime.pp p utc
   | `Date d -> Fmt.pf fmt "date %a" pp_date d
 
 let pp_categories_param fmt = function
@@ -1147,6 +1168,10 @@ let pp_attendee_param fmt = function
   | `Rsvp b -> Fmt.pf fmt "rsvp %b" b
   | `Sentby s -> Fmt.pf fmt "sent-by %a" Uri.pp_hum s
 
+let pp_exdate_value fmt = function
+  | `Datetimes dates -> Fmt.pf fmt "%a" Fmt.(list (pair Ptime.pp bool)) dates
+  | `Dates dates -> Fmt.pf fmt "%a" Fmt.(list pp_date) dates
+
 let pp_eventprop fmt = function
   | `Dtstamp (l, (p, utc)) -> Fmt.pf fmt "dtstamp %a %a %b" pp_other_params l Ptime.pp p utc
   | `Uid (l, s) -> Fmt.pf fmt "uid %a %s" pp_other_params l s 
@@ -1174,6 +1199,7 @@ let pp_eventprop fmt = function
   | `Categories (l, v) -> Fmt.pf fmt "categories %a %a" (Fmt.list pp_categories_param) l (Fmt.list Fmt.string) v
   | `Comment (l, v) -> Fmt.pf fmt "comment %a %s" (Fmt.list pp_desc_param) l v
   | `Contact (l, v) -> Fmt.pf fmt "contact %a %s" (Fmt.list pp_desc_param) l v
+  | `Exdate (l, v) -> Fmt.pf fmt "exdate %a %a" (Fmt.list pp_dtstart_param) l pp_exdate_value v
 
 type component =
   eventprop list * 

@@ -133,6 +133,8 @@ type eventprop =
   | `Categories of [ other_param | `Language of string ] list * string list
   | `Comment of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
   | `Contact of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
+  | `Exdate of [ other_param | `Valuetype of [`Datetime | `Date ] | `Tzid of bool * string ] list *
+    [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list ]
   ]
 
 type component =
