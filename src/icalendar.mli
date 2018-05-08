@@ -152,6 +152,8 @@ type alarm = [
                 [ `Duration of int | `Datetime of (Ptime.t * bool) ]
   | `Duration of other_param list * int
   | `Repeat of other_param list * int
+  | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | `Valuetype of [ `Binary ] | other_param ] list *
+               [ `Uri of Uri.t | `Binary of string ]
 ] list
 
 type component = eventprop list * alarm list

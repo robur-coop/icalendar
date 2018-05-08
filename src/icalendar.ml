@@ -1094,8 +1094,8 @@ let repeat =
 
 let audioprop =
   action <|> trigger <|>
-  duration <|> repeat (* <|>
-            attach *)
+  duration <|> repeat <|>
+  attach
 
 let dispprop =
   (* action <|> *) description (* <|> trigger <|>
@@ -1395,6 +1395,8 @@ type alarm = [
                 [ `Duration of int | `Datetime of (Ptime.t * bool) ]
   | `Duration of other_param list * int
   | `Repeat of other_param list * int
+  | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | `Valuetype of [ `Binary ] | other_param ] list *
+               [ `Uri of Uri.t | `Binary of string ]
 ] list
 
 let pp_action fmt = function
@@ -1420,6 +1422,7 @@ let pp_alarm_element fmt = function
   | `Trigger (params, value) -> Fmt.pf fmt "trigger %a %a" (Fmt.list pp_trigger_param) params pp_trigger_value value
   | `Duration (params, value) -> Fmt.pf fmt "duration %a %ds" pp_other_params params value
   | `Repeat (params, value) -> Fmt.pf fmt "repeat %a %ds" pp_other_params params value
+  | `Attach (l, v) -> Fmt.pf fmt "attach %a %a" (Fmt.list pp_attach_param) l pp_attach_value v 
 
 let pp_alarm fmt data =
   (Fmt.list pp_alarm_element) fmt data
