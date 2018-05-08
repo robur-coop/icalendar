@@ -1088,8 +1088,8 @@ let trigger =
        `Trigger (a, b))
 
 let audioprop =
-  action <|> trigger (* <|>
-  duration <|> repeat <|>
+  action <|> trigger <|>
+  duration (* <|> repeat <|>
             attach *)
 
 let dispprop =
@@ -1388,6 +1388,7 @@ type alarm = [
   | `Action of other_param list * [ `Audio | `Display | `Email | `Ianatoken of string | `Xname of string * string ]
   | `Trigger of [ other_param | `Valuetype of [ `Datetime | `Duration ] | `Related of [ `Start | `End ] ] list *
                 [ `Duration of int | `Datetime of (Ptime.t * bool) ]
+  | `Duration of other_param list * int
 ] list
 
 let pp_action fmt = function
@@ -1411,6 +1412,7 @@ let pp_trigger_value fmt = function
 let pp_alarm_element fmt = function
   | `Action (params, action) -> Fmt.pf fmt "action %a %a" pp_other_params params pp_action action
   | `Trigger (params, value) -> Fmt.pf fmt "trigger %a %a" (Fmt.list pp_trigger_param) params pp_trigger_value value
+  | `Duration (params, value) -> Fmt.pf fmt "duration %a %ds" pp_other_params params value
 
 let pp_alarm fmt data =
   (Fmt.list pp_alarm_element) fmt data
