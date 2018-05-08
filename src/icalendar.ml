@@ -971,6 +971,20 @@ let rstatus =
   propparser "REQUEST-STATUS" rstatparam rstatvalue
     (fun a b -> `Rstatus (a, b))
 
+let reltypeparam =
+  lift (fun x -> `Reltype x)
+   (string "RELTYPE=" *>
+      ((string "PARENT" >>| fun _ -> `Parent)
+   <|> (string "CHILD" >>| fun _ -> `Child)
+   <|> (string "SIBLING" >>| fun _ -> `Sibling)
+   <|> (iana_token >>| fun x -> `Ianatoken x)
+   <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
+
+let related =
+  let relparam = reltypeparam <|> other_param in
+  propparser "RELATED-TO" relparam text_parser
+    (fun a b -> `Related (a, b))
+
 let eventprop =
   dtstamp <|> uid <|>
   dtstart <|>
@@ -981,7 +995,7 @@ let eventprop =
   rrule <|>
   dtend <|> duration <|>
   attach <|> attendee <|> categories <|> comment <|>
-  contact <|> exdate <|> rstatus (* <|> related <|>
+  contact <|> exdate <|> rstatus <|> related (* <|>
   resources <|> rdate*)
 
 let eventprops = many eventprop
@@ -1044,6 +1058,10 @@ type partstat = [ `Accepted | `Completed | `Declined | `Delegated
 type role = [ `Chair | `Nonparticipant | `Optparticipant | `Reqparticipant
             | `Ianatoken of string | `Xname of string * string ]
 
+type relationship =
+  [ `Parent | `Child | `Sibling |
+    `Ianatoken of string | `Xname of string * string ]
+
 type eventprop =
   [ `Dtstamp of other_param list * (Ptime.t * bool)
   | `Uid of other_param list * string
@@ -1088,6 +1106,7 @@ type eventprop =
   | `Exdate of [ other_param | `Valuetype of [`Datetime | `Date ] | `Tzid of bool * string ] list * 
                [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list ]
   | `Rstatus of [ other_param | `Language of string ] list * ((int * int * int option) * string * string option)
+  | `Related of [ other_param | `Reltype of relationship ] list * string
   ]
 
 let pp_dtstart_param fmt = function
@@ -1191,6 +1210,17 @@ let pp_exdate_value fmt = function
   | `Datetimes dates -> Fmt.pf fmt "%a" Fmt.(list (pair Ptime.pp bool)) dates
   | `Dates dates -> Fmt.pf fmt "%a" Fmt.(list pp_date) dates
 
+let pp_relationship fmt = function
+  | `Parent -> Fmt.string fmt "parent"
+  | `Child -> Fmt.string fmt "child"
+  | `Sibling -> Fmt.string fmt "sibling"
+  | `Ianatoken t -> Fmt.pf fmt "ianatoken %s" t
+  | `Xname (x, y) -> Fmt.pf fmt "xname %s,%s" x y
+
+let pp_related_param fmt = function
+  | #other_param as p -> pp_other_param fmt p
+  | `Reltype c -> Fmt.pf fmt "reltype %a" pp_relationship c
+
 let pp_eventprop fmt = function
   | `Dtstamp (l, (p, utc)) -> Fmt.pf fmt "dtstamp %a %a %b" pp_other_params l Ptime.pp p utc
   | `Uid (l, s) -> Fmt.pf fmt "uid %a %s" pp_other_params l s 
@@ -1222,6 +1252,7 @@ let pp_eventprop fmt = function
   | `Rstatus (l, ((one, two, three), desc, extdata)) ->
     Fmt.pf fmt "rstatus %a %d.%d.%a %s %a" (Fmt.list pp_categories_param) l
       one two Fmt.(option int) three desc Fmt.(option string) extdata
+  | `Related (l, v) -> Fmt.pf fmt "related to %a %s" (Fmt.list pp_related_param) l v
 
 type component =
   eventprop list * 

@@ -93,6 +93,10 @@ type partstat = [ `Accepted | `Completed | `Declined | `Delegated
 type role = [ `Chair | `Nonparticipant | `Optparticipant | `Reqparticipant
             | `Ianatoken of string | `Xname of string * string ]
 
+type relationship =
+  [ `Parent | `Child | `Sibling |
+    `Ianatoken of string | `Xname of string * string ]
+
 type eventprop =
   [ `Dtstamp of other_param list * (Ptime.t * bool)
   | `Uid of other_param list * string
@@ -136,6 +140,7 @@ type eventprop =
   | `Exdate of [ other_param | `Valuetype of [`Datetime | `Date ] | `Tzid of bool * string ] list *
     [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list ]
   | `Rstatus of [ other_param | `Language of string ] list * ((int * int * int option) * string * string option)
+  | `Related of [ other_param | `Reltype of relationship ] list * string
   ]
 
 type component =
