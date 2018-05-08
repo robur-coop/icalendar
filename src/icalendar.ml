@@ -985,6 +985,11 @@ let related =
   propparser "RELATED-TO" relparam text_parser
     (fun a b -> `Related (a, b))
 
+let resources =
+  let resrcparam = languageparam <|> altrepparam <|> other_param in
+  propparser "RESOURCES" resrcparam texts_parser
+    (fun a b -> `Resource (a, b))
+
 let eventprop =
   dtstamp <|> uid <|>
   dtstart <|>
@@ -995,8 +1000,8 @@ let eventprop =
   rrule <|>
   dtend <|> duration <|>
   attach <|> attendee <|> categories <|> comment <|>
-  contact <|> exdate <|> rstatus <|> related (* <|>
-  resources <|> rdate*)
+  contact <|> exdate <|> rstatus <|> related <|>
+  resources (* <|> rdate*)
 
 let eventprops = many eventprop
 (*let alarmc = *)
@@ -1107,6 +1112,7 @@ type eventprop =
                [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list ]
   | `Rstatus of [ other_param | `Language of string ] list * ((int * int * int option) * string * string option)
   | `Related of [ other_param | `Reltype of relationship ] list * string
+  | `Resource of [ other_param | `Language of string | `Altrep of Uri.t ] list * string list
   ]
 
 let pp_dtstart_param fmt = function
@@ -1253,6 +1259,7 @@ let pp_eventprop fmt = function
     Fmt.pf fmt "rstatus %a %d.%d.%a %s %a" (Fmt.list pp_categories_param) l
       one two Fmt.(option int) three desc Fmt.(option string) extdata
   | `Related (l, v) -> Fmt.pf fmt "related to %a %s" (Fmt.list pp_related_param) l v
+  | `Resource (l, v) -> Fmt.pf fmt "resource %a %a" (Fmt.list pp_desc_param) l Fmt.(list string) v
 
 type component =
   eventprop list * 
