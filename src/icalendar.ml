@@ -656,34 +656,37 @@ let other_param = iana_param <|> x_param
 
 let other_params = many (char ';' *> other_param)
 
-let pidvalue = text_parser
+let propparser id pparser vparser lift =
+  let params = many (char ';' *> pparser) in
+  lift2 lift
+    (string id *> params <* char ':')
+    (vparser <* end_of_line)
 
 (* NOTE grammar in RFC 3.7.3 regards pidvalue as text, thus it could be a list, but we forbid that *)
-let prodid = lift2 (fun a b -> `Prodid (a, b))
-    (string "PRODID" *> other_params <* char ':') (pidvalue <* end_of_line)
+let prodid =
+  propparser "PRODID" other_param text_parser (fun a b -> `Prodid (a, b))
 
-let vervalue = string "2.0"
+let version =
+  let vervalue = string "2.0" in
+  propparser "VERSION" other_param vervalue (fun a b -> `Version (a, b))
 
-let version = lift2 (fun a b -> `Version (a, b))
-    (string "VERSION" *> other_params <* char ':') (vervalue <* end_of_line)
+let calscale =
+  let calvalue = string "GREGORIAN" in
+  propparser "CALSCALE" other_param calvalue (fun a b -> `Calscale (a, b))
 
-let calvalue = string "GREGORIAN"
 
-let calscale = lift2 (fun a b -> `Calscale (a, b))
-    (string "CALSCALE" *> other_params <* char ':') (calvalue <* end_of_line)
+let meth =
+  let metvalue = iana_token in
+  propparser "METHOD" other_param metvalue (fun a b -> `Method (a, b))
 
-let metvalue = iana_token
+let calprops =
+  many (prodid <|> version <|> calscale <|> meth)
 
-let meth = lift2 (fun a b -> `Method (a, b))
-    (string "METHOD" *> other_params <* char ':') (metvalue <* end_of_line)
+let dtstamp =
+  propparser "DTSTAMP" other_param datetime_parser (fun a b -> `Dtstamp (a, b))
 
-let calprops = many (prodid <|> version <|> calscale <|> meth)
-
-let dtstamp = lift2 (fun a b -> `Dtstamp (a, b))
-  (string "DTSTAMP" *> other_params <* char ':') (datetime_parser <* end_of_line)
-
-let uid = lift2 (fun a b -> `Uid (a, b))
-  (string "UID" *> other_params <* char ':') (text_parser <* end_of_line)
+let uid =
+  propparser "UID" other_param text_parser (fun a b -> `Uid (a, b))
 
 let tzidparam =
  lift2 (fun a b -> `Tzid (a = '/', b))
@@ -697,7 +700,7 @@ let time_or_date_param =
   | _ -> raise Parse_error
 
 let build_time_or_date a b =
-  let valuetype = try List.find(function `Valuetype _ -> true | _ -> false) a with Not_found -> `Valuetype `Datetime in
+  let valuetype = try List.find (function `Valuetype _ -> true | _ -> false) a with Not_found -> `Valuetype `Datetime in
   match valuetype, b with
   | `Valuetype `Datetime, `Datetime dt -> (a, b)
   | `Valuetype `Date, `Date d -> (a, b)
@@ -708,22 +711,22 @@ let time_or_date_parser =
   <|> (date_parser >>| fun d -> `Date d)
 
 let dtstart =
-  let dtstparam = many (char ';' *> (time_or_date_param <|> tzidparam <|> other_param)) in
-  lift2 (fun a b -> `Dtstart (build_time_or_date a b))
-    (string "DTSTART" *> dtstparam <* char ':')
-    (time_or_date_parser <* end_of_line)
+  let dtstparam = time_or_date_param <|> tzidparam <|> other_param in
+  propparser "DTSTART" dtstparam time_or_date_parser
+    (fun a b -> `Dtstart (build_time_or_date a b))
 
 let class_ =
-  let class_value = (string "PUBLIC" >>| fun _ -> `Public)
+  let class_value =
+       (string "PUBLIC" >>| fun _ -> `Public)
    <|> (string "PRIVATE" >>| fun _ -> `Private)
    <|> (string "CONFIDENTIAL" >>| fun _ -> `Confidential)
    <|> (iana_token >>| fun x -> `Ianatoken x)
-   <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name)) in
-  lift2 (fun a b -> `Class (a, b))
-  (string "CLASS" *> other_params <* char ':') (class_value <* end_of_line)
+   <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))
+  in
+  propparser "CLASS" other_param class_value (fun a b -> `Class (a, b))
 
-let created = lift2 (fun a b -> `Created (a, b))
-  (string "CREATED" *> other_params <* char ':') (datetime_parser <* end_of_line)
+let created =
+  propparser "CREATED" other_param datetime_parser (fun a b -> `Created (a, b))
 
 (* TODO use uri parser here *)
 let altrepparam = (string "ALTREP=") *> quoted_string >>| fun uri -> `Altrep (Uri.of_string uri)
@@ -732,21 +735,23 @@ let altrepparam = (string "ALTREP=") *> quoted_string >>| fun uri -> `Altrep (Ur
 let languageparam = (string "LANGUAGE=") *> param_text >>| fun l -> `Language l 
 
 let description =
-  let desc_params = many (char ';' *> (altrepparam <|> languageparam <|> other_param)) in
-  lift2 (fun a b -> `Description (a, b))
-  (string "DESCRIPTION" *> desc_params <* char ':') (text_parser <* end_of_line)
+  let desc_param = altrepparam <|> languageparam <|> other_param in
+  propparser "DESCRIPTION" desc_param text_parser
+    (fun a b -> `Description (a, b))
 
 let geo =
-  lift3 (fun a b c -> `Geo (a, (b, c)))
-  (string "GEO" *> other_params <* char ':') (float_parser <* char ';') float_parser <* end_of_line
+  let latlon =
+    lift2 pair (float_parser <* char ';') float_parser
+  in
+  propparser "GEO" other_param latlon (fun a b -> `Geo (a, b))
 
-let last_mod = lift2 (fun a b -> `Lastmod (a, b))
-  (string "LAST-MODIFIED" *> other_params <* char ':') (datetime_parser <* end_of_line)
+let last_mod =
+  propparser "LAST-MODIFIED" other_param datetime_parser
+    (fun a b -> `Lastmod (a, b))
 
 let location =
-  let loc_params = many (char ';' *> (altrepparam <|> languageparam <|> other_param)) in
-  lift2 (fun a b -> `Location (a, b))
-  (string "LOCATION" *> loc_params <* char ':') (text_parser <* end_of_line)
+  let loc_param = altrepparam <|> languageparam <|> other_param in
+  propparser "LOCATION" loc_param text_parser (fun a b -> `Location (a, b))
 
 let caladdress = take_while1 is_qsafe_char >>| Uri.of_string
 
@@ -755,20 +760,18 @@ let quoted_caladdress = char '"' *> caladdress <* char '"'
 let cnparam = string "CN=" *> param_value >>| fun cn -> `Cn cn
 let dirparam = string "DIR=" *> quoted_string >>| fun s -> `Dir (Uri.of_string s)
 let sentbyparam = string "SENT-BY=" *> quoted_caladdress >>| fun s -> `Sentby s
- 
+
 let organizer =
-  let orgparams = many (char ';' *> (cnparam <|> dirparam <|> sentbyparam <|> languageparam <|> other_param)) in
-  lift2 (fun a b -> `Organizer (a, b))
-  (string "ORGANIZER" *> orgparams <* char ':') (caladdress <* end_of_line)
+  let orgparam = cnparam <|> dirparam <|> sentbyparam <|> languageparam <|> other_param in
+  propparser "ORGANIZER" orgparam caladdress (fun a b -> `Organizer (a, b))
 
 let priority =
   let digit = satisfy is_digit >>= fun c -> ensure int_of_string @@ String.make 1 c in
-  lift2 (fun a b -> `Priority (a, b))
-  (string "PRIORITY" *> other_params <* char ':') (digit <* end_of_line)
+  propparser "PRIORITY" other_param digit (fun a b -> `Priority (a, b))
 
 let seq =
-  lift2 (fun a b -> `Seq (a, b))
-  (string "SEQUENCE" *> other_params <* char ':') (digits >>= ensure int_of_string >>= in_range 0 max_int <* end_of_line)
+  let seqv = digits >>= ensure int_of_string >>= in_range 0 max_int in
+  propparser "SEQUENCE" other_param seqv (fun a b -> `Seq (a, b))
 
 let status =
   let statvalue_jour =
@@ -786,51 +789,38 @@ let status =
     (string "CANCELLED" >>| fun _ -> `Cancelled)
   in
   let statvalue = statvalue_event <|> statvalue_todo <|> statvalue_jour in
-  lift2 (fun a b -> `Status (a, b))
-    (string "STATUS" *> other_params <* char ':')
-    (statvalue <* end_of_line)
+  propparser "STATUS" other_param statvalue (fun a b -> `Status (a, b))
 
 let summary =
-  let summ_params = many (char ';' *> (altrepparam <|> languageparam <|> other_param)) in
-  lift2 (fun a b -> `Summary (a, b))
-  (string "SUMMARY" *> summ_params <* char ':') (text_parser <* end_of_line)
+  let summ_param = altrepparam <|> languageparam <|> other_param in
+  propparser "SUMMARY" summ_param text_parser (fun a b -> `Summary (a, b))
 
 let transp =
   let t_value =
     (string "TRANSPARENT" >>| fun _ -> `Transparent) <|>
     (string "OPAQUE" >>| fun _ -> `Opaque)
   in
-  lift2 (fun a b -> `Transparency (a, b))
-  (string "TRANSP" *> other_params <* char ':') (t_value <* end_of_line)
+  propparser "TRANSP" other_param t_value (fun a b -> `Transparency (a, b))
 
 let url =
-  lift2 (fun a b -> `Url (a, b))
-    (string "URL" *> other_params <* char ':')
-    (caladdress <* end_of_line)
+  propparser "URL" other_param caladdress (fun a b -> `Url (a, b))
 
 let recurid =
   let range_param = string "RANGE=THISANDFUTURE" >>| fun _ -> `Range `Thisandfuture in
-  let recur_params = many (char ';' *> (tzidparam <|> time_or_date_param <|> range_param <|> other_param)) in
-  lift2 (fun a b -> `Recur_id (build_time_or_date a b))
-    (string "RECURRENCE-ID" *> recur_params <* char ':')
-    (time_or_date_parser <* end_of_line)
+  let recur_param = tzidparam <|> time_or_date_param <|> range_param <|> other_param in
+  propparser "RECURRENCE-ID" recur_param time_or_date_parser
+    (fun a b -> `Recur_id (build_time_or_date a b))
 
 let rrule =
-  lift2 (fun a b -> `Rrule (a, b))
-    (string "RRULE" *> other_params <* char ':')
-    (recur_parser <* end_of_line)
+  propparser "RRULE" other_param recur_parser (fun a b -> `Rrule (a, b))
 
 let dtend =
-  let dtend_params = many (char ';' *> (tzidparam <|> time_or_date_param <|> other_param)) in
-  lift2 (fun a b -> `Dtend (build_time_or_date a b))
-    (string "DTEND" *> dtend_params <* char ':')
-    (time_or_date_parser <* end_of_line)
+  let dtend_param = tzidparam <|> time_or_date_param <|> other_param in
+  propparser "DTEND" dtend_param time_or_date_parser
+    (fun a b -> `Dtend (build_time_or_date a b))
 
 let duration =
-  lift2 (fun a b -> `Duration (a, b))
-    (string "DURATION" *> other_params <* char ':')
-    (duration_parser <* end_of_line)
-
+  propparser "DURATION" other_param duration_parser (fun a b -> `Duration (a, b))
 
 let binary =
   let is_b_char = function 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '+' | '/' -> true | _ -> false in
@@ -846,7 +836,6 @@ let binary =
             (satisfy is_b_char) (satisfy is_b_char) (satisfy is_b_char) (satisfy is_b_char)))
     b_end
 
-
 let attach =
   let fmttype_param =
     string "FMTTYPE=" *> media_type >>| fun m -> `Media_type m
@@ -855,17 +844,19 @@ let attach =
   and encoding_param =
     string "ENCODING=BASE64" >>| fun _ -> `Encoding `Base64
   in
-  let attach_params = many (char ';' *> (fmttype_param <|> value_param <|> encoding_param <|> other_param)) in
-  lift2 (fun a b ->
-      let valuetype = try Some (List.find (function `Valuetype _ -> true | _ -> false) a) with Not_found -> None
-      and encoding = try Some (List.find (function `Encoding _ -> true | _ -> false) a) with Not_found -> None
-      in
-      match valuetype, encoding, b with
-      | None, None, `Uri uri -> `Attach (a, `Uri uri)
-      | Some (`Valuetype `Binary), Some (`Encoding `Base64), `Binary b -> `Attach (a,`Binary b)
-      | _ -> raise Parse_error)
-    (string "ATTACH" *> attach_params <* char ':')
-    (((binary >>| fun b -> `Binary b) <|> (caladdress >>| fun a -> `Uri a)) <* end_of_line)
+  let attach_param = fmttype_param <|> value_param <|> encoding_param <|> other_param in
+  let attach_value =
+    (binary >>| fun b -> `Binary b) <|> (caladdress >>| fun a -> `Uri a)
+  in
+  propparser "ATTACH" attach_param attach_value
+    (fun a b ->
+       let valuetype = try Some (List.find (function `Valuetype _ -> true | _ -> false) a) with Not_found -> None
+       and encoding = try Some (List.find (function `Encoding _ -> true | _ -> false) a) with Not_found -> None
+       in
+       match valuetype, encoding, b with
+       | None, None, `Uri uri -> `Attach (a, `Uri uri)
+       | Some (`Valuetype `Binary), Some (`Encoding `Base64), `Binary b -> `Attach (a,`Binary b)
+       | _ -> raise Parse_error)
 
 (* Default is INDIVIDUAL *)
 let cutypeparam = lift (fun x -> `Cutype x) ((string "CUTYPE=") *> 
@@ -923,43 +914,21 @@ let deltoparam = lift (fun x -> `Delegated_to x)
 let delfromparam = lift (fun x -> `Delegated_from x)
   ((string "DELEGATED-FROM=") *> sep_by1 (char ',') quoted_caladdress)
 
-let attendee = 
-  let attparam = many (char ';' *> (
-    cutypeparam <|> memberparam <|>
-    roleparam <|> partstatparam <|>
-    rsvpparam <|> deltoparam <|>
-    delfromparam <|> sentbyparam <|>
-    cnparam <|> dirparam <|>
-    languageparam <|>
-    other_param)) in
-  lift2 (fun a b -> `Attendee (a, b)) (string "ATTENDEE" *> attparam) (char ':' *> caladdress <* end_of_line) 
+let attendee =
+  let attparam =
+    cutypeparam <|> memberparam <|> roleparam <|> partstatparam <|>
+    rsvpparam <|> deltoparam <|> delfromparam <|> sentbyparam <|>
+    cnparam <|> dirparam <|> languageparam <|> other_param
+  in
+  propparser "ATTENDEE" attparam caladdress (fun a b -> `Attendee (a, b))
 
 let categories =
-  let catparams =
-    many (char ';' *> (languageparam <|> other_param))
-  in
-  lift2 (fun a b -> `Categories (a, b))
-    (string "CATEGORIES" *> catparams)
-    (char ':' *> texts_parser <* end_of_line)
+  let catparam = languageparam <|> other_param in
+  propparser "CATEGORIES" catparam texts_parser (fun a b -> `Categories (a, b))
 
 let comment =
-  let commparams =
-    many (char ';' *> (languageparam <|> altrepparam <|> other_param))
-  in
-  lift2 (fun a b -> `Comment (a, b))
-    (string "COMMENT" *> commparams)
-    (char ':' *> text_parser <* end_of_line)
-
-(*
-
-  let params paramparser = many char paramparser
-
-  let comment =
-    propertyparser "COMMENT" liftfunction
-      commparams text_parser
-
- *)
-
+  let commparam = languageparam <|> altrepparam <|> other_param in
+  propparser "COMMENT" commparam text_parser (fun a b -> `Comment (a, b))
 
 let eventprop =
   dtstamp <|> uid <|>
