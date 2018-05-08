@@ -148,6 +148,8 @@ type eventprop =
 
 type alarm = [
   | `Action of other_param list * [ `Audio | `Display | `Email | `Ianatoken of string | `Xname of string * string ]
+  | `Trigger of [ other_param | `Valuetype of [ `Datetime | `Duration ] | `Related of [ `Start | `End ] ] list *
+                [ `Duration of int | `Datetime of (Ptime.t * bool) ]
 ] list
 
 type component = eventprop list * alarm list

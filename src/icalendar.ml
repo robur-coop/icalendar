@@ -1061,8 +1061,34 @@ let action =
   in
   propparser "ACTION" other_param actionvalue (fun a b -> `Action (a, b))
 
+let trigger =
+  let trigrelparam =
+    lift (fun x -> `Related x)
+      (string "RELATED=" *>
+       ((string "START" >>| fun _ -> `Start) <|>
+        (string "END" >>| fun _ -> `End)))
+  and valueparam =
+    lift (fun x -> `Valuetype x)
+      (string "VALUE=" *>
+       ((string "DURATION" >>| fun _ -> `Duration)
+        <|> (string "DATE-TIME" >>| fun _ -> `Datetime)))
+  in
+  let trigparam = trigrelparam <|> valueparam <|> other_param in
+  let trigvalue =
+        (duration_parser >>| fun d -> `Duration d)
+    <|> (datetime_parser >>| fun d -> `Datetime d)
+  in
+  propparser "TRIGGER" trigparam trigvalue
+    (fun a b ->
+       let vtype = try List.find (function `Valuetype _ -> true | _ -> false) a with Not_found -> `Valuetype `Duration in
+       (match vtype, b with
+        | `Valuetype `Duration, `Duration _ -> ()
+        | `Valuetype `Datetime, `Datetime _ -> ()
+        | _ -> raise Parse_error) ;
+       `Trigger (a, b))
+
 let audioprop =
-  action (* <|> trigger <|>
+  action <|> trigger (* <|>
   duration <|> repeat <|>
             attach *)
 
@@ -1360,6 +1386,8 @@ let pp_eventprop fmt = function
 
 type alarm = [
   | `Action of other_param list * [ `Audio | `Display | `Email | `Ianatoken of string | `Xname of string * string ]
+  | `Trigger of [ other_param | `Valuetype of [ `Datetime | `Duration ] | `Related of [ `Start | `End ] ] list *
+                [ `Duration of int | `Datetime of (Ptime.t * bool) ]
 ] list
 
 let pp_action fmt = function
@@ -1369,8 +1397,20 @@ let pp_action fmt = function
   | `Ianatoken a -> Fmt.pf fmt "ianatoken %s" a
   | `Xname (a, b) -> Fmt.pf fmt "xname %s %s" a b
 
+let pp_trigger_param fmt = function
+  | #other_param as p -> pp_other_param fmt p
+  | `Valuetype `Datetime -> Fmt.string fmt "valuetype datetime"
+  | `Valuetype `Duration -> Fmt.string fmt "valuetype duration"
+  | `Related `Start -> Fmt.string fmt "related to start"
+  | `Related `End -> Fmt.string fmt "related to end"
+
+let pp_trigger_value fmt = function
+  | `Datetime (p, utc) -> Fmt.pf fmt "datetime %a utc %b" Ptime.pp p utc
+  | `Duration s -> Fmt.pf fmt "period %ds" s
+
 let pp_alarm_element fmt = function
   | `Action (params, action) -> Fmt.pf fmt "action %a %a" pp_other_params params pp_action action
+  | `Trigger (params, value) -> Fmt.pf fmt "trigger %a %a" (Fmt.list pp_trigger_param) params pp_trigger_value value
 
 let pp_alarm fmt data =
   (Fmt.list pp_alarm_element) fmt data

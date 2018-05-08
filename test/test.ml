@@ -1483,6 +1483,52 @@ END:VCALENDAR
   let f = Icalendar.parse_calobject input in
   Alcotest.check result_c __LOC__ expected f
 
+let calendar_object_with_valarm_trigger () =
+  let input s =
+{_|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+BEGIN:VEVENT
+UID:19970610T172345Z-AF23B2@example.com
+DTSTAMP:19970610T172345Z
+DTSTART:19970714T170000Z
+DTEND:19970715T040000Z
+SUMMARY:Bastille Day Party
+BEGIN:VALARM
+ACTION:AUDIO
+TRIGGER|_} ^ s ^ {_|
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+|_}
+  and expected s = Ok
+      ( [ `Version ([], "2.0") ;
+          `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
+        [
+          [ `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
+            `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+            `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], [ [ `Action ([], `Audio) ; s ] ]
+        ])
+  in
+  let inputs = List.map input [
+      ":-PT15M" ;
+      ";RELATED=END:PT5M" ;
+      ";VALUE=DATE-TIME:19980101T050000Z" ;
+    ]
+  and expecteds = List.map expected [
+      `Trigger ([], `Duration (- (15 * 60))) ;
+      `Trigger ([ `Related `End ], `Duration (5 * 60)) ;
+      `Trigger ([ `Valuetype `Datetime ], `Datetime (to_ptime (1998, 01, 01) (05, 00, 00), true))
+    ]
+  in
+  List.iter2 (fun i e ->
+      let f = Icalendar.parse_calobject i in
+      Alcotest.check result_c __LOC__ e f)
+    inputs expecteds
+
 let object_tests = [
   "calendar object parsing", `Quick, calendar_object ;
   "calendar object parsing with tzid", `Quick, calendar_object_with_tzid ;
@@ -1515,6 +1561,7 @@ let object_tests = [
   "calendar object parsing with resource2", `Quick, calendar_object_with_resource2 ;
   "calendar object parsing with rdate", `Quick, calendar_object_with_rdate ;
   "calendar object parsing with valarm and action", `Quick, calendar_object_with_valarm_action ;
+  "calendar object parsing with valarm and trigger", `Quick, calendar_object_with_valarm_trigger ;
 ]
 
 let tests = [
