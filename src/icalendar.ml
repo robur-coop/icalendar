@@ -765,8 +765,9 @@ let organizer =
   let orgparam = cnparam <|> dirparam <|> sentbyparam <|> languageparam <|> other_param in
   propparser "ORGANIZER" orgparam caladdress (fun a b -> `Organizer (a, b))
 
+let digit = satisfy is_digit >>= fun c -> ensure int_of_string @@ String.make 1 c
+
 let priority =
-  let digit = satisfy is_digit >>= fun c -> ensure int_of_string @@ String.make 1 c in
   propparser "PRIORITY" other_param digit (fun a b -> `Priority (a, b))
 
 let seq =
@@ -953,6 +954,23 @@ let exdate =
        in
        `Exdate (a, date))
 
+let rstatus =
+  let rstatparam = languageparam <|> other_param in
+  let statcode =
+    lift3 triple
+      digit
+      (char '.' *> digit)
+      (option None (char '.' *> (digit >>| fun x -> Some x)))
+  in
+  let rstatvalue =
+    lift3 triple
+      (statcode <* char ';')
+      text_parser
+      (option None (char ';' *> (text_parser >>| fun t -> Some t)))
+  in
+  propparser "REQUEST-STATUS" rstatparam rstatvalue
+    (fun a b -> `Rstatus (a, b))
+
 let eventprop =
   dtstamp <|> uid <|>
   dtstart <|>
@@ -963,7 +981,7 @@ let eventprop =
   rrule <|>
   dtend <|> duration <|>
   attach <|> attendee <|> categories <|> comment <|>
-  contact <|> exdate (* <|> rstatus <|> related <|>
+  contact <|> exdate <|> rstatus (* <|> related <|>
   resources <|> rdate*)
 
 let eventprops = many eventprop
@@ -1068,7 +1086,8 @@ type eventprop =
   | `Comment of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
   | `Contact of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
   | `Exdate of [ other_param | `Valuetype of [`Datetime | `Date ] | `Tzid of bool * string ] list * 
-    [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list ]
+               [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list ]
+  | `Rstatus of [ other_param | `Language of string ] list * ((int * int * int option) * string * string option)
   ]
 
 let pp_dtstart_param fmt = function
@@ -1200,6 +1219,9 @@ let pp_eventprop fmt = function
   | `Comment (l, v) -> Fmt.pf fmt "comment %a %s" (Fmt.list pp_desc_param) l v
   | `Contact (l, v) -> Fmt.pf fmt "contact %a %s" (Fmt.list pp_desc_param) l v
   | `Exdate (l, v) -> Fmt.pf fmt "exdate %a %a" (Fmt.list pp_dtstart_param) l pp_exdate_value v
+  | `Rstatus (l, ((one, two, three), desc, extdata)) ->
+    Fmt.pf fmt "rstatus %a %d.%d.%a %s %a" (Fmt.list pp_categories_param) l
+      one two Fmt.(option int) three desc Fmt.(option string) extdata
 
 type component =
   eventprop list * 

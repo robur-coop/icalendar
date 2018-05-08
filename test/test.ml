@@ -1225,6 +1225,54 @@ END:VCALENDAR
   let f = Icalendar.parse_calobject input in
   Alcotest.check result_c __LOC__ expected f
 
+let calendar_object_with_rstatus () =
+  let input s =
+{_|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+BEGIN:VEVENT
+REQUEST-STATUS:|_} ^ s ^ {_|
+UID:19970610T172345Z-AF23B2@example.com
+DTSTAMP:19970610T172345Z
+DTSTART:19970714T170000Z
+DTEND:19970715T040000Z
+SUMMARY:Bastille Day Party
+END:VEVENT
+END:VCALENDAR
+|_}
+  and expected s = Ok
+      ( [ `Version ([], "2.0") ;
+          `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
+        [
+          [ s ;
+            `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
+            `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+            `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], []
+        ])
+  in
+  let inputs = List.map input [
+      "2.0;Success" ;
+      "3.1;Invalid property value;DTSTART:96-Apr-01" ;
+      "2.8; Success\, repeating event ignored. Scheduled as a single event.;RRULE:FREQ=WEEKLY\;INTERVAL=2" ;
+      "4.1;Event conflict.  Date-time is busy." ;
+      "3.7;Invalid calendar user;ATTENDEE:mailto:jsmith@example.com" ;
+    ]
+  and expecteds = List.map expected [
+      `Rstatus ([], ((2, 0, None), "Success", None)) ;
+      `Rstatus ([], ((3, 1, None), "Invalid property value", Some "DTSTART:96-Apr-01")) ;
+      `Rstatus ([], ((2, 8, None), " Success, repeating event ignored. Scheduled as a single event.", Some "RRULE:FREQ=WEEKLY;INTERVAL=2")) ;
+      `Rstatus ([], ((4, 1, None), "Event conflict.  Date-time is busy.", None)) ;
+      `Rstatus ([], ((3, 7, None), "Invalid calendar user", Some "ATTENDEE:mailto:jsmith@example.com")) ;
+    ]
+  in
+  List.iter2 (fun i e ->
+      let f = Icalendar.parse_calobject i in
+      Alcotest.check result_c __LOC__ e f)
+    inputs expecteds
+
 let object_tests = [
   "calendar object parsing", `Quick, calendar_object ;
   "calendar object parsing with tzid", `Quick, calendar_object_with_tzid ;
@@ -1250,6 +1298,7 @@ let object_tests = [
   "calendar object parsing with comment", `Quick, calendar_object_with_comment ;
   "calendar object parsing with contact", `Quick, calendar_object_with_contact ;
   "calendar object parsing with exdate", `Quick, calendar_object_with_exdate ;
+  "calendar object parsing with rstatus", `Quick, calendar_object_with_rstatus ;
 ]
 
 let tests = [
