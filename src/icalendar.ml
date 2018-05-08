@@ -266,8 +266,6 @@ let x_param = lift2 (fun k v -> `Xparam (k, v))
 
 let other_param = iana_param <|> x_param
 
-let other_params = many (char ';' *> other_param)
-
 let propparser id pparser vparser lift =
   let params = many (char ';' *> pparser) in
   lift2 lift
