@@ -142,6 +142,8 @@ type eventprop =
   | `Rstatus of [ other_param | `Language of string ] list * ((int * int * int option) * string * string option)
   | `Related of [ other_param | `Reltype of relationship ] list * string
   | `Resource of [ other_param | `Language of string | `Altrep of Uri.t ] list * string list
+  | `Rdate of [ other_param | `Valuetype of [ `Datetime | `Date | `Period ] | `Tzid of bool * string ] list *
+              [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
   ]
 
 type component =

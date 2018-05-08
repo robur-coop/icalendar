@@ -202,15 +202,17 @@ let signed_integer str =
   | Ok i -> `Integer i
   | Error _ -> raise Parse_error
 
-let period str =
+let period_parser =
   let to_explicit (dt, utc) dur = match Ptime.add_span dt (Ptime.Span.of_int_s dur) with
   | Some t -> (dt, t, utc)
   | None -> raise Parse_error in
   let to_period (tstart, utc) (tend, utc') = if utc = utc' then (tstart, tend, utc) else raise Parse_error in
   let explicit = lift2 to_period datetime_parser (char '/' *> datetime_parser)
   and start = lift2 to_explicit datetime_parser (char '/' *> duration_parser) in
-  let period = explicit <|> start <* end_of_input in
-  match parse_string period str with
+  explicit <|> start
+
+let period str =
+  match parse_string (period_parser <* end_of_input) str with
   | Ok p -> `Period p
   | Error _ -> raise Parse_error
 
@@ -990,6 +992,50 @@ let resources =
   propparser "RESOURCES" resrcparam texts_parser
     (fun a b -> `Resource (a, b))
 
+let time_or_date_or_period_param =
+  string "VALUE=" *>
+  (string "DATE-TIME" <|> string "DATE" <|> string "PERIOD") >>| function
+  | "DATE-TIME" -> `Valuetype `Datetime
+  | "DATE" -> `Valuetype `Date
+  | "PERIOD" -> `Valuetype `Period
+  | _ -> raise Parse_error
+
+let build_time_or_date_or_period a b =
+  let valuetype = try List.find (function `Valuetype _ -> true | _ -> false) a with Not_found -> `Valuetype `Datetime in
+  match valuetype, b with
+  | `Valuetype `Datetime, `Datetime dt -> b
+  | `Valuetype `Date, `Date d -> b
+  | `Valuetype `Period, `Period p -> b
+  | _ -> raise Parse_error
+
+let time_or_date_or_period_parser =
+      (period_parser >>| fun p -> `Period p)
+  <|> (datetime_parser >>| fun dt -> `Datetime dt)
+  <|> (date_parser >>| fun d -> `Date d)
+
+let rdate =
+  let rdtparam = tzidparam <|> time_or_date_or_period_param <|> other_param in
+  let rdtvalue = sep_by1 (char ',') time_or_date_or_period_parser in
+  propparser "RDATE" rdtparam rdtvalue
+    (fun a b ->
+       let dates = List.map (build_time_or_date_or_period a) b in
+       let date =
+         if List.for_all (function `Date _ -> true | _ -> false) dates then
+           `Dates (List.map
+                     (function `Date d -> d | _ -> raise Parse_error)
+                     dates)
+         else if List.for_all (function `Datetime _ -> true | _ -> false) dates then
+           `Datetimes (List.map
+                         (function `Datetime d -> d | _ -> raise Parse_error)
+                         dates)
+         else if List.for_all (function `Period _ -> true | _ -> false) dates then
+           `Periods (List.map
+                         (function `Period d -> d | _ -> raise Parse_error)
+                         dates)
+         else raise Parse_error
+       in
+       `Rdate (a, date))
+
 let eventprop =
   dtstamp <|> uid <|>
   dtstart <|>
@@ -1001,7 +1047,7 @@ let eventprop =
   dtend <|> duration <|>
   attach <|> attendee <|> categories <|> comment <|>
   contact <|> exdate <|> rstatus <|> related <|>
-  resources (* <|> rdate*)
+  resources <|> rdate
 
 let eventprops = many eventprop
 (*let alarmc = *)
@@ -1108,11 +1154,13 @@ type eventprop =
   | `Categories of [ other_param | `Language of string ] list * string list
   | `Comment of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
   | `Contact of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
-  | `Exdate of [ other_param | `Valuetype of [`Datetime | `Date ] | `Tzid of bool * string ] list * 
+  | `Exdate of [ other_param | `Valuetype of [ `Datetime | `Date ] | `Tzid of bool * string ] list *
                [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list ]
   | `Rstatus of [ other_param | `Language of string ] list * ((int * int * int option) * string * string option)
   | `Related of [ other_param | `Reltype of relationship ] list * string
   | `Resource of [ other_param | `Language of string | `Altrep of Uri.t ] list * string list
+  | `Rdate of [ other_param | `Valuetype of [ `Datetime | `Date | `Period ] | `Tzid of bool * string ] list *
+              [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
   ]
 
 let pp_dtstart_param fmt = function
@@ -1227,6 +1275,22 @@ let pp_related_param fmt = function
   | #other_param as p -> pp_other_param fmt p
   | `Reltype c -> Fmt.pf fmt "reltype %a" pp_relationship c
 
+let pp_rdate_param fmt = function
+  | #other_param as p -> pp_other_param fmt p
+  | `Tzid (prefix, name) -> Fmt.pf fmt "tzid prefix %b %s" prefix name
+  | `Valuetype `Datetime -> Fmt.string fmt "valuetype datetime"
+  | `Valuetype `Date -> Fmt.string fmt "valuetype date"
+  | `Valuetype `Period -> Fmt.string fmt "valuetype period"
+
+let pp_rdate_value fmt = function
+  | `Datetimes xs -> Fmt.pf fmt "datetimes %a" Fmt.(list (pair Ptime.pp bool)) xs
+  | `Dates ds -> Fmt.pf fmt "dates %a" (Fmt.list pp_date) ds
+  | `Periods ps ->
+    let pp_period fmt (start, stop, utc) =
+      Fmt.pf fmt "%a - %a utc? %b" Ptime.pp start Ptime.pp stop utc
+    in
+    Fmt.pf fmt "periods %a" (Fmt.list pp_period) ps
+
 let pp_eventprop fmt = function
   | `Dtstamp (l, (p, utc)) -> Fmt.pf fmt "dtstamp %a %a %b" pp_other_params l Ptime.pp p utc
   | `Uid (l, s) -> Fmt.pf fmt "uid %a %s" pp_other_params l s 
@@ -1260,6 +1324,7 @@ let pp_eventprop fmt = function
       one two Fmt.(option int) three desc Fmt.(option string) extdata
   | `Related (l, v) -> Fmt.pf fmt "related to %a %s" (Fmt.list pp_related_param) l v
   | `Resource (l, v) -> Fmt.pf fmt "resource %a %a" (Fmt.list pp_desc_param) l Fmt.(list string) v
+  | `Rdate (l, v) -> Fmt.pf fmt "rdate %a %a" (Fmt.list pp_rdate_param) l pp_rdate_value v
 
 type component =
   eventprop list * 
