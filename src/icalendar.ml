@@ -55,7 +55,7 @@ let caladdress = take_while1 is_qsafe_char >>| Uri.of_string
 
 let quoted_caladdress = char '"' *> caladdress <* char '"' 
 
-(* value parser *)
+(* value parsers *)
 let text =
   let escaped_char =
     (string {_|\\|_} >>| fun _ -> {_|\|_})
@@ -135,8 +135,8 @@ let recur =
          <|> ( string "WEEKLY"   >>| fun _ -> `Weekly )
          <|> ( string "MONTHLY"  >>| fun _ -> `Monthly )
          <|> ( string "YEARLY"   >>| fun _ -> `Yearly )
-  and weekday = ( string "SU" >>| fun _ -> `Sunday ) 
-            <|> ( string "MO" >>| fun _ -> `Monday ) 
+  and weekday = ( string "SU" >>| fun _ -> `Sunday )
+            <|> ( string "MO" >>| fun _ -> `Monday )
             <|> ( string "TU" >>| fun _ -> `Tuesday )
             <|> ( string "WE" >>| fun _ -> `Wednesday )
             <|> ( string "TH" >>| fun _ -> `Thursday )
@@ -216,11 +216,54 @@ let tzidparam =
  lift2 (fun a b -> `Tzid (a = '/', b))
  (string "TZID=" *> option ' ' (char '/')) param_text
 
-let time_or_date_param =
+let valuetypeparam =
   lift (fun x -> `Valuetype x)
     (string "VALUE=" *>
-     ((string "DATE-TIME" >>| fun _ -> `Datetime)
-      <|> (string "DATE" >>| fun _ -> `Date)))
+     ((string "BINARY" >>| fun _ -> `Binary)
+      <|> (string "BOOLEAN" >>| fun _ -> `Boolean)
+      <|> (string "CAL-ADDRESS" >>| fun _ -> `Caladdress)
+      <|> (string "DATE-TIME" >>| fun _ -> `Datetime)
+      <|> (string "DATE" >>| fun _ -> `Date)
+      <|> (string "DURATION" >>| fun _ -> `Duration)
+      <|> (string "FLOAT" >>| fun _ -> `Float)
+      <|> (string "INTEGER" >>| fun _ -> `Integer)
+      <|> (string "PERIOD" >>| fun _ -> `Period)
+      <|> (string "RECUR" >>| fun _ -> `Recur)
+      <|> (string "TEXT" >>| fun _ -> `Text)
+      <|> (string "TIME" >>| fun _ -> `Time)
+      <|> (string "URI" >>| fun _ -> `Uri)
+      <|> (string "UTC-OFFSET" >>| fun _ -> `Utcoffset)
+      <|> (x_name >>| fun x -> `Xname x)
+      <|> (iana_token >>| fun x -> `Ianatoken x)))
+
+type valuetype = [
+    `Binary | `Boolean | `Caladdress | `Date | `Datetime | `Duration | `Float
+  | `Integer | `Period | `Recur | `Text | `Time | `Uri | `Utcoffset
+  | `Xname of (string * string) | `Ianatoken of string
+]
+
+let pp_valuetype fmt = function
+  | `Binary -> Fmt.string fmt "binary"
+  | `Boolean -> Fmt.string fmt "boolean"
+  | `Caladdress -> Fmt.string fmt "caladdress"
+  | `Date -> Fmt.string fmt "date"
+  | `Datetime -> Fmt.string fmt "datetime"
+  | `Duration -> Fmt.string fmt "duration"
+  | `Float -> Fmt.string fmt "float"
+  | `Integer -> Fmt.string fmt "integer"
+  | `Period -> Fmt.string fmt "period"
+  | `Recur -> Fmt.string fmt "recur"
+  | `Text -> Fmt.string fmt "text"
+  | `Time -> Fmt.string fmt "time"
+  | `Uri -> Fmt.string fmt "uri"
+  | `Utcoffset -> Fmt.string fmt "utcoffset"
+  | `Xname (a, b) -> Fmt.pf fmt "xname %s %s" a b
+  | `Ianatoken a -> Fmt.pf fmt "ianatoken %s" a
+
+type valuetypeparam = [ `Valuetype of valuetype ]
+
+let pp_valuetypeparam fmt (`Valuetype v) =
+  Fmt.pf fmt "valuetype %a" pp_valuetype v
 
 (* TODO use uri parser here *)
 let altrepparam = (string "ALTREP=") *> quoted_string >>| fun uri -> `Altrep (Uri.of_string uri)
@@ -288,14 +331,6 @@ let deltoparam = lift (fun x -> `Delegated_to x)
 let delfromparam = lift (fun x -> `Delegated_from x)
   ((string "DELEGATED-FROM=") *> sep_by1 (char ',') quoted_caladdress)
 
-let time_or_date_or_period_param =
-  string "VALUE=" *>
-  (string "DATE-TIME" <|> string "DATE" <|> string "PERIOD") >>| function
-  | "DATE-TIME" -> `Valuetype `Datetime
-  | "DATE" -> `Valuetype `Date
-  | "PERIOD" -> `Valuetype `Period
-  | _ -> raise Parse_error
-
 (* Properties *)
 let propparser id pparser vparser lift =
   let params = many (char ';' *> pparser) in
@@ -327,11 +362,45 @@ let dtstamp =
 let uid =
   propparser "UID" other_param text (fun a b -> `Uid (a, b))
 
-let build_time_or_date a b =
-  let valuetype = try List.find (function `Valuetype _ -> true | _ -> false) a with Not_found -> `Valuetype `Datetime in
+let check_date_datetime default a b =
+  let valuetype =
+    try List.find (function `Valuetype _ -> true | _ -> false) a
+    with Not_found -> `Valuetype default
+  in
   match valuetype, b with
-  | `Valuetype `Datetime, `Datetime dt -> b
-  | `Valuetype `Date, `Date d -> b
+  | `Valuetype `Datetime, `Datetime _ -> ()
+  | `Valuetype `Date, `Date _ -> ()
+  | _ -> raise Parse_error
+
+let check_datetime_duration default a b =
+  let valuetype =
+    try List.find (function `Valuetype _ -> true | _ -> false) a
+    with Not_found -> `Valuetype default
+  in
+  match valuetype, b with
+  | `Valuetype `Datetime, `Datetime _ -> ()
+  | `Valuetype `Duration, `Duration _ -> ()
+  | _ -> raise Parse_error
+
+let check_date_datetime_period default a b =
+  let valuetype =
+    try List.find (function `Valuetype _ -> true | _ -> false) a
+    with Not_found -> `Valuetype default
+  in
+  match valuetype, b with
+  | `Valuetype `Datetime, `Datetime _ -> ()
+  | `Valuetype `Date, `Date _ -> ()
+  | `Valuetype `Period, `Period _ -> ()
+  | _ -> raise Parse_error
+
+let check_binary_uri default a b =
+  let valuetype =
+    try List.find (function `Valuetype _ -> true | _ -> false) a
+    with Not_found -> `Valuetype default
+  in
+  match valuetype, b with
+  | `Valuetype `Binary, `Binary _ -> ()
+  | `Valuetype `Uri, `Uri _ -> ()
   | _ -> raise Parse_error
 
 let time_or_date =
@@ -339,9 +408,11 @@ let time_or_date =
   <|> (date >>| fun d -> `Date d)
 
 let dtstart =
-  let dtstparam = time_or_date_param <|> tzidparam <|> other_param in
+  let dtstparam = valuetypeparam <|> tzidparam <|> other_param in
   propparser "DTSTART" dtstparam time_or_date
-    (fun a b -> `Dtstart (a, build_time_or_date a b))
+    (fun a b ->
+       check_date_datetime `Datetime a b ;
+       `Dtstart (a, b))
 
 let class_ =
   let class_value =
@@ -420,17 +491,21 @@ let url =
 
 let recurid =
   let range_param = string "RANGE=THISANDFUTURE" >>| fun _ -> `Range `Thisandfuture in
-  let recur_param = tzidparam <|> time_or_date_param <|> range_param <|> other_param in
+  let recur_param = tzidparam <|> valuetypeparam <|> range_param <|> other_param in
   propparser "RECURRENCE-ID" recur_param time_or_date
-    (fun a b -> `Recur_id (a, build_time_or_date a b))
+    (fun a b ->
+       check_date_datetime `Datetime a b ;
+       `Recur_id (a, b))
 
 let rrule =
   propparser "RRULE" other_param recur (fun a b -> `Rrule (a, b))
 
 let dtend =
-  let dtend_param = tzidparam <|> time_or_date_param <|> other_param in
+  let dtend_param = tzidparam <|> valuetypeparam <|> other_param in
   propparser "DTEND" dtend_param time_or_date
-    (fun a b -> `Dtend (a, build_time_or_date a b))
+    (fun a b ->
+       check_date_datetime `Datetime a b ;
+       `Dtend (a, b))
 
 let duration =
   propparser "DURATION" other_param dur_value (fun a b -> `Duration (a, b))
@@ -452,23 +527,20 @@ let binary =
 let attach =
   let fmttype_param =
     string "FMTTYPE=" *> media_type >>| fun m -> `Media_type m
-  and value_param =
-    string "VALUE=BINARY" >>| fun _ -> `Valuetype `Binary
   and encoding_param =
     string "ENCODING=BASE64" >>| fun _ -> `Encoding `Base64
   in
-  let attach_param = fmttype_param <|> value_param <|> encoding_param <|> other_param in
+  let attach_param = fmttype_param <|> valuetypeparam <|> encoding_param <|> other_param in
   let attach_value =
     (binary >>| fun b -> `Binary b) <|> (caladdress >>| fun a -> `Uri a)
   in
   propparser "ATTACH" attach_param attach_value
     (fun a b ->
-       let valuetype = try Some (List.find (function `Valuetype _ -> true | _ -> false) a) with Not_found -> None
-       and encoding = try Some (List.find (function `Encoding _ -> true | _ -> false) a) with Not_found -> None
-       in
-       match valuetype, encoding, b with
-       | None, None, `Uri uri -> `Attach (a, `Uri uri)
-       | Some (`Valuetype `Binary), Some (`Encoding `Base64), `Binary b -> `Attach (a,`Binary b)
+       check_binary_uri `Uri a b ;
+       let encoding = try Some (List.find (function `Encoding _ -> true | _ -> false) a) with Not_found -> None in
+       match encoding, b with
+       | None, `Uri _ -> `Attach (a, b)
+       | Some (`Encoding `Base64), `Binary _ -> `Attach (a, b)
        | _ -> raise Parse_error)
 
 let attendee =
@@ -492,20 +564,21 @@ let contact =
   propparser "CONTACT" contactparam text (fun a b -> `Contact (a, b))
 
 let exdate =
-  let exdtparam = time_or_date_param <|> tzidparam <|> other_param in
+  let exdtparam = valuetypeparam <|> tzidparam <|> other_param in
   let exdtvalue = sep_by1 (char ',') time_or_date in
   propparser "EXDATE" exdtparam exdtvalue
     (fun a b ->
-       let dates = List.map (build_time_or_date a) b in
+       List.iter (check_date_datetime `Datetime a) b ;
+       let is_date = function `Date _ -> true | _ -> false
+       and is_datetime = function `Datetime _ -> true | _ -> false
+       in
        let date =
-         if List.for_all (function `Date _ -> true | _ -> false) dates then
-           `Dates (List.map
-                     (function `Date d -> d | _ -> raise Parse_error)
-                     dates)
-         else if List.for_all (function `Datetime _ -> true | _ -> false) dates then
-           `Datetimes (List.map
-                         (function `Datetime d -> d | _ -> raise Parse_error)
-                         dates)
+         if List.for_all is_date b then
+           let extract = function `Date d -> d | _ -> raise Parse_error in
+           `Dates (List.map extract b)
+         else if List.for_all is_datetime b then
+           let extract = function `Datetime d -> d | _ -> raise Parse_error in
+           `Datetimes (List.map extract b)
          else raise Parse_error
        in
        `Exdate (a, date))
@@ -546,38 +619,31 @@ let resources =
   propparser "RESOURCES" resrcparam texts
     (fun a b -> `Resource (a, b))
 
-let build_time_or_date_or_period a b =
-  let valuetype = try List.find (function `Valuetype _ -> true | _ -> false) a with Not_found -> `Valuetype `Datetime in
-  match valuetype, b with
-  | `Valuetype `Datetime, `Datetime dt -> b
-  | `Valuetype `Date, `Date d -> b
-  | `Valuetype `Period, `Period p -> b
-  | _ -> raise Parse_error
-
 let time_or_date_or_period =
       (period >>| fun p -> `Period p)
   <|> (datetime >>| fun dt -> `Datetime dt)
   <|> (date >>| fun d -> `Date d)
 
 let rdate =
-  let rdtparam = tzidparam <|> time_or_date_or_period_param <|> other_param in
+  let rdtparam = tzidparam <|> valuetypeparam <|> other_param in
   let rdtvalue = sep_by1 (char ',') time_or_date_or_period in
   propparser "RDATE" rdtparam rdtvalue
     (fun a b ->
-       let dates = List.map (build_time_or_date_or_period a) b in
+       List.iter (check_date_datetime_period `Datetime a) b ;
+       let is_date = function `Date _ -> true | _ -> false
+       and is_datetime = function `Datetime _ -> true | _ -> false
+       and is_period = function `Period _ -> true | _ -> false
+       in
        let date =
-         if List.for_all (function `Date _ -> true | _ -> false) dates then
-           `Dates (List.map
-                     (function `Date d -> d | _ -> raise Parse_error)
-                     dates)
-         else if List.for_all (function `Datetime _ -> true | _ -> false) dates then
-           `Datetimes (List.map
-                         (function `Datetime d -> d | _ -> raise Parse_error)
-                         dates)
-         else if List.for_all (function `Period _ -> true | _ -> false) dates then
-           `Periods (List.map
-                         (function `Period d -> d | _ -> raise Parse_error)
-                         dates)
+         if List.for_all is_date b then
+           let extract = function `Date d -> d | _ -> raise Parse_error in
+           `Dates (List.map extract b)
+         else if List.for_all is_datetime b then
+           let extract = function `Datetime d -> d | _ -> raise Parse_error in
+           `Datetimes (List.map extract b)
+         else if List.for_all is_period b then
+           let extract = function `Period d -> d | _ -> raise Parse_error in
+           `Periods (List.map extract b)
          else raise Parse_error
        in
        `Rdate (a, date))
@@ -613,24 +679,15 @@ let trigger =
       (string "RELATED=" *>
        ((string "START" >>| fun _ -> `Start) <|>
         (string "END" >>| fun _ -> `End)))
-  and valueparam =
-    lift (fun x -> `Valuetype x)
-      (string "VALUE=" *>
-       ((string "DURATION" >>| fun _ -> `Duration)
-        <|> (string "DATE-TIME" >>| fun _ -> `Datetime)))
   in
-  let trigparam = trigrelparam <|> valueparam <|> other_param in
+  let trigparam = trigrelparam <|> valuetypeparam <|> other_param in
   let trigvalue =
         (dur_value >>| fun d -> `Duration d)
     <|> (datetime >>| fun d -> `Datetime d)
   in
   propparser "TRIGGER" trigparam trigvalue
     (fun a b ->
-       let vtype = try List.find (function `Valuetype _ -> true | _ -> false) a with Not_found -> `Valuetype `Duration in
-       (match vtype, b with
-        | `Valuetype `Duration, `Duration _ -> ()
-        | `Valuetype `Datetime, `Datetime _ -> ()
-        | _ -> raise Parse_error) ;
+       check_datetime_duration `Duration a b ;
        `Trigger (a, b))
 
 let repeat =
@@ -786,7 +843,7 @@ type relationship =
 type eventprop =
   [ `Dtstamp of other_param list * (Ptime.t * bool)
   | `Uid of other_param list * string
-  | `Dtstart of [ other_param | `Valuetype of [`Datetime | `Date ] | `Tzid of bool * string ] list * 
+  | `Dtstart of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
     [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Class of other_param list * class_
   | `Created of other_param list * (Ptime.t * bool)
@@ -801,13 +858,13 @@ type eventprop =
   | `Summary of [other_param | `Altrep of Uri.t | `Language of string ] list * string
   | `Transparency of other_param list * [ `Transparent | `Opaque ]
   | `Url of other_param list * Uri.t
-  | `Recur_id of [ other_param | `Tzid of bool * string | `Valuetype of [ `Datetime | `Date ] | `Range of [ `Thisandfuture ] ] list *
+  | `Recur_id of [ other_param | `Tzid of bool * string | valuetypeparam | `Range of [ `Thisandfuture ] ] list *
                  [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Rrule of other_param list * recur list
-  | `Dtend of [ other_param | `Valuetype of [`Datetime | `Date ] | `Tzid of bool * string ] list * 
+  | `Dtend of [ other_param | valuetypeparam | `Tzid of bool * string ] list * 
               [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Duration of other_param list * int
-  | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | `Valuetype of [ `Binary ] | other_param ] list *
+  | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | valuetypeparam | other_param ] list *
                [ `Uri of Uri.t | `Binary of string ]
   | `Attendee of [ other_param
                  | `Cn of string
@@ -824,19 +881,18 @@ type eventprop =
   | `Categories of [ other_param | `Language of string ] list * string list
   | `Comment of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
   | `Contact of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
-  | `Exdate of [ other_param | `Valuetype of [ `Datetime | `Date ] | `Tzid of bool * string ] list *
+  | `Exdate of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
                [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list ]
   | `Rstatus of [ other_param | `Language of string ] list * ((int * int * int option) * string * string option)
   | `Related of [ other_param | `Reltype of relationship ] list * string
   | `Resource of [ other_param | `Language of string | `Altrep of Uri.t ] list * string list
-  | `Rdate of [ other_param | `Valuetype of [ `Datetime | `Date | `Period ] | `Tzid of bool * string ] list *
+  | `Rdate of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
               [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
   ]
 
 let pp_dtstart_param fmt = function
   | #other_param as p -> pp_other_param fmt p
-  | `Valuetype `Datetime -> Fmt.string fmt "valuetype datetime"
-  | `Valuetype `Date -> Fmt.string fmt "valuetype date"
+  | #valuetypeparam as p -> pp_valuetypeparam fmt p
   | `Tzid (prefix, name) -> Fmt.pf fmt "tzid prefix %b %s" prefix name
 
 let pp_dtstart_value fmt = function
@@ -861,8 +917,7 @@ let pp_organizer_param fmt = function
 
 let pp_recur_param fmt = function
   | #other_param as p -> pp_other_param fmt p
-  | `Valuetype `Datetime -> Fmt.string fmt "valuetype datetime"
-  | `Valuetype `Date -> Fmt.string fmt "valuetype date"
+  | #valuetypeparam as p -> pp_valuetypeparam fmt p
   | `Tzid (prefix, name) -> Fmt.pf fmt "tzid prefix %b %s" prefix name
   | `Range `Thisandfuture -> Fmt.string fmt "range: thisandfuture"
 
@@ -880,7 +935,7 @@ let pp_status fmt s =
 
 let pp_attach_param fmt = function
   | #other_param as p -> pp_other_param fmt p
-  | `Valuetype `Binary -> Fmt.string fmt "valuetype binary"
+  | #valuetypeparam as p -> pp_valuetypeparam fmt p
   | `Encoding `Base64 -> Fmt.string fmt "encoding base64"
   | `Media_type (typename, subtypename) -> Fmt.pf fmt "mediatype %s/%s" typename subtypename
 
@@ -947,10 +1002,8 @@ let pp_related_param fmt = function
 
 let pp_rdate_param fmt = function
   | #other_param as p -> pp_other_param fmt p
+  | #valuetypeparam as p -> pp_valuetypeparam fmt p
   | `Tzid (prefix, name) -> Fmt.pf fmt "tzid prefix %b %s" prefix name
-  | `Valuetype `Datetime -> Fmt.string fmt "valuetype datetime"
-  | `Valuetype `Date -> Fmt.string fmt "valuetype date"
-  | `Valuetype `Period -> Fmt.string fmt "valuetype period"
 
 let pp_rdate_value fmt = function
   | `Datetimes xs -> Fmt.pf fmt "datetimes %a" Fmt.(list (pair Ptime.pp bool)) xs
@@ -998,14 +1051,14 @@ let pp_eventprop fmt = function
 
 type alarm = [
   | `Action of other_param list * [ `Audio | `Display | `Email | `Ianatoken of string | `Xname of string * string ]
-  | `Trigger of [ other_param | `Valuetype of [ `Datetime | `Duration ] | `Related of [ `Start | `End ] ] list *
+  | `Trigger of [ other_param | valuetypeparam | `Related of [ `Start | `End ] ] list *
                 [ `Duration of int | `Datetime of (Ptime.t * bool) ]
   | `Duration of other_param list * int
   | `Repeat of other_param list * int
-  | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | `Valuetype of [ `Binary ] | other_param ] list *
+  | `Attach of [ `Media_type of string * string | `Encoding of [ `Base64 ] | valuetypeparam | other_param ] list *
                [ `Uri of Uri.t | `Binary of string ]
   | `Description of [other_param | `Altrep of Uri.t | `Language of string ] list * string
-  | `Summary of [other_param | `Altrep of Uri.t | `Language of string ] list * string
+  | `Summary of [ other_param | `Altrep of Uri.t | `Language of string ] list * string
   | `Attendee of [ other_param
                  | `Cn of string
                  | `Cutype of cutype
@@ -1029,8 +1082,7 @@ let pp_action fmt = function
 
 let pp_trigger_param fmt = function
   | #other_param as p -> pp_other_param fmt p
-  | `Valuetype `Datetime -> Fmt.string fmt "valuetype datetime"
-  | `Valuetype `Duration -> Fmt.string fmt "valuetype duration"
+  | #valuetypeparam as p -> pp_valuetypeparam fmt p
   | `Related `Start -> Fmt.string fmt "related to start"
   | `Related `End -> Fmt.string fmt "related to end"
 
