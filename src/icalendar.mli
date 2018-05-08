@@ -155,6 +155,19 @@ type alarm = [
   | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | `Valuetype of [ `Binary ] | other_param ] list *
                [ `Uri of Uri.t | `Binary of string ]
   | `Description of [other_param | `Altrep of Uri.t | `Language of string ] list * string
+  | `Summary of [other_param | `Altrep of Uri.t | `Language of string ] list * string
+  | `Attendee of [ other_param
+                 | `Cn of string
+                 | `Cutype of cutype
+                 | `Delegated_from of Uri.t list
+                 | `Delegated_to of Uri.t list
+                 | `Dir of Uri.t
+                 | `Language of string
+                 | `Member of Uri.t list
+                 | `Partstat of partstat
+                 | `Role of role
+                 | `Rsvp of bool
+                 | `Sentby of Uri.t ] list * Uri.t
 ] list
 
 type component = eventprop list * alarm list

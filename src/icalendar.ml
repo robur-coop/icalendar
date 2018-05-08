@@ -1105,13 +1105,13 @@ let emailprop =
   (* action <|> description <|> trigger <|> *) summary <|>
   attendee (* <|>
   duration <|> repeat <|>
-    attach *)
+  attach *)
 
 (* let otherprop = x_prop <|> iana_prop *)
 
 let alarmc =
   string "BEGIN:VALARM" *> end_of_line *>
-  many (audioprop <|> dispprop (* <|> emailprop  *) (* <|> otherprop *))
+  many (audioprop <|> dispprop <|> emailprop (* <|> otherprop *))
   <* string "END:VALARM" <* end_of_line
 
 let eventc =
@@ -1398,6 +1398,19 @@ type alarm = [
   | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | `Valuetype of [ `Binary ] | other_param ] list *
                [ `Uri of Uri.t | `Binary of string ]
   | `Description of [other_param | `Altrep of Uri.t | `Language of string ] list * string
+  | `Summary of [other_param | `Altrep of Uri.t | `Language of string ] list * string
+  | `Attendee of [ other_param
+                 | `Cn of string
+                 | `Cutype of cutype
+                 | `Delegated_from of Uri.t list
+                 | `Delegated_to of Uri.t list
+                 | `Dir of Uri.t
+                 | `Language of string
+                 | `Member of Uri.t list
+                 | `Partstat of partstat
+                 | `Role of role
+                 | `Rsvp of bool
+                 | `Sentby of Uri.t ] list * Uri.t
 ] list
 
 let pp_action fmt = function
@@ -1425,6 +1438,8 @@ let pp_alarm_element fmt = function
   | `Repeat (params, value) -> Fmt.pf fmt "repeat %a %ds" pp_other_params params value
   | `Attach (l, v) -> Fmt.pf fmt "attach %a %a" (Fmt.list pp_attach_param) l pp_attach_value v 
   | `Description (l, v) -> Fmt.pf fmt "description %a %s" (Fmt.list pp_desc_param) l v
+  | `Summary (l, v) -> Fmt.pf fmt "summary %a %s" (Fmt.list pp_desc_param) l v
+  | `Attendee (l, v) -> Fmt.pf fmt "attendee %a %a" (Fmt.list pp_attendee_param) l Uri.pp_hum v
 
 let pp_alarm fmt data =
   (Fmt.list pp_alarm_element) fmt data
