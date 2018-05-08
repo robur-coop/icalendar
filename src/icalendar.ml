@@ -2,69 +2,78 @@ open Angstrom
 
 exception Parse_error
 
-type weekday = [ `Friday | `Monday | `Saturday | `Sunday | `Thursday | `Tuesday | `Wednesday ]
+(* pre-processing of the input: remove "\n " *)
+let normalize_lines s =
+  let re = Re.compile ( Re.Perl.re ~opts:[`Multiline] "(\n|\r\n)^\\s" ) in
+  Re.replace_string ~all:true re ~by:"" s
 
-let pp_weekday fmt wd =
-  Fmt.string fmt @@ match wd with
-  | `Friday -> "friday"
-  | `Monday -> "monday"
-  | `Saturday -> "saturday"
-  | `Sunday -> "sunday"
-  | `Thursday -> "thursday"
-  | `Tuesday -> "tuesday"
-  | `Wednesday -> "wednesday"
-
-type recur = [
-  | `Byminute of int list
-  | `Byday of (char * int * weekday) list
-  | `Byhour of int list
-  | `Bymonth of (char * int) list
-  | `Bymonthday of (char * int) list
-  | `Bysecond of int list
-  | `Bysetposday of char * int
-  | `Byweek of (char * int) list
-  | `Byyearday of (char * int) list
-  | `Count of int
-  | `Frequency of [ `Daily | `Hourly | `Minutely | `Monthly | `Secondly | `Weekly | `Yearly ]
-  | `Interval of int
-  | `Until of Ptime.t * bool
-  | `Weekday of weekday
-]
-
-let pp_recur fmt =
-  let pp_list pp_e fmt xs = Fmt.(list ~sep:(unit ",@ ") pp_e) fmt xs
-  and pp_triple pp_a pp_b pp_c fmt (a, b, c) =
-    Fmt.pf fmt "%a, %a, %a" pp_a a pp_b b pp_c c
-  and pp_frequency fmt f =
-    Fmt.string fmt @@ match f with
-    | `Daily -> "daily"
-    | `Hourly -> "hourly"
-    | `Minutely -> "minutely"
-    | `Monthly -> "monthly"
-    | `Secondly -> "secondly"
-    | `Weekly -> "weekly"
-    | `Yearly -> "yearly"
-  in
-  function
-  | `Byminute ms -> Fmt.pf fmt "byminute %a" (pp_list Fmt.int) ms
-  | `Byday days -> Fmt.pf fmt "byday %a" (pp_list (pp_triple Fmt.char Fmt.int pp_weekday)) days
-  | `Byhour hours -> Fmt.pf fmt "byhour %a" (pp_list Fmt.int) hours
-  | `Bymonth months -> Fmt.pf fmt "bymonth %a" (pp_list Fmt.(pair ~sep:(unit ", ") char int)) months
-  | `Bymonthday monthdays -> Fmt.pf fmt "bymonthday %a" (pp_list Fmt.(pair ~sep:(unit ", ") char int)) monthdays
-  | `Bysecond seconds -> Fmt.pf fmt "bysecond %a" (pp_list Fmt.int) seconds
-  | `Bysetposday (s, i) -> Fmt.pf fmt "bysetposday %a %d" Fmt.char s i
-  | `Byweek weeks -> Fmt.pf fmt "byweek %a" (pp_list Fmt.(pair ~sep:(unit ", ") char int)) weeks
-  | `Byyearday days -> Fmt.pf fmt "byyearday %a" (pp_list Fmt.(pair ~sep:(unit ", ") char int)) days
-  | `Count n -> Fmt.pf fmt "count %d" n
-  | `Frequency f -> Fmt.pf fmt "frequency %a" pp_frequency f
-  | `Interval i -> Fmt.pf fmt "interval %d" i
-  | `Until (ts, utc) -> Fmt.pf fmt "until %a UTC? %b" Ptime.pp ts utc
-  | `Weekday wd -> Fmt.pf fmt "weekday %a" pp_weekday wd
-
-let pp_date fmt (y, m, d) = Fmt.pf fmt "%04d-%02d-%02d" y m d
-
+(* Terminal parsers and helpers *)
 let ensure f x = try return (f x) with Failure _ -> fail "parse error"
 let in_range min max v = if min <= v && v <= max then return v else fail "parse error"
+
+let is_digit = function '0' .. '9' -> true | _ -> false
+let digits = take_while1 is_digit
+let digit = satisfy is_digit >>= fun c -> ensure int_of_string @@ String.make 1 c
+
+let sign = option '+' (char '+' <|> char '-')
+
+(* base grammar *)
+let is_alpha_digit_minus = function | '0' .. '9' | 'a' .. 'z' | 'A' .. 'Z' | '-' -> true | _ -> false
+let name = take_while1 is_alpha_digit_minus
+let param_name = name
+let is_control = function '\x00' .. '\x08' | '\x0a' .. '\x1f' | '\x7f' -> true | _ -> false
+let is_qsafe_char = function x when is_control x -> false | '"' -> false | _ -> true
+let quoted_string = char '"' *> take_while1 is_qsafe_char <* char '"'
+let is_safe_char = function x when is_control x -> false | '"' | ';' | ':' | ',' -> false | _ -> true
+let param_text = take_while1 is_safe_char
+let param_value = param_text <|> quoted_string (* in contrast to rfc we require at least 1 char for param_value *)
+
+let value_list = sep_by1 (char ',') param_value
+
+let value = take_while (fun x -> not (is_control x)) (* in fact it is more complicated *)
+
+let iana_token = name
+
+let is_valid p str =
+  if Astring.String.for_all p str then
+    return str
+  else
+    fail "parse error"
+
+let up_to_two p = (take 2 >>= is_valid p) <|> (take 1 >>= is_valid p)
+let up_to_three p = (take 3 >>= is_valid p) <|> up_to_two p
+
+let is_alpha_digit = function '0' .. '9' | 'a' .. 'z' -> true | _ -> false
+let vendorid = up_to_three is_alpha_digit
+
+let pair a b = (a, b)
+let x_name = lift2 pair
+    ((string "X-") *> (option "" (vendorid <* char '-')))
+    (take_while1 is_alpha_digit_minus)
+
+let caladdress = take_while1 is_qsafe_char >>| Uri.of_string
+
+let quoted_caladdress = char '"' *> caladdress <* char '"' 
+
+(* value parser *)
+let text =
+  let escaped_char =
+    (string {_|\\|_} >>| fun _ -> {_|\|_})
+    <|> (string "\\;" >>| fun _ -> ";")
+    <|> (string "\\," >>| fun _ -> ",")
+    <|> (string "\\N" >>| fun _ -> "\n")
+    <|> (string "\\n" >>| fun _ -> "\n")
+  in
+  let is_control = function '\x00' .. '\x08' | '\x0a' .. '\x1f' | '\x7f' -> true | _ -> false in
+  let is_tsafe_char =
+    function x when is_control x -> false
+           | '"' | ';' | ':' | '\\' | ',' -> false
+           | _ -> true
+  in
+  let tsafe_char = take_while1 is_tsafe_char in
+  many1 (tsafe_char <|> string ":" <|> string "\"" <|> escaped_char) >>| Astring.String.concat ~sep:""
+
+let texts = sep_by (char ',') text
 
 let date =
   let year = take 4 >>= ensure int_of_string
@@ -87,13 +96,7 @@ let datetime =
   let ptime d (t, utc) = match Ptime.of_date_time (d, (t, 0)) with
   | Some p -> p, utc
   | None -> raise Parse_error in
-  lift2 ptime date (char 'T' *> time) 
-
-let is_digit = function '0' .. '9' -> true | _ -> false
-
-let digits = take_while1 is_digit
-
-let sign = option '+' (char '+' <|> char '-')
+  lift2 ptime date (char 'T' *> time)
 
 let dur_value =
   let to_seconds p factor = p >>= ensure int_of_string >>| ( * ) factor in
@@ -102,13 +105,13 @@ let dur_value =
   let hour = lift2 (+) (to_seconds (digits <* char 'H') 3600) (option 0 minute) in
   let time = char 'T' *> (hour <|> minute <|> second)
   and day = to_seconds (digits <* char 'D') (24 * 3600) in
-  let date = lift2 (+) day (option 0 time) 
+  let date = lift2 (+) day (option 0 time)
   and week = to_seconds (digits <* char 'W') (7 * 24 * 3600)
   and apply_sign s n = if s = '+' then n else (- n) in
   lift2 apply_sign (sign <* char 'P') (date <|> time <|> week)
 
 let float =
-  let make_float s i f = 
+  let make_float s i f =
     let n = try float_of_string (i ^ "." ^ f) with Failure _ -> raise Parse_error in
     if s = '+' then n else (-. n) in
   lift3 make_float sign digits (option "" ((char '.') *> digits))
@@ -147,7 +150,7 @@ let recur =
   and weeknum = lift2 pair sign (up_to_two_digits >>= in_range 1 53)
   and monthnum = lift2 pair sign (up_to_two_digits >>= in_range 1 12)
   and ptime = date >>= fun d -> match Ptime.of_date d with None -> fail "Parse_error" | Some x -> return (x, true) in
-  let recur_rule_part = 
+  let recur_rule_part =
        ( string "FREQ=" *> freq >>| fun f -> `Frequency f )
    <|> ( string "UNTIL=" *> (datetime <|> ptime) >>| fun u -> `Until u )
    <|> ( string "COUNT=" *> digits >>= ensure int_of_string >>| fun c -> `Count c ) 
@@ -164,26 +167,8 @@ let recur =
    <|> ( string "WKST=" *> weekday >>| fun d -> `Weekday d ) in
   sep_by1 (char ';') recur_rule_part
 
-let text =
-  let escaped_char =
-    (string {_|\\|_} >>| fun _ -> {_|\|_})
-    <|> (string "\\;" >>| fun _ -> ";")
-    <|> (string "\\," >>| fun _ -> ",")
-    <|> (string "\\N" >>| fun _ -> "\n")
-    <|> (string "\\n" >>| fun _ -> "\n")
-  in
-  let is_control = function '\x00' .. '\x08' | '\x0a' .. '\x1f' | '\x7f' -> true | _ -> false in
-  let is_tsafe_char =
-    function x when is_control x -> false
-           | '"' | ';' | ':' | '\\' | ',' -> false
-           | _ -> true
-  in
-  let tsafe_char = take_while1 is_tsafe_char in
-  many1 (tsafe_char <|> string ":" <|> string "\"" <|> escaped_char) >>| Astring.String.concat ~sep:""
-
-let texts = sep_by (char ',') text
-
-let utcoffset str =
+(* out in the wild *)
+let utcoffset =
   let sign = char '+' <|> char '-'
   and hours = take 2 >>= ensure int_of_string >>= in_range 0 23
   and minutes = take 2 >>= ensure int_of_string >>= in_range 0 59
@@ -196,32 +181,9 @@ let utcoffset str =
     then raise Parse_error
     else Ptime.Span.of_int_s (factor * seconds)
   in
-  let offset = lift4 to_span sign hours minutes (option 0 seconds) in
-  match parse_string (offset <* end_of_input) str with
-  | Ok p -> `Utcoffset p
-  | Error _ -> raise Parse_error
-
-(* base grammar *)
-let is_alpha_digit_minus = function | '0' .. '9' | 'a' .. 'z' | 'A' .. 'Z' | '-' -> true | _ -> false
-let name = take_while1 is_alpha_digit_minus
-let param_name = name
-let is_control = function '\x00' .. '\x08' | '\x0a' .. '\x1f' | '\x7f' -> true | _ -> false
-let is_qsafe_char = function x when is_control x -> false | '"' -> false | _ -> true
-let quoted_string = char '"' *> take_while1 is_qsafe_char <* char '"'
-let is_safe_char = function x when is_control x -> false | '"' | ';' | ':' | ',' -> false | _ -> true
-let param_text = take_while1 is_safe_char
-let param_value = param_text <|> quoted_string (* in contrast to rfc we require at least 1 char for param_value *)
-
-let value_list = sep_by1 (char ',') param_value
-
-let value = take_while (fun x -> not (is_control x)) (* in fact it is more complicated *)
+  lift4 to_span sign hours minutes (option 0 seconds)
 
 (* processing *)
-
-let normalize_lines s =
-  let re = Re.compile ( Re.Perl.re ~opts:[`Multiline] "(\n|\r\n)^\\s" ) in
-  Re.replace_string ~all:true re ~by:"" s
-
 let pair a b = (a, b)
 let triple a b c = (a, b, c)
 
@@ -240,39 +202,107 @@ let media_type_name =
 let media_type =
   lift2 pair (media_type_name <* char '/') media_type_name
 
-let iana_token = name
 
+(* Parameters (PARAM1_KEY=PARAM1_VALUE) *)
 let iana_param = lift2 (fun k v -> `Iana_param (k, v))
     (iana_token <* (char '=')) value_list
-
-let is_valid p str =
-  if Astring.String.for_all p str then
-    return str
-  else
-    fail "parse error"
-
-let up_to_two p = (take 2 >>= is_valid p) <|> (take 1 >>= is_valid p)
-let up_to_three p = (take 3 >>= is_valid p) <|> up_to_two p
-
-let is_alpha_digit = function '0' .. '9' | 'a' .. 'z' -> true | _ -> false
-let vendorid = up_to_three is_alpha_digit
-
-let x_name = lift2 pair
-    ((string "X-") *> (option "" (vendorid <* char '-')))
-    (take_while1 is_alpha_digit_minus)
 
 let x_param = lift2 (fun k v -> `Xparam (k, v))
     (x_name <* char '=') value_list
 
 let other_param = iana_param <|> x_param
 
+let tzidparam =
+ lift2 (fun a b -> `Tzid (a = '/', b))
+ (string "TZID=" *> option ' ' (char '/')) param_text
+
+let time_or_date_param =
+  lift (fun x -> `Valuetype x)
+    (string "VALUE=" *>
+     ((string "DATE-TIME" >>| fun _ -> `Datetime)
+      <|> (string "DATE" >>| fun _ -> `Date)))
+
+(* TODO use uri parser here *)
+let altrepparam = (string "ALTREP=") *> quoted_string >>| fun uri -> `Altrep (Uri.of_string uri)
+
+(* TODO use language tag rfc5646 parser *)
+let languageparam = (string "LANGUAGE=") *> param_text >>| fun l -> `Language l 
+
+let cnparam = string "CN=" *> param_value >>| fun cn -> `Cn cn
+let dirparam = string "DIR=" *> quoted_string >>| fun s -> `Dir (Uri.of_string s)
+let sentbyparam = string "SENT-BY=" *> quoted_caladdress >>| fun s -> `Sentby s
+
+(* Default is INDIVIDUAL *)
+let cutypeparam = lift (fun x -> `Cutype x) ((string "CUTYPE=") *> 
+      ((string "INDIVIDUAL" >>| fun _ -> `Individual)
+   <|> (string "GROUP" >>| fun _ -> `Group)
+   <|> (string "RESOURCE" >>| fun _ -> `Resource)
+   <|> (string "ROOM" >>| fun _ -> `Room)
+   <|> (string "UNKNOWN" >>| fun _ -> `Unknown)
+   <|> (iana_token >>| fun x -> `Ianatoken x)
+   <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
+
+let memberparam = lift (fun x -> `Member x)
+  ((string "MEMBER=") *> sep_by1 (char ',') quoted_caladdress)
+
+(* Default is REQ-PARTICIPANT *)
+let roleparam = lift (fun x -> `Role x) ((string "ROLE=") *>
+      ((string "CHAIR" >>| fun _ -> `Chair)  
+   <|> (string "REQ-PARTICIPANT" >>| fun _ -> `Reqparticipant )  
+   <|> (string "OPT-PARTICIPANT" >>| fun _ -> `Optparticipant )  
+   <|> (string "NON-PARTICIPANT" >>| fun _ -> `Nonparticipant )  
+   <|> (iana_token >>| fun x -> `Ianatoken x)
+   <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
+
+let partstatparam = 
+  let statvalue_jour =
+    (string "NEEDS-ACTION" >>| fun _ -> `Needs_action) <|>
+    (string "ACCEPTED" >>| fun _ -> `Accepted) <|>
+    (string "DECLINED" >>| fun _ -> `Declined)
+  and statvalue_todo =
+    (string "NEEDS-ACTION" >>| fun _ -> `Needs_action) <|>
+    (string "ACCEPTED" >>| fun _ -> `Accepted) <|>
+    (string "DECLINED" >>| fun _ -> `Declined) <|>
+    (string "TENTATIVE" >>| fun _ -> `Tentative) <|>
+    (string "DELEGATED" >>| fun _ -> `Delegated) <|>
+    (string "COMPLETED" >>| fun _ -> `Completed) <|>
+    (string "IN-PROCESS" >>| fun _ -> `In_process)
+  and statvalue_event =
+    (string "NEEDS-ACTION" >>| fun _ -> `Needs_action) <|>
+    (string "ACCEPTED" >>| fun _ -> `Accepted) <|>
+    (string "DECLINED" >>| fun _ -> `Declined) <|>
+    (string "TENTATIVE" >>| fun _ -> `Tentative) <|>
+    (string "DELEGATED" >>| fun _ -> `Delegated)
+  and other =
+       (iana_token >>| fun x -> `Ianatoken x)
+   <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))
+  in
+  let statvalue = statvalue_event <|> statvalue_todo <|> statvalue_jour <|> other in
+  lift (fun x -> `Partstat x) ((string "PARTSTAT=") *> statvalue)
+
+let rsvpparam = lift (fun r -> `Rsvp r) (string "RSVP=" *> ((string "TRUE" >>| fun _ -> true) <|> (string "FALSE" >>| fun _ -> false )))
+
+let deltoparam = lift (fun x -> `Delegated_to x)
+  ((string "DELEGATED-TO=") *> sep_by1 (char ',') quoted_caladdress)
+
+let delfromparam = lift (fun x -> `Delegated_from x)
+  ((string "DELEGATED-FROM=") *> sep_by1 (char ',') quoted_caladdress)
+
+let time_or_date_or_period_param =
+  string "VALUE=" *>
+  (string "DATE-TIME" <|> string "DATE" <|> string "PERIOD") >>| function
+  | "DATE-TIME" -> `Valuetype `Datetime
+  | "DATE" -> `Valuetype `Date
+  | "PERIOD" -> `Valuetype `Period
+  | _ -> raise Parse_error
+
+(* Properties *)
 let propparser id pparser vparser lift =
   let params = many (char ';' *> pparser) in
   lift2 lift
     (string id *> params <* char ':')
     (vparser <* end_of_line)
 
-(* NOTE grammar in RFC 3.7.3 regards pidvalue as text, thus it could be a list, but we forbid that *)
 let prodid =
   propparser "PRODID" other_param text (fun a b -> `Prodid (a, b))
 
@@ -283,7 +313,6 @@ let version =
 let calscale =
   let calvalue = string "GREGORIAN" in
   propparser "CALSCALE" other_param calvalue (fun a b -> `Calscale (a, b))
-
 
 let meth =
   let metvalue = iana_token in
@@ -297,17 +326,6 @@ let dtstamp =
 
 let uid =
   propparser "UID" other_param text (fun a b -> `Uid (a, b))
-
-let tzidparam =
- lift2 (fun a b -> `Tzid (a = '/', b))
- (string "TZID=" *> option ' ' (char '/')) param_text
-
-let time_or_date_param =
-  string "VALUE=" *>
-  (string "DATE-TIME" <|> string "DATE") >>| function
-  | "DATE-TIME" -> `Valuetype `Datetime
-  | "DATE" -> `Valuetype `Date
-  | _ -> raise Parse_error
 
 let build_time_or_date a b =
   let valuetype = try List.find (function `Valuetype _ -> true | _ -> false) a with Not_found -> `Valuetype `Datetime in
@@ -338,12 +356,6 @@ let class_ =
 let created =
   propparser "CREATED" other_param datetime (fun a b -> `Created (a, b))
 
-(* TODO use uri parser here *)
-let altrepparam = (string "ALTREP=") *> quoted_string >>| fun uri -> `Altrep (Uri.of_string uri)
-
-(* TODO use language tag rfc5646 parser *)
-let languageparam = (string "LANGUAGE=") *> param_text >>| fun l -> `Language l 
-
 let description =
   let desc_param = altrepparam <|> languageparam <|> other_param in
   propparser "DESCRIPTION" desc_param text
@@ -363,19 +375,9 @@ let location =
   let loc_param = altrepparam <|> languageparam <|> other_param in
   propparser "LOCATION" loc_param text (fun a b -> `Location (a, b))
 
-let caladdress = take_while1 is_qsafe_char >>| Uri.of_string
-
-let quoted_caladdress = char '"' *> caladdress <* char '"' 
-
-let cnparam = string "CN=" *> param_value >>| fun cn -> `Cn cn
-let dirparam = string "DIR=" *> quoted_string >>| fun s -> `Dir (Uri.of_string s)
-let sentbyparam = string "SENT-BY=" *> quoted_caladdress >>| fun s -> `Sentby s
-
 let organizer =
   let orgparam = cnparam <|> dirparam <|> sentbyparam <|> languageparam <|> other_param in
   propparser "ORGANIZER" orgparam caladdress (fun a b -> `Organizer (a, b))
-
-let digit = satisfy is_digit >>= fun c -> ensure int_of_string @@ String.make 1 c
 
 let priority =
   propparser "PRIORITY" other_param digit (fun a b -> `Priority (a, b))
@@ -469,62 +471,6 @@ let attach =
        | Some (`Valuetype `Binary), Some (`Encoding `Base64), `Binary b -> `Attach (a,`Binary b)
        | _ -> raise Parse_error)
 
-(* Default is INDIVIDUAL *)
-let cutypeparam = lift (fun x -> `Cutype x) ((string "CUTYPE=") *> 
-      ((string "INDIVIDUAL" >>| fun _ -> `Individual)
-   <|> (string "GROUP" >>| fun _ -> `Group)
-   <|> (string "RESOURCE" >>| fun _ -> `Resource)
-   <|> (string "ROOM" >>| fun _ -> `Room)
-   <|> (string "UNKNOWN" >>| fun _ -> `Unknown)
-   <|> (iana_token >>| fun x -> `Ianatoken x)
-   <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
-
-let memberparam = lift (fun x -> `Member x)
-  ((string "MEMBER=") *> sep_by1 (char ',') quoted_caladdress)
-
-(* Default is REQ-PARTICIPANT *)
-let roleparam = lift (fun x -> `Role x) ((string "ROLE=") *>
-      ((string "CHAIR" >>| fun _ -> `Chair)  
-   <|> (string "REQ-PARTICIPANT" >>| fun _ -> `Reqparticipant )  
-   <|> (string "OPT-PARTICIPANT" >>| fun _ -> `Optparticipant )  
-   <|> (string "NON-PARTICIPANT" >>| fun _ -> `Nonparticipant )  
-   <|> (iana_token >>| fun x -> `Ianatoken x)
-   <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
-
-let partstatparam = 
-  let statvalue_jour =
-    (string "NEEDS-ACTION" >>| fun _ -> `Needs_action) <|>
-    (string "ACCEPTED" >>| fun _ -> `Accepted) <|>
-    (string "DECLINED" >>| fun _ -> `Declined)
-  and statvalue_todo =
-    (string "NEEDS-ACTION" >>| fun _ -> `Needs_action) <|>
-    (string "ACCEPTED" >>| fun _ -> `Accepted) <|>
-    (string "DECLINED" >>| fun _ -> `Declined) <|>
-    (string "TENTATIVE" >>| fun _ -> `Tentative) <|>
-    (string "DELEGATED" >>| fun _ -> `Delegated) <|>
-    (string "COMPLETED" >>| fun _ -> `Completed) <|>
-    (string "IN-PROCESS" >>| fun _ -> `In_process)
-  and statvalue_event =
-    (string "NEEDS-ACTION" >>| fun _ -> `Needs_action) <|>
-    (string "ACCEPTED" >>| fun _ -> `Accepted) <|>
-    (string "DECLINED" >>| fun _ -> `Declined) <|>
-    (string "TENTATIVE" >>| fun _ -> `Tentative) <|>
-    (string "DELEGATED" >>| fun _ -> `Delegated)
-  and other =
-       (iana_token >>| fun x -> `Ianatoken x)
-   <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))
-  in
-  let statvalue = statvalue_event <|> statvalue_todo <|> statvalue_jour <|> other in
-  lift (fun x -> `Partstat x) ((string "PARTSTAT=") *> statvalue)
-
-let rsvpparam = lift (fun r -> `Rsvp r) (string "RSVP=" *> ((string "TRUE" >>| fun _ -> true) <|> (string "FALSE" >>| fun _ -> false )))
-
-let deltoparam = lift (fun x -> `Delegated_to x)
-  ((string "DELEGATED-TO=") *> sep_by1 (char ',') quoted_caladdress)
-
-let delfromparam = lift (fun x -> `Delegated_from x)
-  ((string "DELEGATED-FROM=") *> sep_by1 (char ',') quoted_caladdress)
-
 let attendee =
   let attparam =
     cutypeparam <|> memberparam <|> roleparam <|> partstatparam <|>
@@ -599,14 +545,6 @@ let resources =
   let resrcparam = languageparam <|> altrepparam <|> other_param in
   propparser "RESOURCES" resrcparam texts
     (fun a b -> `Resource (a, b))
-
-let time_or_date_or_period_param =
-  string "VALUE=" *>
-  (string "DATE-TIME" <|> string "DATE" <|> string "PERIOD") >>| function
-  | "DATE-TIME" -> `Valuetype `Datetime
-  | "DATE" -> `Valuetype `Date
-  | "PERIOD" -> `Valuetype `Period
-  | _ -> raise Parse_error
 
 let build_time_or_date_or_period a b =
   let valuetype = try List.find (function `Valuetype _ -> true | _ -> false) a with Not_found -> `Valuetype `Datetime in
@@ -748,6 +686,67 @@ type calprop =
   | `Calscale of other_param list * string
   | `Method of other_param list * string
   ]
+
+type weekday = [ `Friday | `Monday | `Saturday | `Sunday | `Thursday | `Tuesday | `Wednesday ]
+
+let pp_weekday fmt wd =
+  Fmt.string fmt @@ match wd with
+  | `Friday -> "friday"
+  | `Monday -> "monday"
+  | `Saturday -> "saturday"
+  | `Sunday -> "sunday"
+  | `Thursday -> "thursday"
+  | `Tuesday -> "tuesday"
+  | `Wednesday -> "wednesday"
+
+type recur = [
+  | `Byminute of int list
+  | `Byday of (char * int * weekday) list
+  | `Byhour of int list
+  | `Bymonth of (char * int) list
+  | `Bymonthday of (char * int) list
+  | `Bysecond of int list
+  | `Bysetposday of char * int
+  | `Byweek of (char * int) list
+  | `Byyearday of (char * int) list
+  | `Count of int
+  | `Frequency of [ `Daily | `Hourly | `Minutely | `Monthly | `Secondly | `Weekly | `Yearly ]
+  | `Interval of int
+  | `Until of Ptime.t * bool
+  | `Weekday of weekday
+]
+
+let pp_recur fmt =
+  let pp_list pp_e fmt xs = Fmt.(list ~sep:(unit ",@ ") pp_e) fmt xs
+  and pp_triple pp_a pp_b pp_c fmt (a, b, c) =
+    Fmt.pf fmt "%a, %a, %a" pp_a a pp_b b pp_c c
+  and pp_frequency fmt f =
+    Fmt.string fmt @@ match f with
+    | `Daily -> "daily"
+    | `Hourly -> "hourly"
+    | `Minutely -> "minutely"
+    | `Monthly -> "monthly"
+    | `Secondly -> "secondly"
+    | `Weekly -> "weekly"
+    | `Yearly -> "yearly"
+  in
+  function
+  | `Byminute ms -> Fmt.pf fmt "byminute %a" (pp_list Fmt.int) ms
+  | `Byday days -> Fmt.pf fmt "byday %a" (pp_list (pp_triple Fmt.char Fmt.int pp_weekday)) days
+  | `Byhour hours -> Fmt.pf fmt "byhour %a" (pp_list Fmt.int) hours
+  | `Bymonth months -> Fmt.pf fmt "bymonth %a" (pp_list Fmt.(pair ~sep:(unit ", ") char int)) months
+  | `Bymonthday monthdays -> Fmt.pf fmt "bymonthday %a" (pp_list Fmt.(pair ~sep:(unit ", ") char int)) monthdays
+  | `Bysecond seconds -> Fmt.pf fmt "bysecond %a" (pp_list Fmt.int) seconds
+  | `Bysetposday (s, i) -> Fmt.pf fmt "bysetposday %a %d" Fmt.char s i
+  | `Byweek weeks -> Fmt.pf fmt "byweek %a" (pp_list Fmt.(pair ~sep:(unit ", ") char int)) weeks
+  | `Byyearday days -> Fmt.pf fmt "byyearday %a" (pp_list Fmt.(pair ~sep:(unit ", ") char int)) days
+  | `Count n -> Fmt.pf fmt "count %d" n
+  | `Frequency f -> Fmt.pf fmt "frequency %a" pp_frequency f
+  | `Interval i -> Fmt.pf fmt "interval %d" i
+  | `Until (ts, utc) -> Fmt.pf fmt "until %a UTC? %b" Ptime.pp ts utc
+  | `Weekday wd -> Fmt.pf fmt "weekday %a" pp_weekday wd
+
+let pp_date fmt (y, m, d) = Fmt.pf fmt "%04d-%02d-%02d" y m d
 
 let pp_other_params = Fmt.list pp_other_param
 
