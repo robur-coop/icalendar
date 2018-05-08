@@ -331,6 +331,15 @@ let deltoparam = lift (fun x -> `Delegated_to x)
 let delfromparam = lift (fun x -> `Delegated_from x)
   ((string "DELEGATED-FROM=") *> sep_by1 (char ',') quoted_caladdress)
 
+let reltypeparam =
+  lift (fun x -> `Reltype x)
+   (string "RELTYPE=" *>
+      ((string "PARENT" >>| fun _ -> `Parent)
+   <|> (string "CHILD" >>| fun _ -> `Child)
+   <|> (string "SIBLING" >>| fun _ -> `Sibling)
+   <|> (iana_token >>| fun x -> `Ianatoken x)
+   <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
+
 (* Properties *)
 let propparser id pparser vparser lift =
   let params = many (char ';' *> pparser) in
@@ -600,15 +609,6 @@ let rstatus =
   propparser "REQUEST-STATUS" rstatparam rstatvalue
     (fun a b -> `Rstatus (a, b))
 
-let reltypeparam =
-  lift (fun x -> `Reltype x)
-   (string "RELTYPE=" *>
-      ((string "PARENT" >>| fun _ -> `Parent)
-   <|> (string "CHILD" >>| fun _ -> `Child)
-   <|> (string "SIBLING" >>| fun _ -> `Sibling)
-   <|> (iana_token >>| fun x -> `Ianatoken x)
-   <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
-
 let related =
   let relparam = reltypeparam <|> other_param in
   propparser "RELATED-TO" relparam text
@@ -727,7 +727,9 @@ let component = many1 (eventc (* <|> todoc <|> journalc <|> freebusyc <|> timezo
 let icalbody = lift2 pair calprops component
 
 let calobject =
-  string "BEGIN:VCALENDAR" *> end_of_line *> icalbody <* string "END:VCALENDAR" <* end_of_line <* end_of_input
+  string "BEGIN:VCALENDAR" *> end_of_line *>
+  icalbody
+  <* string "END:VCALENDAR" <* end_of_line <* end_of_input
 
 type other_param =
   [ `Iana_param of string * string list
