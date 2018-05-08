@@ -118,19 +118,19 @@ type eventprop =
   | `Duration of other_param list * int
   | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | `Valuetype of [ `Binary ] | other_param ] list *
                [ `Uri of Uri.t | `Binary of string ]
-  | `Attendee of [ `Cn of string
-                  | `Cutype of cutype
-                  | `Delegated_from of Uri.t list
-                  | `Delegated_to of Uri.t list
-                  | `Dir of Uri.t
-                  | `Iana_param of string * string list
-                  | `Language of string
-                  | `Member of Uri.t list
-                  | `Partstat of partstat
-                  | `Role of role
-                  | `Rsvp of bool
-                  | `Sentby of Uri.t
-                  | `Xparam of (string * string) * string list ] list * Uri.t
+  | `Attendee of [ other_param
+                 | `Cn of string
+                 | `Cutype of cutype
+                 | `Delegated_from of Uri.t list
+                 | `Delegated_to of Uri.t list
+                 | `Dir of Uri.t
+                 | `Language of string
+                 | `Member of Uri.t list
+                 | `Partstat of partstat
+                 | `Role of role
+                 | `Rsvp of bool
+                 | `Sentby of Uri.t ] list * Uri.t
+  | `Categories of [ other_param | `Language of string ] list * string list
   ]
 
 type component =

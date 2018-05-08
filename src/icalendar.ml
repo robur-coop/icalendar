@@ -933,8 +933,15 @@ let attendee =
     languageparam <|>
     other_param)) in
   lift2 (fun a b -> `Attendee (a, b)) (string "ATTENDEE" *> attparam) (char ':' *> caladdress <* end_of_line) 
-                  
-    
+
+let categories =
+  let catparams =
+    many (char ';' *> (languageparam <|> other_param))
+  in
+  lift2 (fun a b -> `Categories (a, b))
+    (string "CATEGORIES" *> catparams)
+    (char ':' *> texts_parser <* end_of_line)
+
 let eventprop =
   dtstamp <|> uid <|>
   dtstart <|>
@@ -944,7 +951,7 @@ let eventprop =
   url  <|> recurid <|>
   rrule <|>
   dtend <|> duration <|>
-  attach <|> attendee (*<|> categories <|> comment <|>
+  attach <|> attendee <|> categories (* <|> comment <|>
   contact <|> exdate <|> rstatus <|> related <|>
   resources <|> rdate*)
 
@@ -1034,19 +1041,19 @@ type eventprop =
   | `Duration of other_param list * int
   | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | `Valuetype of [ `Binary ] | other_param ] list *
                [ `Uri of Uri.t | `Binary of string ]
-  | `Attendee of [ `Cn of string
-                  | `Cutype of cutype
-                  | `Delegated_from of Uri.t list
-                  | `Delegated_to of Uri.t list
-                  | `Dir of Uri.t
-                  | `Iana_param of string * string list
-                  | `Language of string
-                  | `Member of Uri.t list
-                  | `Partstat of partstat
-                  | `Role of role
-                  | `Rsvp of bool
-                  | `Sentby of Uri.t
-                  | `Xparam of (string * string) * string list ] list * Uri.t
+  | `Attendee of [ other_param
+                 | `Cn of string
+                 | `Cutype of cutype
+                 | `Delegated_from of Uri.t list
+                 | `Delegated_to of Uri.t list
+                 | `Dir of Uri.t
+                 | `Language of string
+                 | `Member of Uri.t list
+                 | `Partstat of partstat
+                 | `Role of role
+                 | `Rsvp of bool
+                 | `Sentby of Uri.t ] list * Uri.t
+  | `Categories of [ other_param | `Language of string ] list * string list
   ]
 
 let pp_dtstart_param fmt = function
@@ -1058,6 +1065,10 @@ let pp_dtstart_param fmt = function
 let pp_dtstart_value fmt = function
   | `Datetime (p, utc) -> Fmt.pf fmt "datetime %a Utc?%b" Ptime.pp p utc 
   | `Date d -> Fmt.pf fmt "date %a" pp_date d
+
+let pp_categories_param fmt = function
+  | #other_param as p -> pp_other_param fmt p
+  | `Language l -> Fmt.pf fmt "language %s" l
 
 let pp_desc_param fmt = function
   | #other_param as p -> pp_other_param fmt p
@@ -1166,6 +1177,7 @@ let pp_eventprop fmt = function
   | `Duration (l, v) -> Fmt.pf fmt "duration %a %d seconds" pp_other_params l v
   | `Attach (l, v) -> Fmt.pf fmt "attach %a %a" (Fmt.list pp_attach_param) l pp_attach_value v 
   | `Attendee (l, v) -> Fmt.pf fmt "attendee %a %a" (Fmt.list pp_attendee_param) l Uri.pp_hum v
+  | `Categories (l, v) -> Fmt.pf fmt "categories %a %a" (Fmt.list pp_categories_param) l (Fmt.list Fmt.string) v
 
 type component =
   eventprop list * 
