@@ -12,6 +12,7 @@ depends: [
   "nocrypto"
   "rresult"
   "ptime"
+  "ppx_deriving" {build}
 ]
 
 build: [

@@ -1,58 +1,34 @@
+module Uri = struct 
+  include Uri
+  let pp = pp_hum
+end
+
+module Ptime = struct
+  include Ptime
+  let equal_date (y, m, d) (y', m', d') = y = y' && m = m' && d = d'
+  let pp_date fmt (y, m, d) = Fmt.pf fmt "%04d-%02d-%02d" y m d 
+end
+
 type valuetype = [
     `Binary | `Boolean | `Caladdress | `Date | `Datetime | `Duration | `Float
   | `Integer | `Period | `Recur | `Text | `Time | `Uri | `Utcoffset
   | `Xname of (string * string) | `Ianatoken of string
-]
+] [@@deriving eq, show]
 
-let pp_valuetype fmt = function
-  | `Binary -> Fmt.string fmt "binary"
-  | `Boolean -> Fmt.string fmt "boolean"
-  | `Caladdress -> Fmt.string fmt "caladdress"
-  | `Date -> Fmt.string fmt "date"
-  | `Datetime -> Fmt.string fmt "datetime"
-  | `Duration -> Fmt.string fmt "duration"
-  | `Float -> Fmt.string fmt "float"
-  | `Integer -> Fmt.string fmt "integer"
-  | `Period -> Fmt.string fmt "period"
-  | `Recur -> Fmt.string fmt "recur"
-  | `Text -> Fmt.string fmt "text"
-  | `Time -> Fmt.string fmt "time"
-  | `Uri -> Fmt.string fmt "uri"
-  | `Utcoffset -> Fmt.string fmt "utcoffset"
-  | `Xname (a, b) -> Fmt.pf fmt "xname %s %s" a b
-  | `Ianatoken a -> Fmt.pf fmt "ianatoken %s" a
-
-type valuetypeparam = [ `Valuetype of valuetype ]
-
-let pp_valuetypeparam fmt (`Valuetype v) =
-  Fmt.pf fmt "valuetype %a" pp_valuetype v
+type valuetypeparam = [ `Valuetype of valuetype ] [@@deriving eq, show]
 
 type other_param =
   [ `Iana_param of string * string list
-  | `Xparam of (string * string) * string list ]
-
-let pp_other_param fmt = function
-  | `Iana_param (k, v) -> Fmt.pf fmt "key %s value %a" k (Fmt.list Fmt.string) v
-  | `Xparam ((vendor, name), v) -> Fmt.pf fmt "vendor %s key %s value %a" vendor name (Fmt.list Fmt.string) v
+  | `Xparam of (string * string) * string list ] [@@deriving eq, show]
 
 type calprop =
   [ `Prodid of other_param list * string
   | `Version of other_param list * string
   | `Calscale of other_param list * string
   | `Method of other_param list * string
-  ]
+  ] [@@deriving eq, show]
 
-type weekday = [ `Friday | `Monday | `Saturday | `Sunday | `Thursday | `Tuesday | `Wednesday ]
-
-let pp_weekday fmt wd =
-  Fmt.string fmt @@ match wd with
-  | `Friday -> "friday"
-  | `Monday -> "monday"
-  | `Saturday -> "saturday"
-  | `Sunday -> "sunday"
-  | `Thursday -> "thursday"
-  | `Tuesday -> "tuesday"
-  | `Wednesday -> "wednesday"
+type weekday = [ `Friday | `Monday | `Saturday | `Sunday | `Thursday | `Tuesday | `Wednesday ] [@@deriving eq, show]
 
 type recur = [
   | `Byminute of int list
@@ -69,74 +45,27 @@ type recur = [
   | `Interval of int
   | `Until of Ptime.t * bool
   | `Weekday of weekday
-]
+] [@@deriving eq, show]
 
-let pp_recur fmt =
-  let pp_list pp_e fmt xs = Fmt.(list ~sep:(unit ",@ ") pp_e) fmt xs
-  and pp_triple pp_a pp_b pp_c fmt (a, b, c) =
-    Fmt.pf fmt "%a, %a, %a" pp_a a pp_b b pp_c c
-  and pp_frequency fmt f =
-    Fmt.string fmt @@ match f with
-    | `Daily -> "daily"
-    | `Hourly -> "hourly"
-    | `Minutely -> "minutely"
-    | `Monthly -> "monthly"
-    | `Secondly -> "secondly"
-    | `Weekly -> "weekly"
-    | `Yearly -> "yearly"
-  in
-  function
-  | `Byminute ms -> Fmt.pf fmt "byminute %a" (pp_list Fmt.int) ms
-  | `Byday days -> Fmt.pf fmt "byday %a" (pp_list (pp_triple Fmt.char Fmt.int pp_weekday)) days
-  | `Byhour hours -> Fmt.pf fmt "byhour %a" (pp_list Fmt.int) hours
-  | `Bymonth months -> Fmt.pf fmt "bymonth %a" (pp_list Fmt.(pair ~sep:(unit ", ") char int)) months
-  | `Bymonthday monthdays -> Fmt.pf fmt "bymonthday %a" (pp_list Fmt.(pair ~sep:(unit ", ") char int)) monthdays
-  | `Bysecond seconds -> Fmt.pf fmt "bysecond %a" (pp_list Fmt.int) seconds
-  | `Bysetposday (s, i) -> Fmt.pf fmt "bysetposday %a %d" Fmt.char s i
-  | `Byweek weeks -> Fmt.pf fmt "byweek %a" (pp_list Fmt.(pair ~sep:(unit ", ") char int)) weeks
-  | `Byyearday days -> Fmt.pf fmt "byyearday %a" (pp_list Fmt.(pair ~sep:(unit ", ") char int)) days
-  | `Count n -> Fmt.pf fmt "count %d" n
-  | `Frequency f -> Fmt.pf fmt "frequency %a" pp_frequency f
-  | `Interval i -> Fmt.pf fmt "interval %d" i
-  | `Until (ts, utc) -> Fmt.pf fmt "until %a UTC? %b" Ptime.pp ts utc
-  | `Weekday wd -> Fmt.pf fmt "weekday %a" pp_weekday wd
-
-let pp_date fmt (y, m, d) = Fmt.pf fmt "%04d-%02d-%02d" y m d
-
-let pp_other_params = Fmt.list pp_other_param
-
-let pp_calprop fmt = function
-  | `Prodid (l, s) -> Fmt.pf fmt "product id %a %s" pp_other_params l s
-  | `Version (l, s) -> Fmt.pf fmt "version %a %s" pp_other_params l s
-  | `Calscale (l, s) -> Fmt.pf fmt "calscale %a %s" pp_other_params l s
-  | `Method (l, s) -> Fmt.pf fmt "method %a %s" pp_other_params l s
-
-type class_ = [ `Public | `Private | `Confidential | `Ianatoken of string | `Xname of string * string ]
-
-let pp_class fmt = function
-  | `Public -> Fmt.string fmt "public"
-  | `Private -> Fmt.string fmt "private"
-  | `Confidential -> Fmt.string fmt "confidential"
-  | `Ianatoken t -> Fmt.pf fmt "ianatoken %s" t
-  | `Xname (v, t) -> Fmt.pf fmt "xname vendor %s %s" v t
+type class_ = [ `Public | `Private | `Confidential | `Ianatoken of string | `Xname of string * string ] [@@deriving eq, show]
 
 type status = [ `Draft | `Final | `Cancelled |
                 `Needs_action | `Completed | `In_process | (* `Cancelled *)
-                `Tentative | `Confirmed (* | `Cancelled *) ]
+                `Tentative | `Confirmed (* | `Cancelled *) ] [@@deriving eq, show]
 
 type cutype = [ `Group | `Individual | `Resource | `Room | `Unknown
-              | `Ianatoken of string | `Xname of string * string ]
+              | `Ianatoken of string | `Xname of string * string ] [@@deriving eq, show]
 
 type partstat = [ `Accepted | `Completed | `Declined | `Delegated
                 | `In_process | `Needs_action | `Tentative
-                | `Ianatoken of string | `Xname of string * string ]
+                | `Ianatoken of string | `Xname of string * string ] [@@deriving eq, show]
 
 type role = [ `Chair | `Nonparticipant | `Optparticipant | `Reqparticipant
-            | `Ianatoken of string | `Xname of string * string ]
+            | `Ianatoken of string | `Xname of string * string ] [@@deriving eq, show]
 
 type relationship =
   [ `Parent | `Child | `Sibling |
-    `Ianatoken of string | `Xname of string * string ]
+    `Ianatoken of string | `Xname of string * string ] [@@deriving eq, show]
 
 type eventprop =
   [ `Dtstamp of other_param list * (Ptime.t * bool)
@@ -187,240 +116,25 @@ type eventprop =
   | `Rdate of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
               [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
   (* xprop and iana-prop not done yet *)
-  ]
-
-let pp_dtstart_param fmt = function
-  | #other_param as p -> pp_other_param fmt p
-  | #valuetypeparam as p -> pp_valuetypeparam fmt p
-  | `Tzid (prefix, name) -> Fmt.pf fmt "tzid prefix %b %s" prefix name
-
-let pp_dtstart_value fmt = function
-  | `Datetime (p, utc) -> Fmt.pf fmt "datetime %a Utc?%b" Ptime.pp p utc
-  | `Date d -> Fmt.pf fmt "date %a" pp_date d
-
-let pp_categories_param fmt = function
-  | #other_param as p -> pp_other_param fmt p
-  | `Language l -> Fmt.pf fmt "language %s" l
-
-let pp_desc_param fmt = function
-  | #other_param as p -> pp_other_param fmt p
-  | `Altrep uri -> Fmt.pf fmt "altrep uri %a" Uri.pp_hum uri
-  | `Language l -> Fmt.pf fmt "language %s" l
-
-let pp_organizer_param fmt = function
-  | #other_param as p -> pp_other_param fmt p
-  | `Language l -> Fmt.pf fmt "language %s" l
-  | `Cn c -> Fmt.pf fmt "cn %s" c
-  | `Dir d -> Fmt.pf fmt "dir %a" Uri.pp_hum d
-  | `Sentby s -> Fmt.pf fmt "sent-by %a" Uri.pp_hum s
-
-let pp_recur_param fmt = function
-  | #other_param as p -> pp_other_param fmt p
-  | #valuetypeparam as p -> pp_valuetypeparam fmt p
-  | `Tzid (prefix, name) -> Fmt.pf fmt "tzid prefix %b %s" prefix name
-  | `Range `Thisandfuture -> Fmt.string fmt "range: thisandfuture"
-
-let pp_status fmt s =
-  Fmt.string fmt @@
-  match s with
-  | `Draft -> "draft"
-  | `Final -> "final"
-  | `Cancelled -> "cancelled"
-  | `Needs_action -> "needs-action"
-  | `Completed -> "completed"
-  | `In_process -> "in-process"
-  | `Tentative -> "tentative"
-  | `Confirmed -> "confirmed"
-
-let pp_attach_param fmt = function
-  | #other_param as p -> pp_other_param fmt p
-  | #valuetypeparam as p -> pp_valuetypeparam fmt p
-  | `Encoding `Base64 -> Fmt.string fmt "encoding base64"
-  | `Media_type (typename, subtypename) -> Fmt.pf fmt "mediatype %s/%s" typename subtypename
-
-let pp_attach_value fmt = function
-  | `Binary b -> Fmt.string fmt b
-  | `Uri u -> Uri.pp_hum fmt u
-
-let pp_cutype fmt = function
-  | `Individual -> Fmt.string fmt "individual"
-  | `Group -> Fmt.string fmt "group"
-  | `Resource -> Fmt.string fmt "resource"
-  | `Room -> Fmt.string fmt "room"
-  | `Unknown -> Fmt.string fmt "unknown"
-  | `Ianatoken t -> Fmt.pf fmt "ianatoken %s" t
-  | `Xname (x, y) -> Fmt.pf fmt "xname %s,%s" x y
-
-let pp_role fmt = function
-  | `Chair -> Fmt.string fmt "chair"
-  | `Reqparticipant -> Fmt.string fmt "required participant"
-  | `Optparticipant -> Fmt.string fmt "optional participant"
-  | `Nonparticipant -> Fmt.string fmt "non participant"
-  | `Ianatoken t -> Fmt.pf fmt "ianatoken %s" t
-  | `Xname (x, y) -> Fmt.pf fmt "xname %s,%s" x y
-
-let pp_partstat fmt = function
-  | `Needs_action -> Fmt.string fmt "needs action"
-  | `Accepted -> Fmt.string fmt "accepted"
-  | `Declined -> Fmt.string fmt "declined"
-  | `Tentative -> Fmt.string fmt "tentative"
-  | `Delegated -> Fmt.string fmt "delegated"
-  | `Completed -> Fmt.string fmt "completed"
-  | `In_process -> Fmt.string fmt "in-process"
-  | `Ianatoken t -> Fmt.pf fmt "ianatoken %s" t
-  | `Xname (x, y) -> Fmt.pf fmt "xname %s,%s" x y
-
-let pp_attendee_param fmt = function
-  | #other_param as p -> pp_other_param fmt p
-  | `Cn c -> Fmt.pf fmt "cn %s" c
-  | `Cutype c -> Fmt.pf fmt "cutype %a" pp_cutype c
-  | `Delegated_from l -> Fmt.pf fmt "delegated from %a" (Fmt.list Uri.pp_hum) l
-  | `Delegated_to l -> Fmt.pf fmt "delegated to %a" (Fmt.list Uri.pp_hum) l
-  | `Dir d -> Fmt.pf fmt "dir %a" Uri.pp_hum d
-  | `Language l -> Fmt.pf fmt "language %s" l
-  | `Member l -> Fmt.pf fmt "member %a" (Fmt.list Uri.pp_hum) l
-  | `Partstat s -> Fmt.pf fmt "partstat %a" pp_partstat s
-  | `Role r -> Fmt.pf fmt "role %a" pp_role r
-  | `Rsvp b -> Fmt.pf fmt "rsvp %b" b
-  | `Sentby s -> Fmt.pf fmt "sent-by %a" Uri.pp_hum s
-
-let pp_exdate_value fmt = function
-  | `Datetimes dates -> Fmt.pf fmt "%a" Fmt.(list (pair Ptime.pp bool)) dates
-  | `Dates dates -> Fmt.pf fmt "%a" Fmt.(list pp_date) dates
-
-let pp_relationship fmt = function
-  | `Parent -> Fmt.string fmt "parent"
-  | `Child -> Fmt.string fmt "child"
-  | `Sibling -> Fmt.string fmt "sibling"
-  | `Ianatoken t -> Fmt.pf fmt "ianatoken %s" t
-  | `Xname (x, y) -> Fmt.pf fmt "xname %s,%s" x y
-
-let pp_related_param fmt = function
-  | #other_param as p -> pp_other_param fmt p
-  | `Reltype c -> Fmt.pf fmt "reltype %a" pp_relationship c
-
-let pp_rdate_param fmt = function
-  | #other_param as p -> pp_other_param fmt p
-  | #valuetypeparam as p -> pp_valuetypeparam fmt p
-  | `Tzid (prefix, name) -> Fmt.pf fmt "tzid prefix %b %s" prefix name
-
-let pp_rdate_value fmt = function
-  | `Datetimes xs -> Fmt.pf fmt "datetimes %a" Fmt.(list (pair Ptime.pp bool)) xs
-  | `Dates ds -> Fmt.pf fmt "dates %a" (Fmt.list pp_date) ds
-  | `Periods ps ->
-    let pp_period fmt (start, stop, utc) =
-      Fmt.pf fmt "%a - %a utc? %b" Ptime.pp start Ptime.pp stop utc
-    in
-    Fmt.pf fmt "periods %a" (Fmt.list pp_period) ps
-
-let pp_eventprop fmt = function
-  | `Dtstamp (l, (p, utc)) -> Fmt.pf fmt "dtstamp %a %a %b" pp_other_params l Ptime.pp p utc
-  | `Uid (l, s) -> Fmt.pf fmt "uid %a %s" pp_other_params l s 
-  | `Dtstart (l, v) -> Fmt.pf fmt "dtstart %a %a" (Fmt.list pp_dtstart_param) l pp_dtstart_value v
-  | `Class (l, v) -> Fmt.pf fmt "class %a %a" pp_other_params l pp_class v
-  | `Created (l, (p, utc)) -> Fmt.pf fmt "created %a %a %b" pp_other_params l Ptime.pp p utc
-  | `Description (l, v) -> Fmt.pf fmt "description %a %s" (Fmt.list pp_desc_param) l v
-  | `Geo (l, (lat, lon)) -> Fmt.pf fmt "geo %a lat %f lon %f" pp_other_params l lat lon
-  | `Lastmod (l, (p, utc)) -> Fmt.pf fmt "last modified %a %a %b" pp_other_params l Ptime.pp p utc
-  | `Location (l, v) -> Fmt.pf fmt "location %a %s" (Fmt.list pp_desc_param) l v
-  | `Organizer (l, v) -> Fmt.pf fmt "organizer %a %a" (Fmt.list pp_organizer_param) l Uri.pp_hum v
-  | `Priority (l, v) -> Fmt.pf fmt "priority %a %d" pp_other_params l v
-  | `Seq (l, v) -> Fmt.pf fmt "seq %a %d" pp_other_params l v
-  | `Status (l, v) -> Fmt.pf fmt "status %a %a" pp_other_params l pp_status v
-  | `Summary (l, v) -> Fmt.pf fmt "summary %a %s" (Fmt.list pp_desc_param) l v
-  | `Transparency (l, v) -> Fmt.pf fmt "transparency %a %s" pp_other_params l
-                              (match v with `Transparent -> "transparent" | `Opaque -> "opaque")
-  | `Url (l, v) -> Fmt.pf fmt "url %a %a" pp_other_params l Uri.pp_hum v
-  | `Recur_id (l, v) -> Fmt.pf fmt "recur-id %a %a" (Fmt.list pp_recur_param) l pp_dtstart_value v
-  | `Rrule (l, v) -> Fmt.pf fmt "rrule %a %a" pp_other_params l (Fmt.list pp_recur) v
-  | `Dtend (l, v) -> Fmt.pf fmt "dtend %a %a" (Fmt.list pp_dtstart_param) l pp_dtstart_value v
-  | `Duration (l, v) -> Fmt.pf fmt "duration %a %d seconds" pp_other_params l v
-  | `Attach (l, v) -> Fmt.pf fmt "attach %a %a" (Fmt.list pp_attach_param) l pp_attach_value v 
-  | `Attendee (l, v) -> Fmt.pf fmt "attendee %a %a" (Fmt.list pp_attendee_param) l Uri.pp_hum v
-  | `Categories (l, v) -> Fmt.pf fmt "categories %a %a" (Fmt.list pp_categories_param) l (Fmt.list Fmt.string) v
-  | `Comment (l, v) -> Fmt.pf fmt "comment %a %s" (Fmt.list pp_desc_param) l v
-  | `Contact (l, v) -> Fmt.pf fmt "contact %a %s" (Fmt.list pp_desc_param) l v
-  | `Exdate (l, v) -> Fmt.pf fmt "exdate %a %a" (Fmt.list pp_dtstart_param) l pp_exdate_value v
-  | `Rstatus (l, ((one, two, three), desc, extdata)) ->
-    Fmt.pf fmt "rstatus %a %d.%d.%a %s %a" (Fmt.list pp_categories_param) l
-      one two Fmt.(option int) three desc Fmt.(option string) extdata
-  | `Related (l, v) -> Fmt.pf fmt "related to %a %s" (Fmt.list pp_related_param) l v
-  | `Resource (l, v) -> Fmt.pf fmt "resource %a %a" (Fmt.list pp_desc_param) l Fmt.(list string) v
-  | `Rdate (l, v) -> Fmt.pf fmt "rdate %a %a" (Fmt.list pp_rdate_param) l pp_rdate_value v
-(*
-type alarm = [
-  | `Action of other_param list * [ `Audio | `Display | `Email | `Ianatoken of string | `Xname of string * string ]
-  | `Trigger of [ other_param | valuetypeparam | `Related of [ `Start | `End ] ] list *
-                [ `Duration of int | `Datetime of (Ptime.t * bool) ]
-  | `Duration of other_param list * int
-  | `Repeat of other_param list * int
-  | `Attach of [ `Media_type of string * string | `Encoding of [ `Base64 ] | valuetypeparam | other_param ] list *
-               [ `Uri of Uri.t | `Binary of string ]
-  | `Description of [other_param | `Altrep of Uri.t | `Language of string ] list * string
-  | `Summary of [ other_param | `Altrep of Uri.t | `Language of string ] list * string
-  | `Attendee of [ other_param
-                 | `Cn of string
-                 | `Cutype of cutype
-                 | `Delegated_from of Uri.t list
-                 | `Delegated_to of Uri.t list
-                 | `Dir of Uri.t
-                 | `Language of string
-                 | `Member of Uri.t list
-                 | `Partstat of partstat
-                 | `Role of role
-                 | `Rsvp of bool
-                 | `Sentby of Uri.t ] list * Uri.t
-] list
-*)
-let pp_action fmt = function
-  | `Audio -> Fmt.string fmt "audio"
-  | `Display -> Fmt.string fmt "display"
-  | `Email -> Fmt.string fmt "email"
-  | `Ianatoken a -> Fmt.pf fmt "ianatoken %s" a
-  | `Xname (a, b) -> Fmt.pf fmt "xname %s %s" a b
-
-let pp_trigger_param fmt = function
-  | #other_param as p -> pp_other_param fmt p
-  | #valuetypeparam as p -> pp_valuetypeparam fmt p
-  | `Related `Start -> Fmt.string fmt "related to start"
-  | `Related `End -> Fmt.string fmt "related to end"
-
-let pp_trigger_value fmt = function
-  | `Datetime (p, utc) -> Fmt.pf fmt "datetime %a utc %b" Ptime.pp p utc
-  | `Duration s -> Fmt.pf fmt "period %ds" s
-
-let pp_alarm_element fmt = function
-  | `Action (params, action) -> Fmt.pf fmt "action %a %a" pp_other_params params pp_action action
-  | `Trigger (params, value) -> Fmt.pf fmt "trigger %a %a" (Fmt.list pp_trigger_param) params pp_trigger_value value
-  | `Duration (params, value) -> Fmt.pf fmt "duration %a %ds" pp_other_params params value
-  | `Repeat (params, value) -> Fmt.pf fmt "repeat %a %ds" pp_other_params params value
-  | `Attach (l, v) -> Fmt.pf fmt "attach %a %a" (Fmt.list pp_attach_param) l pp_attach_value v 
-  | `Description (l, v) -> Fmt.pf fmt "description %a %s" (Fmt.list pp_desc_param) l v
-  | `Summary (l, v) -> Fmt.pf fmt "summary %a %s" (Fmt.list pp_desc_param) l v
-  | `Attendee (l, v) -> Fmt.pf fmt "attendee %a %a" (Fmt.list pp_attendee_param) l Uri.pp_hum v
-
-(*
-let pp_alarm fmt data =
-  (Fmt.list pp_alarm_element) fmt data
-*)
+  ] [@@deriving eq, show]
 
 type 'a alarm_struct = {
   trigger : [ other_param | valuetypeparam | `Related of [ `Start | `End ] ] list *
     [ `Duration of int | `Datetime of (Ptime.t * bool) ] ;
   duration_repeat: ((other_param list * int) * (other_param list * int )) option ;
   special: 'a ;
-}
+} [@@deriving eq, show] 
 
 type audio_struct = { 
   attach: ([`Media_type of string * string | `Encoding of [ `Base64 ] | valuetypeparam | other_param ] list *
     [ `Uri of Uri.t | `Binary of string ]) option ;
   (* xprop: list ;
   iana_prop: list ; *)
-}
+} [@@deriving eq, show]
 
 type display_struct = {
   description : [ other_param | `Altrep of Uri.t | `Language of string ] list * string ;
-}
+} [@@deriving eq, show]
 
 type email_struct = {
   description : [ other_param | `Altrep of Uri.t | `Language of string ] list * string ;
@@ -439,23 +153,13 @@ type email_struct = {
                  | `Sentby of Uri.t ] list * Uri.t) list ;
   attach: ([`Media_type of string * string | `Encoding of [ `Base64 ] | valuetypeparam | other_param ] list *
     [ `Uri of Uri.t | `Binary of string ]) option ;
-}
+} [@@deriving eq, show]
 
-type alarm = [ `Audio of audio_struct alarm_struct | `Display of display_struct alarm_struct | `Email of email_struct alarm_struct ]
+type alarm = [ `Audio of audio_struct alarm_struct | `Display of display_struct alarm_struct | `Email of email_struct alarm_struct ] [@@deriving eq, show]
 
-let pp_alarm fmt data =
-  Fmt.string fmt "not implemented for alarm"
+type component = eventprop list * alarm list [@@deriving eq, show]
 
-type component = eventprop list * alarm list
-
-let pp_component fmt (props, alarms) =
-  Fmt.pf fmt "props: %a @.alarms:%a"
-    (Fmt.list pp_eventprop) props
-    (Fmt.list pp_alarm) alarms
-
-type calendar = calprop list * component list
-
-let pp_calendar: calendar Fmt.t = fun fmt (props, comps) -> Fmt.pf fmt "properties %a components %a" (Fmt.list pp_calprop) props (Fmt.list pp_component) comps
+type calendar = calprop list * component list [@@deriving eq, show]
 
 open Angstrom
 exception Parse_error

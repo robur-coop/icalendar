@@ -1,3 +1,3 @@
-true: package(angstrom fmt re uri astring nocrypto rresult ptime)
+true: package(angstrom fmt re uri astring nocrypto rresult ptime ppx_deriving.show ppx_deriving.eq)
 <test/*>: package(alcotest)
 "src": include
