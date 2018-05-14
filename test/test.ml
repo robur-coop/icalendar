@@ -1063,7 +1063,7 @@ END:VCALENDAR
       Alcotest.check result_c __LOC__ e f)
     inputs expecteds
 
-let calendar_object_with_valarm_action () =
+let calendar_object_with_illegal_valarm () =
   let input =
 {_|BEGIN:VCALENDAR
 VERSION:2.0
@@ -1080,6 +1080,30 @@ END:VALARM
 END:VEVENT
 END:VCALENDAR
 |_}
+  and expected = Error "parse error"
+  in
+  let f = Icalendar.parse_calobject input in
+  Alcotest.check result_c __LOC__ expected f
+
+
+let calendar_object_with_valarm_action () =
+  let input =
+{_|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+BEGIN:VEVENT
+UID:19970610T172345Z-AF23B2@example.com
+DTSTAMP:19970610T172345Z
+DTSTART:19970714T170000Z
+DTEND:19970715T040000Z
+SUMMARY:Bastille Day Party
+BEGIN:VALARM
+ACTION:AUDIO
+TRIGGER;VALUE=DATE-TIME:19970317T133000Z
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+|_}
   and expected = Ok
       ( [ `Version ([], "2.0") ;
           `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
@@ -1089,9 +1113,8 @@ END:VCALENDAR
             `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
             `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
             `Summary ([], "Bastille Day Party")
-          ], [
-            [ `Action ([], `Audio) ]
-          ]
+          ],
+          [ `Audio { Icalendar.trigger = ([`Valuetype `Datetime], `Datetime (to_ptime (1997, 03, 17) (13, 30, 00), true)) ; duration_repeat = None ; special = {Icalendar.attach = None } } ]
         ])
   in
   let f = Icalendar.parse_calobject input in
@@ -1124,7 +1147,8 @@ END:VCALENDAR
             `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
             `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
             `Summary ([], "Bastille Day Party")
-          ], [ [ `Action ([], `Audio) ; s ] ]
+          ],
+          [ `Audio { Icalendar.trigger = s ; duration_repeat = None ; special = {Icalendar.attach = None } } ]
         ])
   in
   let inputs = List.map input [
@@ -1133,9 +1157,9 @@ END:VCALENDAR
       ";VALUE=DATE-TIME:19980101T050000Z" ;
     ]
   and expecteds = List.map expected [
-      `Trigger ([], `Duration (- (15 * 60))) ;
-      `Trigger ([ `Related `End ], `Duration (5 * 60)) ;
-      `Trigger ([ `Valuetype `Datetime ], `Datetime (to_ptime (1998, 01, 01) (05, 00, 00), true))
+      ([], `Duration (- (15 * 60))) ;
+      ([ `Related `End ], `Duration (5 * 60)) ;
+      ([ `Valuetype `Datetime ], `Datetime (to_ptime (1998, 01, 01) (05, 00, 00), true))
     ]
   in
   List.iter2 (fun i e ->
@@ -1156,7 +1180,9 @@ DTEND:19970715T040000Z
 SUMMARY:Bastille Day Party
 BEGIN:VALARM
 ACTION:AUDIO
+TRIGGER:-PT30M
 DURATION:PT1H
+REPEAT:2
 END:VALARM
 END:VEVENT
 END:VCALENDAR
@@ -1171,7 +1197,9 @@ END:VCALENDAR
             `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
             `Summary ([], "Bastille Day Party")
           ], [
-            [ `Action ([], `Audio) ; `Duration ([], 3600) ]
+            `Audio { Icalendar.trigger = ([], `Duration (-1800)) ; 
+                     duration_repeat = Some (([], 3600), ([], 2)) ; 
+                     special = { Icalendar.attach = None }}
           ]
         ])
   in
@@ -1190,6 +1218,7 @@ DTSTART:19970714T170000Z
 DTEND:19970715T040000Z
 SUMMARY:Bastille Day Party
 BEGIN:VALARM
+TRIGGER:-PT30M
 ACTION:AUDIO
 DURATION:PT1H
 REPEAT:4
@@ -1207,7 +1236,9 @@ END:VCALENDAR
             `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
             `Summary ([], "Bastille Day Party")
           ], [
-            [ `Action ([], `Audio) ; `Duration ([], 3600) ; `Repeat ([], 4) ]
+             `Audio { Icalendar.trigger = ([], `Duration (-1800)) ; 
+                      duration_repeat = Some (([], 3600), ([], 4)) ;
+                      special = { Icalendar.attach = None } }
           ]
         ])
   in
@@ -1227,7 +1258,7 @@ DTEND:19970715T040000Z
 SUMMARY:Bastille Day Party
 BEGIN:VALARM
 ACTION:AUDIO
-DURATION:PT1H
+TRIGGER:-PT30M
 ATTACH;FMTTYPE=text/plain;ENCODING=BASE64;VALUE=BINARY:TG9yZW
  0gaXBzdW0gZG9sb3Igc2l0IGFtZXQsIGNvbnNlY3RldHVyIGFkaXBpc2ljaW
  5nIGVsaXQsIHNlZCBkbyBlaXVzbW9kIHRlbXBvciBpbmNpZGlkdW50IHV0IG
@@ -1253,8 +1284,10 @@ END:VCALENDAR
             `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
             `Summary ([], "Bastille Day Party")
           ], [
-            [ `Action ([], `Audio) ; `Duration ([], 3600) ;
-              `Attach ([`Media_type ("text", "plain") ; `Encoding `Base64 ; `Valuetype `Binary], `Binary "TG9yZW\
+             `Audio { Icalendar.trigger = ([], `Duration (-1800)) ; 
+                      duration_repeat = None;
+                      special = { Icalendar.attach = Some
+               ([`Media_type ("text", "plain") ; `Encoding `Base64 ; `Valuetype `Binary], `Binary "TG9yZW\
 0gaXBzdW0gZG9sb3Igc2l0IGFtZXQsIGNvbnNlY3RldHVyIGFkaXBpc2ljaW\
 5nIGVsaXQsIHNlZCBkbyBlaXVzbW9kIHRlbXBvciBpbmNpZGlkdW50IHV0IG\
 xhYm9yZSBldCBkb2xvcmUgbWFnbmEgYWxpcXVhLiBVdCBlbmltIGFkIG1pbm\
@@ -1265,7 +1298,8 @@ B2b2x1cHRhdGUgdmVsaXQgZXNzZSBjaWxsdW0gZG9sb3JlIGV1IGZ1Z2lhdC\
 BudWxsYSBwYXJpYXR1ci4gRXhjZXB0ZXVyIHNpbnQgb2NjYWVjYXQgY3VwaW\
 RhdGF0IG5vbiBwcm9pZGVudCwgc3VudCBpbiBjdWxwYSBxdWkgb2ZmaWNpYS\
 BkZXNlcnVudCBtb2xsaXQgYW5pbSBpZCBlc3QgbGFib3J1bS4=")
-            ]
+              }
+            }
           ]
         ])
   in
@@ -1284,8 +1318,8 @@ DTSTART:19970714T170000Z
 DTEND:19970715T040000Z
 SUMMARY:Bastille Day Party
 BEGIN:VALARM
-ACTION:AUDIO
-DURATION:PT1H
+ACTION:DISPLAY
+TRIGGER:-PT30M
 DESCRIPTION;ALTREP="CID:part3.msg970930T083000SILVER@example.com":Meeting to provide technical review for "Phoenix"
   design.\nHappy Face Conference Room. Phoenix design team
   MUST attend this meeting.\nRSVP to team leader.
@@ -1303,9 +1337,9 @@ END:VCALENDAR
             `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
             `Summary ([], "Bastille Day Party")
           ], [
-            [ `Action ([], `Audio) ; `Duration ([], 3600) ;
-              `Description ([`Altrep (Uri.of_string "CID:part3.msg970930T083000SILVER@example.com")], "Meeting to provide technical review for \"Phoenix\" design.\nHappy Face Conference Room. Phoenix design team MUST attend this meeting.\nRSVP to team leader.")
-            ]
+            `Display { Icalendar.trigger = ([], `Duration (-1800)) ;
+                       duration_repeat = None ;
+                       special = { Icalendar.description = ([`Altrep (Uri.of_string "CID:part3.msg970930T083000SILVER@example.com")], "Meeting to provide technical review for \"Phoenix\" design.\nHappy Face Conference Room. Phoenix design team MUST attend this meeting.\nRSVP to team leader.") } }
           ]
         ])
   in
@@ -1324,9 +1358,13 @@ DTSTART:19970714T170000Z
 DTEND:19970715T040000Z
 SUMMARY:Bastille Day Party
 BEGIN:VALARM
-ACTION:AUDIO
-DURATION:PT1H
-SUMMARY:valarm summary is a summary
+ACTION:EMAIL
+TRIGGER:-PT30M
+SUMMARY:*** REMINDER: SEND AGENDA FOR WEEKLY STAFF MEETING ***
+ATTENDEE:mailto:john_doe@example.com
+DESCRIPTION:A draft agenda needs to be sent out to the attendees
+  to the weekly managers meeting (MGR-LIST). Attached is a
+  pointer the document template for the agenda file.
 END:VALARM
 END:VEVENT
 END:VCALENDAR
@@ -1341,16 +1379,21 @@ END:VCALENDAR
             `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
             `Summary ([], "Bastille Day Party")
           ], [
-            [ `Action ([], `Audio) ; `Duration ([], 3600) ;
-              `Summary ([], "valarm summary is a summary")
-            ]
+            `Email { Icalendar.trigger = ([], `Duration (-1800)) ;
+                     duration_repeat = None ;
+                     special = { Icalendar.summary = ([], "*** REMINDER: SEND AGENDA FOR WEEKLY STAFF MEETING ***") ;
+                                 description = ([], "A draft agenda needs to be sent out to the attendees to the weekly managers meeting (MGR-LIST). Attached is a pointer the document template for the agenda file.") ;
+                                 attendees = [([], Uri.of_string "mailto:john_doe@example.com")] ;
+                                 attach = None ;
+                     }
+             }
           ]
         ])
   in
   let f = Icalendar.parse_calobject input in
   Alcotest.check result_c __LOC__ expected f
 
-let calendar_object_with_valarm_attendee () =
+let calendar_object_with_display_alarm_relative () =
   let input =
 {_|BEGIN:VCALENDAR
 VERSION:2.0
@@ -1362,7 +1405,12 @@ DTSTART:19970714T170000Z
 DTEND:19970715T040000Z
 SUMMARY:Bastille Day Party
 BEGIN:VALARM
-ATTENDEE;MEMBER="mailto:DEV-GROUP@example.com":mailto:joecool@example.com
+TRIGGER:-PT30M
+REPEAT:2
+DURATION:PT15M
+ACTION:DISPLAY
+DESCRIPTION:Breakfast meeting with executive\n
+ team at 8:30 AM EST.
 END:VALARM
 END:VEVENT
 END:VCALENDAR
@@ -1377,12 +1425,110 @@ END:VCALENDAR
             `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
             `Summary ([], "Bastille Day Party")
           ], [
-            [ `Attendee  ([`Member [Uri.of_string "mailto:DEV-GROUP@example.com"]], Uri.of_string "mailto:joecool@example.com") ; ]
+            `Display { Icalendar.trigger = ([], `Duration (-1800));
+                     duration_repeat = Some (([], 15 * 60), ([], 2)) ;
+                     special = { Icalendar.description = ([], "Breakfast meeting with executive\nteam at 8:30 AM EST.");
+                     }
+             }
           ]
         ])
   in
   let f = Icalendar.parse_calobject input in
   Alcotest.check result_c __LOC__ expected f
+
+
+let calendar_object_with_audio_alarm_precise () =
+  let input =
+{_|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+BEGIN:VEVENT
+UID:19970610T172345Z-AF23B2@example.com
+DTSTAMP:19970610T172345Z
+DTSTART:19970714T170000Z
+DTEND:19970715T040000Z
+SUMMARY:Bastille Day Party
+BEGIN:VALARM
+TRIGGER;VALUE=DATE-TIME:19970317T133000Z
+REPEAT:4
+DURATION:PT15M
+ACTION:AUDIO
+ATTACH;FMTTYPE=audio/basic:ftp://example.com/pub/
+ sounds/bell-01.aud
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+|_}
+  and expected = Ok
+      ( [ `Version ([], "2.0") ;
+          `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
+        [
+          [ `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
+            `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+            `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], [
+            `Audio { Icalendar.trigger = ([`Valuetype `Datetime], `Datetime (to_ptime (1997,03,17) (13,30,00), true)) ;
+                     duration_repeat = Some (([], 15 * 60), ([], 4)) ;
+                     special = { Icalendar.attach = Some ([`Media_type ("audio", "basic")], `Uri(Uri.of_string "ftp://example.com/pub/sounds/bell-01.aud"));
+                     }
+             }
+          ]
+        ])
+  in
+  let f = Icalendar.parse_calobject input in
+  Alcotest.check result_c __LOC__ expected f
+
+
+let calendar_object_with_email_alarm () =
+  let input =
+{_|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+BEGIN:VEVENT
+UID:19970610T172345Z-AF23B2@example.com
+DTSTAMP:19970610T172345Z
+DTSTART:19970714T170000Z
+DTEND:19970715T040000Z
+SUMMARY:Bastille Day Party
+BEGIN:VALARM
+TRIGGER;RELATED=END:-P2D
+ACTION:EMAIL
+ATTENDEE:mailto:john_doe@example.com
+SUMMARY:*** REMINDER: SEND AGENDA FOR WEEKLY STAFF MEETING ***
+DESCRIPTION:A draft agenda needs to be sent out to the attendees
+  to the weekly managers meeting (MGR-LIST). Attached is a
+  pointer the document template for the agenda file.
+ATTACH;FMTTYPE=application/msword:http://example.com/
+ templates/agenda.doc
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+|_}
+  and expected = Ok
+      ( [ `Version ([], "2.0") ;
+          `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
+        [
+          [ `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
+            `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+            `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+            `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
+            `Summary ([], "Bastille Day Party")
+          ], [
+            `Email { Icalendar.trigger = ([`Related `End], `Duration (-2*24*60*60)) ;
+                     duration_repeat = None ;
+                     special = { Icalendar.attach = Some ([`Media_type ("application", "msword")], `Uri(Uri.of_string "http://example.com/templates/agenda.doc")) ; attendees = [([], Uri.of_string "mailto:john_doe@example.com")]; 
+                                 summary = ([], "*** REMINDER: SEND AGENDA FOR WEEKLY STAFF MEETING ***");
+                                 description = ([], "A draft agenda needs to be sent out to the attendees to the weekly managers meeting (MGR-LIST). Attached is a pointer the document template for the agenda file.")
+                     }
+             }
+          ]
+        ])
+  in
+  let f = Icalendar.parse_calobject input in
+  Alcotest.check result_c __LOC__ expected f
+
 
 let object_tests = [
   "test single long line", `Quick, test_line ;
@@ -1418,6 +1564,7 @@ let object_tests = [
   "calendar object parsing with resource", `Quick, calendar_object_with_resource ;
   "calendar object parsing with resource2", `Quick, calendar_object_with_resource2 ;
   "calendar object parsing with rdate", `Quick, calendar_object_with_rdate ;
+  "calendar object parsing with illegal valarm action", `Quick, calendar_object_with_illegal_valarm ;
   "calendar object parsing with valarm and action", `Quick, calendar_object_with_valarm_action ;
   "calendar object parsing with valarm and trigger", `Quick, calendar_object_with_valarm_trigger ;
   "calendar object parsing with valarm and duration", `Quick, calendar_object_with_valarm_duration ;
@@ -1425,7 +1572,9 @@ let object_tests = [
   "calendar object parsing with valarm and attach", `Quick, calendar_object_with_valarm_attach ;
   "calendar object parsing with valarm and description", `Quick, calendar_object_with_valarm_description ;
   "calendar object parsing with valarm and summary", `Quick, calendar_object_with_valarm_summary ;
-  "calendar object parsing with valarm and attendee", `Quick, calendar_object_with_valarm_attendee ;
+  "calendar object parsing with audio alarm precise", `Quick, calendar_object_with_audio_alarm_precise ;
+  "calendar object parsing with display alarm relative", `Quick, calendar_object_with_display_alarm_relative ;
+  "calendar object parsing with email alarm", `Quick, calendar_object_with_email_alarm ;
 ]
 
 let tests = [

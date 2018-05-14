@@ -106,6 +106,7 @@ type eventprop =
               [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
   ]
 
+(*
 type alarm = [
   | `Action of other_param list * [ `Audio | `Display | `Email | `Ianatoken of string | `Xname of string * string ]
   | `Trigger of [ other_param | valuetypeparam | `Related of [ `Start | `End ] ] list *
@@ -129,6 +130,48 @@ type alarm = [
                  | `Rsvp of bool
                  | `Sentby of Uri.t ] list * Uri.t
 ] list
+*)
+
+type 'a alarm_struct = {
+  trigger : [ other_param | valuetypeparam | `Related of [ `Start | `End ] ] list *
+    [ `Duration of int | `Datetime of (Ptime.t * bool) ] ;
+  duration_repeat: ((other_param list * int) * (other_param list * int )) option ;
+  special: 'a ;
+}
+
+type audio_struct = { 
+  attach: ([`Media_type of string * string | `Encoding of [ `Base64 ] | valuetypeparam | other_param ] list *
+    [ `Uri of Uri.t | `Binary of string ]) option ;
+  (* xprop: list ;
+  iana_prop: list ; *)
+}
+
+type display_struct = {
+  description : [ other_param | `Altrep of Uri.t | `Language of string ] list * string ;
+}
+
+type email_struct = {
+  description : [ other_param | `Altrep of Uri.t | `Language of string ] list * string ;
+  summary : [ other_param | `Altrep of Uri.t | `Language of string ] list * string ;
+  attendees : ([ other_param
+                 | `Cn of string
+                 | `Cutype of cutype
+                 | `Delegated_from of Uri.t list
+                 | `Delegated_to of Uri.t list
+                 | `Dir of Uri.t
+                 | `Language of string
+                 | `Member of Uri.t list
+                 | `Partstat of partstat
+                 | `Role of role
+                 | `Rsvp of bool
+                 | `Sentby of Uri.t ] list * Uri.t) list ;
+  attach: ([`Media_type of string * string | `Encoding of [ `Base64 ] | valuetypeparam | other_param ] list *
+    [ `Uri of Uri.t | `Binary of string ]) option ;
+}
+
+type alarm = [ `Audio of audio_struct alarm_struct | `Display of display_struct alarm_struct | `Email of email_struct alarm_struct ]
+
+
 
 type component = eventprop list * alarm list
 
