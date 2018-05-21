@@ -163,8 +163,19 @@ type calendar = calprop list * component list [@@deriving eq, show]
 
 let pp = pp_calendar
 
+let weekday_to_str, str_weekdays =
+  let mapping = [
+    (`Monday, "MO") ; (`Tuesday, "TU") ; (`Wednesday, "WE") ;
+    (`Thursday, "TH") ; (`Friday, "FR") ; (`Saturday, "SA") ;
+    (`Sunday, "SU")
+  ]
+  in
+  let reverse_mapping = List.map (fun (a, b) -> (b, a)) mapping in
+  ((fun w -> List.assoc w mapping), reverse_mapping)
+
+
 module Writer = struct
-  let write_line buf name params value =
+  let write_line buf name params write_value =
     let write = Buffer.add_string buf in
     write name ;
     List.iteri (fun idx (k, v) ->
@@ -174,24 +185,276 @@ module Writer = struct
         write v)
       params ;
     write ":" ;
-    write value ;
+    write_value buf ;
     write "\r\n"
 
-  let prop_to_ics buf = function
-    | `Prodid (params, value) -> write_line buf "PRODID" [] value
-    | `Version (params, value) -> write_line buf "VERSION" [] value
-    | `Calscale (params, value) -> write_line buf "CALSCALE" [] value
-    | `Method (params, value) -> write_line buf "METHOD" [] value
+  let write_string str buf = Buffer.add_string buf str
 
-  let props_to_ics buf props = List.iter (prop_to_ics buf) props
+  let calprop_to_ics buf = function
+    | `Prodid (params, value) -> write_line buf "PRODID" [] (write_string value)
+    | `Version (params, value) -> write_line buf "VERSION" [] (write_string value)
+    | `Calscale (params, value) -> write_line buf "CALSCALE" [] (write_string value)
+    | `Method (params, value) -> write_line buf "METHOD" [] (write_string value)
 
-  let components_to_ics buf comps = ()
+  let calprops_to_ics buf props = List.iter (calprop_to_ics buf) props
+
+  let duration_to_ics buf dur =
+    if dur < 0 then Buffer.add_char buf '-' ;
+    Buffer.add_char buf 'P' ;
+    let output_number i d c =
+      Buffer.add_string buf (string_of_int (i / d)) ;
+      Buffer.add_char buf c ;
+      i mod d
+    in
+    let dur' = abs dur in
+    let day = 24 * 60 * 60 in
+    let week = 7 * day in
+    if dur' mod week = 0 && dur' / week > 0
+    then ignore (output_number dur' week 'W')
+    else
+      let rest =
+        if dur' >= day
+        then output_number dur' day 'D'
+        else dur'
+      in
+      if dur' = 0 || rest > 0 then begin
+        Buffer.add_char buf 'T' ;
+        let hour = 60 * 60 in
+        let rest' =
+          if rest >= hour
+          then output_number rest hour 'H'
+          else rest
+        in
+        let rest'' =
+          if (rest >= hour && rest' > 0) || rest' >= 60
+          then output_number rest' 60 'M'
+          else rest'
+        in
+        if dur' = 0 || rest'' > 0 then
+          ignore (output_number rest'' 1 'S')
+      end
+
+  let date_to_ics buf (y, m, d) =
+    let str = Printf.sprintf "%04d%02d%02d" y m d in
+    Buffer.add_string buf str
+
+  let datetime_to_ics buf (ptime, utc) =
+    let date, ((hh, mm, ss), _) = Ptime.to_date_time ptime in
+    date_to_ics buf date ;
+    let str = Printf.sprintf "T%02d%02d%02d" hh mm ss in
+    Buffer.add_string buf str ;
+    if utc then Buffer.add_char buf 'Z'
+
+  let duration_repeat_to_ics buf = function
+    | None -> ()
+    | Some ((durparams, dur), (repparams, rep)) ->
+      write_line buf "DURATION" [] (fun buf -> duration_to_ics buf dur) ;
+      write_line buf "REPEAT" [] (write_string (string_of_int rep))
+
+  let attach_to_ics buf = function
+    | None -> ()
+    | Some (params, value) ->
+      let value' = match value with
+        | `Uri uri -> Uri.to_string uri
+        | `Binary s -> s
+      in
+      write_line buf "ATTACH" [] (write_string value')
+
+  let description_to_ics buf (params, desc) =
+    write_line buf "DESCRIPTION" [] (write_string desc)
+
+  let summary_to_ics buf (params, summary) =
+    write_line buf "SUMMARY" [] (write_string summary)
+
+  let date_or_time_to_ics dt buf = match dt with
+    | `Date d -> date_to_ics buf d
+    | `Datetime dt -> datetime_to_ics buf dt
+
+  let dates_or_times_to_ics dt buf = match dt with
+    | `Dates xs -> List.iter (date_to_ics buf) xs
+    | `Datetimes xs -> List.iter (datetime_to_ics buf) xs
+
+  let period_to_ics buf (start, until, utc) =
+    datetime_to_ics buf (start, utc) ;
+    Buffer.add_char buf '/' ;
+    datetime_to_ics buf (until, utc)
+
+  let dates_or_times_or_periods_to_ics dt buf = match dt with
+    | `Dates xs -> List.iter (date_to_ics buf) xs
+    | `Datetimes xs -> List.iter (datetime_to_ics buf) xs
+    | `Periods xs -> List.iter (period_to_ics buf) xs
+
+(*
+  let recur_to_ics buf = function
+    | `Byminute ms ->
+      Buffer.add_string buf "BYMINUTE" ;
+      List.iteri (fun idx m ->
+          if idx > 0 then Buffer.add_char buf '.' ;
+          Buffer.add_string buf (string_of_int m))
+        ms
+    | `Byday of (char * int * weekday) list
+    | `Byhour of int list
+    | `Bymonth of (char * int) list
+    | `Bymonthday of (char * int) list
+    | `Bysecond of int list
+    | `Bysetposday of char * int
+    | `Byweek of (char * int) list
+    | `Byyearday of (char * int) list
+    | `Count of int
+    | `Frequency of [ `Daily | `Hourly | `Minutely | `Monthly | `Secondly | `Weekly | `Yearly ]
+    | `Interval of int
+    | `Until of Ptime.t * bool
+    | `Weekday of weekday
+*)
+
+  let attendee_to_ics buf (param, uri) =
+    write_line buf "ATTENDEE" [] (write_string (Uri.to_string uri))
+
+  let status_to_string = function
+    | `Draft -> "DRAFT"
+    | `Final -> "FINAL"
+    | `Cancelled -> "CANCELLED"
+    | `Needs_action -> "NEEDS-ACTION"
+    | `Completed -> "COMPLETED"
+    | `In_process -> "IN-PROCESS"
+    | `Tentative -> "TENTATIVE"
+    | `Confirmed -> "CONFIRMED"
+
+  let eventprop_to_ics buf = function
+    | `Dtstamp (params, ts) ->
+      write_line buf "DTSTAMP" [] (fun buf -> datetime_to_ics buf ts)
+    | `Uid (params, str) ->
+      write_line buf "UID" [] (write_string str)
+    | `Dtstart (params, date_or_time) ->
+      write_line buf "DTSTART" [] (date_or_time_to_ics date_or_time)
+    | `Class (params, class_) ->
+      let str = match class_ with
+        | `Public -> "PUBLIC" | `Private -> "PRIVATE" | `Confidential -> "CONFIDENTIAL" | _ -> "BLA"
+      in
+      write_line buf "CLASS" [] (write_string str)
+    | `Created (params, ts) ->
+      write_line buf "CREATED" [] (fun buf -> datetime_to_ics buf ts)
+    | `Description desc ->
+      description_to_ics buf desc
+    | `Geo (params, (lat, lon)) ->
+      write_line buf "GEO" [] (fun buf ->
+          Buffer.add_string buf (string_of_float lat) ;
+          Buffer.add_char buf ';' ;
+          Buffer.add_string buf (string_of_float lon))
+    | `Lastmod (params, ts) ->
+      write_line buf "LAST-MODIFIED" [] (fun buf -> datetime_to_ics buf ts)
+    | `Location (params, name) ->
+      write_line buf "LOCATION" [] (write_string name)
+    | `Organizer (params, uri) ->
+      write_line buf "ORGANIZER" [] (write_string (Uri.to_string uri))
+    | `Priority (params, prio) ->
+      write_line buf "PRIORITY" [] (write_string (string_of_int prio))
+    | `Seq (params, seq) ->
+      write_line buf "SEQUENCE" [] (write_string (string_of_int seq))
+    | `Status (params, status) ->
+      write_line buf "STATUS" [] (write_string (status_to_string status))
+    | `Summary summary ->
+      summary_to_ics buf summary
+    | `Transparency (params, transp) ->
+      write_line buf "TRANSPARENCY" [] (fun buf -> match transp with
+          | `Transparent -> "TRANSPARENT" | `Opaque -> "OPAQUE")
+    | `Url (params, uri) ->
+      write_line buf "URL" [] (write_string (Uri.to_string uri))
+    | `Recur_id (params, date_or_time) ->
+      write_line buf "RECURRENCE-ID" [] (date_or_time_to_ics date_or_time)
+    | `Rrule (params, recurs) ->
+      write_line buf "RRULE" [] (write_string "BLA")
+    | `Dtend (params, date_or_time) ->
+      write_line buf "DTEND" [] (date_or_time_to_ics date_or_time)
+    | `Duration (params, dur) ->
+      write_line buf "DURATION" [] (fun buf -> duration_to_ics buf dur)
+    | `Attach att ->
+      attach_to_ics buf (Some att)
+    | `Attendee att ->
+      attendee_to_ics buf att
+    | `Categories (params, cats) ->
+      let cat = String.concat "," cats in
+      write_line buf "CATEGORIES" [] (write_string cat)
+    | `Comment (params, comment) ->
+      write_line buf "COMMENT" [] (write_string comment)
+    | `Contact (params, contact) ->
+      write_line buf "CONTACT" [] (write_string contact)
+    | `Exdate (params, dates_or_times) ->
+      write_line buf "EXDATE" [] (dates_or_times_to_ics dates_or_times)
+    | `Rstatus (params, (statcode, text, comment)) ->
+      write_line buf "REQUEST-STATUS" []
+        (fun buf ->
+           let (major, minor, patch) = statcode in
+           Buffer.add_string buf (string_of_int major) ;
+           Buffer.add_char buf '.' ;
+           Buffer.add_string buf (string_of_int minor) ;
+           (match patch with
+            | None -> ()
+            | Some m ->
+              Buffer.add_char buf '.' ;
+              Buffer.add_string buf (string_of_int m)) ;
+           Buffer.add_char buf ';' ;
+           Buffer.add_string buf text ;
+           match comment with
+           | None -> ()
+           | Some x ->
+             Buffer.add_char buf ';' ;
+             Buffer.add_string buf x)
+    | `Related (params, rel) ->
+      write_line buf "RELATED" [] (write_string rel)
+    | `Resource (params, res) ->
+      let r = String.concat "," res in
+      write_line buf "RESOURCE" [] (write_string r)
+    | `Rdate (params, dates_or_times_or_periods) ->
+      write_line buf "RDATE" []
+        (dates_or_times_or_periods_to_ics dates_or_times_or_periods)
+
+  let eventprops_to_ics buf props = List.iter (eventprop_to_ics buf) props
+
+  let attendees_to_ics buf xs = List.iter (attendee_to_ics buf) xs
+
+  let alarm_to_ics buf alarm =
+    write_line buf "BEGIN" [] (write_string "VALARM") ;
+    let write_trigger buf = function
+      | (_, `Duration d) -> duration_to_ics buf d
+      | (_, `Datetime dt) -> datetime_to_ics buf dt
+    in
+    (match alarm with
+     | `Audio (audio : audio_struct alarm_struct) ->
+       write_line buf "ACTION" [] (write_string "AUDIO") ;
+       write_line buf "TRIGGER" [] (fun buf -> write_trigger buf audio.trigger) ;
+       duration_repeat_to_ics buf audio.duration_repeat ;
+       attach_to_ics buf audio.special.attach
+     | `Display (display : display_struct alarm_struct) ->
+       write_line buf "ACTION" [] (write_string "DISPLAY") ;
+       write_line buf "TRIGGER" [] (fun buf -> write_trigger buf display.trigger) ;
+       duration_repeat_to_ics buf display.duration_repeat ;
+       description_to_ics buf display.special.description
+     | `Email email ->
+       write_line buf "ACTION" [] (write_string "EMAIL") ;
+       write_line buf "TRIGGER" [] (fun buf -> write_trigger buf email.trigger) ;
+       duration_repeat_to_ics buf email.duration_repeat ;
+       attach_to_ics buf email.special.attach ;
+       description_to_ics buf email.special.description ;
+       summary_to_ics buf email.special.summary ;
+       attendees_to_ics buf email.special.attendees ) ;
+    write_line buf "END" [] (write_string "VALARM")
+
+  let alarms_to_ics buf alarms = List.iter (alarm_to_ics buf) alarms
+
+  let component_to_ics buf (eventprops, alarms) =
+    write_line buf "BEGIN" [] (write_string "VEVENT") ;
+    eventprops_to_ics buf eventprops ;
+    alarms_to_ics buf alarms ;
+    write_line buf "END" [] (write_string "VEVENT")
+
+  let components_to_ics buf comps = List.iter (component_to_ics buf) comps
 
   let calendar_to_ics buf (props, comps) =
-    write_line buf "BEGIN" [] "VCALENDAR" ;
-    props_to_ics buf props ;
+    write_line buf "BEGIN" [] (write_string "VCALENDAR") ;
+    calprops_to_ics buf props ;
     components_to_ics buf comps ;
-    write_line buf "END" [] "VCALENDAR"
+    write_line buf "END" [] (write_string "VCALENDAR")
 end
 
 let to_ics calendar =
@@ -336,13 +599,12 @@ let recur =
          <|> ( string "WEEKLY"   >>| fun _ -> `Weekly )
          <|> ( string "MONTHLY"  >>| fun _ -> `Monthly )
          <|> ( string "YEARLY"   >>| fun _ -> `Yearly )
-  and weekday = ( string "SU" >>| fun _ -> `Sunday )
-            <|> ( string "MO" >>| fun _ -> `Monday )
-            <|> ( string "TU" >>| fun _ -> `Tuesday )
-            <|> ( string "WE" >>| fun _ -> `Wednesday )
-            <|> ( string "TH" >>| fun _ -> `Thursday )
-            <|> ( string "FR" >>| fun _ -> `Friday )
-            <|> ( string "SA" >>| fun _ -> `Saturday ) in
+  and weekday =
+    let weekdays =
+      List.map (fun (str, v) -> string str >>| fun _ -> v) str_weekdays
+    in
+    choice weekdays
+  in
   let triple a b c = (a, b, c) in
   let weekdaynum = lift3 triple sign (option 0 (up_to_two_digits >>= in_range 1 53) ) weekday in
   let pair a b = (a, b) in

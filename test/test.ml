@@ -1626,8 +1626,77 @@ let object_tests = [
   "calendar object parsing with duplicate alarm", `Quick, calendar_object_with_duplicate_alarm ;
 ]
 
+let encode_durations () =
+  let values = [
+    0 ;
+    7 * 24 * 60 * 60 ;
+    7 * 24 * 60 * 60 + 1 ;
+    8 * 24 * 60 * 60 ;
+    24 * 60 * 60 ;
+    25 * 60 * 60 + 30 * 60 + 25 ;
+    25 * 60 * 60 + 25 ;
+    5
+  ]
+  and expecteds = [
+    "PT0S" ;
+    "P1W" ;
+    "P7DT1S" ;
+    "P8D" ;
+    "P1D" ;
+    "P1DT1H30M25S" ;
+    "P1DT1H0M25S" ;
+    "PT5S"
+  ]
+  in
+  List.iter2 (fun v e ->
+      let to_string v =
+        let buf = Buffer.create 10 in
+        Icalendar.Writer.duration_to_ics buf v ;
+        Buffer.contents buf
+      in
+      Alcotest.(check string __LOC__ e (to_string v)))
+    values expecteds
+
+let decode_encode () =
+  let input =
+{_|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hacksw/handcal//NONSGML v1.0//EN
+BEGIN:VEVENT
+UID:19970610T172345Z-AF23B2@example.com
+DTSTAMP:19970610T172345Z
+DTSTART:19970714T170000Z
+DTEND:19970715T040000Z
+SUMMARY:Bastille Day Party
+BEGIN:VALARM
+TRIGGER;RELATED=END:-P2D
+ACTION:EMAIL
+ATTENDEE:mailto:john_doe@example.com
+SUMMARY:*** REMINDER: SEND AGENDA FOR WEEKLY STAFF MEETING ***
+DESCRIPTION:A draft agenda needs to be sent out to the attendees
+  to the weekly managers meeting (MGR-LIST). Attached is a
+  pointer the document template for the agenda file.
+ATTACH;FMTTYPE=application/msword:http://example.com/
+ templates/agenda.doc
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+|_}
+  in
+  let c = match Icalendar.parse input with
+    | Ok c -> c
+    | Error e -> Alcotest.fail e
+  in
+  Alcotest.(check string __LOC__ input (Icalendar.to_ics c))
+
+let decode_encode_tests = [
+  "encode durations", `Quick, encode_durations ;
+  "decode and encode is identity", `Quick, decode_encode ;
+]
+
 let tests = [
   "Object tests", object_tests ;
+  "Decode Encode tests", decode_encode_tests ;
 ]
 
 let () = 

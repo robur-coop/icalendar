@@ -181,3 +181,7 @@ val parse : string -> (calendar, string) result
 val pp : calendar Fmt.t
 
 val to_ics : calendar -> string
+
+module Writer : sig
+  val duration_to_ics : Buffer.t -> int -> unit
+end
