@@ -161,6 +161,44 @@ type component = eventprop list * alarm list [@@deriving eq, show]
 
 type calendar = calprop list * component list [@@deriving eq, show]
 
+let pp = pp_calendar
+
+module Writer = struct
+  let write_line buf name params value =
+    let write = Buffer.add_string buf in
+    write name ;
+    List.iteri (fun idx (k, v) ->
+        if idx > 0 then write "," ;
+        write k ;
+        write "=" ;
+        write v)
+      params ;
+    write ":" ;
+    write value ;
+    write "\r\n"
+
+  let prop_to_ics buf = function
+    | `Prodid (params, value) -> write_line buf "PRODID" [] value
+    | `Version (params, value) -> write_line buf "VERSION" [] value
+    | `Calscale (params, value) -> write_line buf "CALSCALE" [] value
+    | `Method (params, value) -> write_line buf "METHOD" [] value
+
+  let props_to_ics buf props = List.iter (prop_to_ics buf) props
+
+  let components_to_ics buf comps = ()
+
+  let calendar_to_ics buf (props, comps) =
+    write_line buf "BEGIN" [] "VCALENDAR" ;
+    props_to_ics buf props ;
+    components_to_ics buf comps ;
+    write_line buf "END" [] "VCALENDAR"
+end
+
+let to_ics calendar =
+  let buf = Buffer.create 1023 in
+  Writer.calendar_to_ics buf calendar ;
+  Buffer.contents buf
+
 open Angstrom
 exception Parse_error
 
@@ -937,6 +975,6 @@ let calobject =
   icalbody
   <* string "END:VCALENDAR" <* end_of_line <* end_of_input
 
-let parse_calobject (str : string) : (calendar, string) result =
+let parse (str : string) : (calendar, string) result =
   try parse_string calobject (normalize_lines str)
   with Parse_error -> Error "parse error"

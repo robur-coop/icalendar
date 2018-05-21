@@ -177,5 +177,7 @@ type component = eventprop list * alarm list
 
 type calendar = calprop list * component list
 
-val parse_calobject : string -> (calendar, string) result
-val pp_calendar : calendar Fmt.t 
+val parse : string -> (calendar, string) result
+val pp : calendar Fmt.t
+
+val to_ics : calendar -> string

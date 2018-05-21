@@ -1,7 +1,7 @@
 let compare_calendar =
   let module M = struct
     type t = Icalendar.calendar
-    let pp = Icalendar.pp_calendar
+    let pp = Icalendar.pp
     let equal a b = compare a b = 0
   end in (module M: Alcotest.TESTABLE with type t = M.t)
 
@@ -20,7 +20,7 @@ END:VCALENDAR
       [ `Description ([], "This is a long description that exists on a long line.") ],
       []
     ]) in
-  let f = Icalendar.parse_calobject line in
+  let f = Icalendar.parse line in
   Alcotest.check result_c "test short line" expected f
 
 let test_multiline () =
@@ -37,7 +37,7 @@ END:VCALENDAR
       []
     ])
   in
-  let f = Icalendar.parse_calobject multiline in
+  let f = Icalendar.parse multiline in
   Alcotest.check result_c "test short line" expected f
 
 let to_ptime date time =
@@ -71,7 +71,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_tzid () =
@@ -100,7 +100,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_class () =
@@ -131,7 +131,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_created () =
@@ -162,7 +162,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_description () =
@@ -195,7 +195,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_geo () =
@@ -226,7 +226,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_last_mod () =
@@ -257,7 +257,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_location () =
@@ -289,7 +289,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_organizer () =
@@ -321,7 +321,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_priority () =
@@ -352,7 +352,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_seq () =
@@ -383,7 +383,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_status () =
@@ -414,7 +414,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_summary () =
@@ -445,7 +445,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_transp () =
@@ -476,7 +476,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_url () =
@@ -507,7 +507,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_recur_id () =
@@ -538,7 +538,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_rrule () =
@@ -569,7 +569,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_duration () =
@@ -600,7 +600,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_attach () =
@@ -651,7 +651,7 @@ BkZXNlcnVudCBtb2xsaXQgYW5pbSBpZCBlc3QgbGFib3J1bS4=") ;
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_attendee () =
@@ -706,7 +706,7 @@ END:VCALENDAR
     `Attendee ([`Role `Nonparticipant ; `Partstat `Delegated ; `Delegated_to [Uri.of_string "mailto:hcabot@example.com"] ; `Cn "The Big Cheese"], Uri.of_string "mailto:iamboss@example.com") ;
     `Attendee ([`Role `Reqparticipant ; `Partstat `Accepted ; `Cn "Jane Doe"], Uri.of_string "mailto:jdoe@example.com") ;
   ] in
-  List.iter2 (fun i e -> let f = Icalendar.parse_calobject i in
+  List.iter2 (fun i e -> let f = Icalendar.parse i in
   Alcotest.check result_c __LOC__ e f) inputs expecteds
 
 let calendar_object_with_categories () =
@@ -737,7 +737,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_comment () =
@@ -771,7 +771,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_contact () =
@@ -803,7 +803,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_exdate () =
@@ -836,7 +836,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_rstatus () =
@@ -883,7 +883,7 @@ END:VCALENDAR
     ]
   in
   List.iter2 (fun i e ->
-      let f = Icalendar.parse_calobject i in
+      let f = Icalendar.parse i in
       Alcotest.check result_c __LOC__ e f)
     inputs expecteds
 
@@ -915,7 +915,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_related2 () =
@@ -946,7 +946,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_resource () =
@@ -977,7 +977,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_resource2 () =
@@ -1008,7 +1008,7 @@ END:VCALENDAR
           ], []
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_rdate () =
@@ -1059,7 +1059,7 @@ END:VCALENDAR
     ]
   in
   List.iter2 (fun i e ->
-      let f = Icalendar.parse_calobject i in
+      let f = Icalendar.parse i in
       Alcotest.check result_c __LOC__ e f)
     inputs expecteds
 
@@ -1082,7 +1082,7 @@ END:VCALENDAR
 |_}
   and expected = Error "parse error"
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 
@@ -1117,7 +1117,7 @@ END:VCALENDAR
           [ `Audio { Icalendar.trigger = ([`Valuetype `Datetime], `Datetime (to_ptime (1997, 03, 17) (13, 30, 00), true)) ; duration_repeat = None ; special = {Icalendar.attach = None } } ]
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_valarm_trigger () =
@@ -1163,7 +1163,7 @@ END:VCALENDAR
     ]
   in
   List.iter2 (fun i e ->
-      let f = Icalendar.parse_calobject i in
+      let f = Icalendar.parse i in
       Alcotest.check result_c __LOC__ e f)
     inputs expecteds
 
@@ -1203,7 +1203,7 @@ END:VCALENDAR
           ]
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_valarm_repeat () =
@@ -1242,7 +1242,7 @@ END:VCALENDAR
           ]
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_valarm_attach () =
@@ -1303,7 +1303,7 @@ BkZXNlcnVudCBtb2xsaXQgYW5pbSBpZCBlc3QgbGFib3J1bS4=")
           ]
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_valarm_description () =
@@ -1343,7 +1343,7 @@ END:VCALENDAR
           ]
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_valarm_summary () =
@@ -1390,7 +1390,7 @@ END:VCALENDAR
           ]
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_display_alarm_relative () =
@@ -1433,7 +1433,7 @@ END:VCALENDAR
           ]
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 
@@ -1477,7 +1477,7 @@ END:VCALENDAR
           ]
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 let calendar_object_with_email_alarm () =
@@ -1525,7 +1525,7 @@ END:VCALENDAR
           ]
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 
@@ -1574,7 +1574,7 @@ END:VCALENDAR
           ]
         ])
   in
-  let f = Icalendar.parse_calobject input in
+  let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
 
