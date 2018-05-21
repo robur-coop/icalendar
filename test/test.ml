@@ -1564,11 +1564,13 @@ END:VCALENDAR
           `Prodid ([], "-//PYVOBJECT//NONSGML Version 1//EN") ],
         [
           [ `Uid ([], "put-8@example.com") ;
-            `Dtstamp ([], (to_ptime (2005, 12, 22) (20, 59,53), true) ) ;
-            `Dtstart ([`Valuetype `Date], `Date (2018, 04, 27)) ;
             `Duration ([], 1*24*60*60) ;
+            `Dtstart ([`Valuetype `Date], `Date (2018, 04, 27)) ;
+            `Dtstamp ([], (to_ptime (2005, 12, 22) (20, 59,53), true) ) ;
             `Summary ([], "event 8")
           ], [
+            `Display { Icalendar.trigger = ([`Related `Start], `Duration (- 5 * 60)) ; duration_repeat = None ; special = { Icalendar.description = ([], "Test") } } ;
+            `Display { Icalendar.trigger = ([`Related `Start], `Duration (- 10 * 60)) ; duration_repeat = None ; special = { Icalendar.description = ([], "Test") } } ;
           ]
         ])
   in

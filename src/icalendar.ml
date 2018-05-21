@@ -1,4 +1,4 @@
-module Uri = struct 
+module Uri = struct
   include Uri
   let pp = pp_hum
 end
@@ -6,7 +6,7 @@ end
 module Ptime = struct
   include Ptime
   let equal_date (y, m, d) (y', m', d') = y = y' && m = m' && d = d'
-  let pp_date fmt (y, m, d) = Fmt.pf fmt "%04d-%02d-%02d" y m d 
+  let pp_date fmt (y, m, d) = Fmt.pf fmt "%04d-%02d-%02d" y m d
 end
 
 type valuetype = [
@@ -265,7 +265,8 @@ let dur_value =
   let second = to_seconds (digits <* char 'S') 1 in
   let minute = lift2 (+) (to_seconds (digits <* char 'M') 60) (option 0 second) in
   let hour = lift2 (+) (to_seconds (digits <* char 'H') 3600) (option 0 minute) in
-  let time = char 'T' *> (hour <|> minute <|> second)
+  (* Apple's CCS-caldavtester uses DURATION:P1DT, which does not conform to RFC 5545 Section 3.3.6 *)
+  let time = (char 'T' *> (hour <|> minute <|> second)) <|> (char 'T' >>| fun _ -> 0)
   and day = to_seconds (digits <* char 'D') (24 * 3600) in
   let date = lift2 (+) day (option 0 time)
   and week = to_seconds (digits <* char 'W') (7 * 24 * 3600)
@@ -849,34 +850,34 @@ let emailprop =
 
 let build_alarm props =
   let actions, rest = List.partition (function `Action _ -> true | _ -> false) props in
-  let action = match actions with 
-   | [`Action x] -> x 
+  let action = match actions with
+   | [`Action x] -> x
    | _ -> raise Parse_error in
 
   let triggers, rest' = List.partition (function `Trigger _ -> true | _ -> false ) rest in
-  let trigger = match triggers with 
-   | [`Trigger x] -> x 
+  let trigger = match triggers with
+   | [`Trigger x] -> x
    | _ -> raise Parse_error in
 
   (* check dur repeat *)
-  let duration_repeat, rest''' = 
+  let duration_repeat, rest''' =
     let durations, rest'' = List.partition (function `Duration _ -> true | _ -> false ) rest' in
     let repeats, rest''' = List.partition (function `Repeat _ -> true | _ -> false ) rest'' in
-    match durations, repeats with 
+    match durations, repeats with
      | [`Duration x], [`Repeat y] -> Some (x, y), rest'''
      | [], [] -> None, rest'''
      | _, _ -> raise Parse_error in
 
   let build_audio rest =
     let attachs, rest' = List.partition (function `Attach _ -> true | _ -> false ) rest in
-    let attach = match attachs with 
-     | [`Attach x] -> Some x 
+    let attach = match attachs with
+     | [`Attach x] -> Some x
      | [] -> None
      | _ -> raise Parse_error in
-    match rest' with 
+    match rest' with
      | [] -> `Audio { trigger ; duration_repeat ; special = { attach } } 
      | _ -> raise Parse_error in
-  
+
   let build_display rest =
     let descriptions, rest' = List.partition (function `Description _ -> true | _ -> false ) rest in
     let description = match descriptions with 
@@ -918,7 +919,7 @@ let alarmc =
   ( many (audioprop <|> dispprop <|> emailprop (* <|> otherprop *)) >>| build_alarm )
   <* string "END:VALARM" <* end_of_line
 
-let build_event eventprops alarms = 
+let build_event eventprops alarms =
   let f acc alarm = if List.exists (equal_alarm alarm) acc then acc else alarm :: acc in
   eventprops, List.fold_left f [] alarms
 
