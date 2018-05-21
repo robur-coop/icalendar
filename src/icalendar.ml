@@ -173,28 +173,164 @@ let weekday_to_str, str_weekdays =
   let reverse_mapping = List.map (fun (a, b) -> (b, a)) mapping in
   ((fun w -> List.assoc w mapping), reverse_mapping)
 
+let valuetype_to_str, str_valuetypes =
+  let map = [
+    ("BINARY", `Binary) ;
+    ("BOOLEAN", `Boolean) ;
+    ("CAL-ADDRESS", `Caladdress) ;
+    ("DATE-TIME", `Datetime) ;
+    ("DATE", `Date) ;
+    ("DURATION", `Duration) ;
+    ("FLOAT", `Float) ;
+    ("INTEGER", `Integer) ;
+    ("PERIOD", `Period) ;
+    ("RECUR", `Recur) ;
+    ("TEXT", `Text) ;
+    ("TIME", `Time) ;
+    ("URI", `Uri) ;
+    ("UTC-OFFSET", `Utcoffset) ;
+  ]
+  in
+  let reverse_map = List.map (fun (a, b) -> (b, a)) map in
+  ((fun w -> List.assoc w reverse_map), map)
+
+let cutype_to_str, str_cutypes =
+  let map = [
+    ("INDIVIDUAL", `Individual) ;
+    ("GROUP", `Group) ;
+    ("RESOURCE", `Resource) ;
+    ("ROOM", `Room) ;
+    ("UNKNOWN", `Unknown) ;
+  ]
+  in
+  let reverse_map = List.map (fun (a, b) -> (b, a)) map in
+  ((fun w -> List.assoc w reverse_map), map)
+
+let partstat_to_str, str_partstats =
+  let map = [
+    ("NEEDS-ACTION", `Needs_action) ;
+    ("ACCEPTED", `Accepted) ;
+    ("DECLINED", `Declined) ;
+    ("TENTATIVE", `Tentative) ;
+    ("DELEGATED", `Delegated) ;
+    ("COMPLETED", `Completed) ;
+    ("IN-PROCESS", `In_process) ;
+  ]
+  in
+  let reverse_map = List.map (fun (a, b) -> (b, a)) map in
+  ((fun w -> List.assoc w reverse_map), map)
+
+let role_to_str, str_roles =
+  let map = [
+    ("CHAIR", `Chair) ;
+    ("REQ-PARTICIPANT", `Reqparticipant ) ;
+    ("OPT-PARTICIPANT", `Optparticipant ) ;
+    ("NON-PARTICIPANT", `Nonparticipant ) ;
+  ]
+  in
+  let reverse_map = List.map (fun (a, b) -> (b, a)) map in
+  ((fun w -> List.assoc w reverse_map), map)
+
+let status_to_str, str_statuses =
+  let map = [
+    (`Draft, "DRAFT") ;
+    (`Final, "FINAL") ;
+    (`Cancelled, "CANCELLED") ;
+    (`Needs_action, "NEEDS-ACTION") ;
+    (`Completed, "COMPLETED") ;
+    (`In_process, "IN-PROCESS") ;
+    (`Tentative, "TENTATIVE") ;
+    (`Confirmed, "CONFIRMED") ;
+  ]
+  in
+  let reverse_map = List.map (fun (a, b) -> (b, a)) map in
+  ((fun w -> List.assoc w map), reverse_map)
+
+
 
 module Writer = struct
+  let write_param buf =
+    let write_kv k v =
+      Buffer.add_string buf k ;
+      Buffer.add_char buf '=' ;
+      Buffer.add_string buf v
+    and quoted str =
+      Printf.sprintf "%S" str
+    in
+    let quoted_uri uri = quoted (Uri.to_string uri) in
+    function
+    | `Iana_param (token, values) ->
+      write_kv token (String.concat "," values)
+    | `Xparam ((vendor, name), values) ->
+      let key =
+        let has_vendor = String.length vendor > 0 in
+        Printf.sprintf "X-%s%s%s"
+          vendor (if has_vendor then "-" else "")
+          name
+      in
+      write_kv key (String.concat "," values)
+    | `Valuetype v ->
+      write_kv "VALUE" (valuetype_to_str v)
+    | `Tzid (prefix, str) ->
+      write_kv "TZID" (Printf.sprintf "%s%s"
+                         (if prefix then "/" else "")
+                         str)
+    | `Altrep uri ->
+      write_kv "ALTREP" (quoted_uri uri)
+    | `Language lan ->
+      write_kv "LANGUAGE" lan
+    | `Cn str ->
+      write_kv "CN" str
+    | `Dir uri ->
+      write_kv "DIR" (quoted_uri uri)
+    | `Sentby uri ->
+      write_kv "SENT-BY" (quoted_uri uri)
+    | `Range `Thisandfuture ->
+      write_kv "RANGE" "THISANDFUTURE"
+    | `Media_type (pre, post) ->
+      write_kv "FMTTYPE" (Printf.sprintf "%s/%s" pre post)
+    | `Encoding `Base64 ->
+      write_kv "ENCODING" "BASE64"
+    | `Cutype cu ->
+      write_kv "CUTYPE" (cutype_to_str cu)
+    | `Delegated_from uris ->
+      write_kv "DELEGATED-FROM" (String.concat "," (List.map quoted_uri uris))
+    | `Delegated_to uris ->
+      write_kv "DELEGATED-TO" (String.concat "," (List.map quoted_uri uris))
+    | `Member uris ->
+      write_kv "MEMBER" (String.concat "," (List.map quoted_uri uris))
+    | `Partstat ps ->
+      write_kv "PARTSTAT" (partstat_to_str ps)
+    | `Role role ->
+      write_kv "ROLE" (role_to_str role)
+    | `Rsvp rsvp ->
+      write_kv "RSVP" (if rsvp then "TRUE" else "FALSE")
+    | `Reltype rel ->
+      let r = match rel with `Parent -> "PARENT" | `Child -> "CHILD" | `Sibling -> "SIBLING" | _ -> "TODO" in
+      write_kv "RELTYPE" r
+    | `Related r ->
+      let r = match r with `Start -> "START" | `End -> "END" in
+      write_kv "RELATED" r
+
   let write_line buf name params write_value =
     let write = Buffer.add_string buf in
+    let write_char = Buffer.add_char buf in
     write name ;
-    List.iteri (fun idx (k, v) ->
-        if idx > 0 then write "," ;
-        write k ;
-        write "=" ;
-        write v)
+    List.iteri (fun idx param ->
+        write_char (if idx = 0 then ';' else ',')  ;
+        write_param buf param)
       params ;
-    write ":" ;
+    write_char ':' ;
     write_value buf ;
     write "\r\n"
 
   let write_string str buf = Buffer.add_string buf str
 
   let calprop_to_ics buf = function
-    | `Prodid (params, value) -> write_line buf "PRODID" [] (write_string value)
-    | `Version (params, value) -> write_line buf "VERSION" [] (write_string value)
-    | `Calscale (params, value) -> write_line buf "CALSCALE" [] (write_string value)
-    | `Method (params, value) -> write_line buf "METHOD" [] (write_string value)
+    | `Prodid (params, value) -> write_line buf "PRODID" params (write_string value)
+    | `Version (params, value) -> write_line buf "VERSION" params (write_string value)
+    | `Calscale (params, value) -> write_line buf "CALSCALE" params (write_string value)
+    | `Method (params, value) -> write_line buf "METHOD" params (write_string value)
 
   let calprops_to_ics buf props = List.iter (calprop_to_ics buf) props
 
@@ -248,8 +384,8 @@ module Writer = struct
   let duration_repeat_to_ics buf = function
     | None -> ()
     | Some ((durparams, dur), (repparams, rep)) ->
-      write_line buf "DURATION" [] (fun buf -> duration_to_ics buf dur) ;
-      write_line buf "REPEAT" [] (write_string (string_of_int rep))
+      write_line buf "DURATION" durparams (fun buf -> duration_to_ics buf dur) ;
+      write_line buf "REPEAT" repparams (write_string (string_of_int rep))
 
   let attach_to_ics buf = function
     | None -> ()
@@ -258,13 +394,13 @@ module Writer = struct
         | `Uri uri -> Uri.to_string uri
         | `Binary s -> s
       in
-      write_line buf "ATTACH" [] (write_string value')
+      write_line buf "ATTACH" params (write_string value')
 
   let description_to_ics buf (params, desc) =
-    write_line buf "DESCRIPTION" [] (write_string desc)
+    write_line buf "DESCRIPTION" params (write_string desc)
 
   let summary_to_ics buf (params, summary) =
-    write_line buf "SUMMARY" [] (write_string summary)
+    write_line buf "SUMMARY" params (write_string summary)
 
   let date_or_time_to_ics dt buf = match dt with
     | `Date d -> date_to_ics buf d
@@ -307,82 +443,72 @@ module Writer = struct
     | `Weekday of weekday
 *)
 
-  let attendee_to_ics buf (param, uri) =
-    write_line buf "ATTENDEE" [] (write_string (Uri.to_string uri))
-
-  let status_to_string = function
-    | `Draft -> "DRAFT"
-    | `Final -> "FINAL"
-    | `Cancelled -> "CANCELLED"
-    | `Needs_action -> "NEEDS-ACTION"
-    | `Completed -> "COMPLETED"
-    | `In_process -> "IN-PROCESS"
-    | `Tentative -> "TENTATIVE"
-    | `Confirmed -> "CONFIRMED"
+  let attendee_to_ics buf (params, uri) =
+    write_line buf "ATTENDEE" params (write_string (Uri.to_string uri))
 
   let eventprop_to_ics buf = function
     | `Dtstamp (params, ts) ->
-      write_line buf "DTSTAMP" [] (fun buf -> datetime_to_ics buf ts)
+      write_line buf "DTSTAMP" params (fun buf -> datetime_to_ics buf ts)
     | `Uid (params, str) ->
-      write_line buf "UID" [] (write_string str)
+      write_line buf "UID" params (write_string str)
     | `Dtstart (params, date_or_time) ->
-      write_line buf "DTSTART" [] (date_or_time_to_ics date_or_time)
+      write_line buf "DTSTART" params (date_or_time_to_ics date_or_time)
     | `Class (params, class_) ->
       let str = match class_ with
         | `Public -> "PUBLIC" | `Private -> "PRIVATE" | `Confidential -> "CONFIDENTIAL" | _ -> "BLA"
       in
-      write_line buf "CLASS" [] (write_string str)
+      write_line buf "CLASS" params (write_string str)
     | `Created (params, ts) ->
-      write_line buf "CREATED" [] (fun buf -> datetime_to_ics buf ts)
+      write_line buf "CREATED" params (fun buf -> datetime_to_ics buf ts)
     | `Description desc ->
       description_to_ics buf desc
     | `Geo (params, (lat, lon)) ->
-      write_line buf "GEO" [] (fun buf ->
+      write_line buf "GEO" params (fun buf ->
           Buffer.add_string buf (string_of_float lat) ;
           Buffer.add_char buf ';' ;
           Buffer.add_string buf (string_of_float lon))
     | `Lastmod (params, ts) ->
-      write_line buf "LAST-MODIFIED" [] (fun buf -> datetime_to_ics buf ts)
+      write_line buf "LAST-MODIFIED" params (fun buf -> datetime_to_ics buf ts)
     | `Location (params, name) ->
-      write_line buf "LOCATION" [] (write_string name)
+      write_line buf "LOCATION" params (write_string name)
     | `Organizer (params, uri) ->
-      write_line buf "ORGANIZER" [] (write_string (Uri.to_string uri))
+      write_line buf "ORGANIZER" params (write_string (Uri.to_string uri))
     | `Priority (params, prio) ->
-      write_line buf "PRIORITY" [] (write_string (string_of_int prio))
+      write_line buf "PRIORITY" params (write_string (string_of_int prio))
     | `Seq (params, seq) ->
-      write_line buf "SEQUENCE" [] (write_string (string_of_int seq))
+      write_line buf "SEQUENCE" params (write_string (string_of_int seq))
     | `Status (params, status) ->
-      write_line buf "STATUS" [] (write_string (status_to_string status))
+      write_line buf "STATUS" params (write_string (status_to_str status))
     | `Summary summary ->
       summary_to_ics buf summary
     | `Transparency (params, transp) ->
-      write_line buf "TRANSPARENCY" [] (fun buf -> match transp with
+      write_line buf "TRANSPARENCY" params (fun buf -> match transp with
           | `Transparent -> "TRANSPARENT" | `Opaque -> "OPAQUE")
     | `Url (params, uri) ->
-      write_line buf "URL" [] (write_string (Uri.to_string uri))
+      write_line buf "URL" params (write_string (Uri.to_string uri))
     | `Recur_id (params, date_or_time) ->
-      write_line buf "RECURRENCE-ID" [] (date_or_time_to_ics date_or_time)
+      write_line buf "RECURRENCE-ID" params (date_or_time_to_ics date_or_time)
     | `Rrule (params, recurs) ->
-      write_line buf "RRULE" [] (write_string "BLA")
+      write_line buf "RRULE" params (write_string "BLA") (*TODO*)
     | `Dtend (params, date_or_time) ->
-      write_line buf "DTEND" [] (date_or_time_to_ics date_or_time)
+      write_line buf "DTEND" params (date_or_time_to_ics date_or_time)
     | `Duration (params, dur) ->
-      write_line buf "DURATION" [] (fun buf -> duration_to_ics buf dur)
+      write_line buf "DURATION" params (fun buf -> duration_to_ics buf dur)
     | `Attach att ->
       attach_to_ics buf (Some att)
     | `Attendee att ->
       attendee_to_ics buf att
     | `Categories (params, cats) ->
       let cat = String.concat "," cats in
-      write_line buf "CATEGORIES" [] (write_string cat)
+      write_line buf "CATEGORIES" params (write_string cat)
     | `Comment (params, comment) ->
-      write_line buf "COMMENT" [] (write_string comment)
+      write_line buf "COMMENT" params (write_string comment)
     | `Contact (params, contact) ->
-      write_line buf "CONTACT" [] (write_string contact)
+      write_line buf "CONTACT" params (write_string contact)
     | `Exdate (params, dates_or_times) ->
-      write_line buf "EXDATE" [] (dates_or_times_to_ics dates_or_times)
+      write_line buf "EXDATE" params (dates_or_times_to_ics dates_or_times)
     | `Rstatus (params, (statcode, text, comment)) ->
-      write_line buf "REQUEST-STATUS" []
+      write_line buf "REQUEST-STATUS" params
         (fun buf ->
            let (major, minor, patch) = statcode in
            Buffer.add_string buf (string_of_int major) ;
@@ -401,12 +527,12 @@ module Writer = struct
              Buffer.add_char buf ';' ;
              Buffer.add_string buf x)
     | `Related (params, rel) ->
-      write_line buf "RELATED" [] (write_string rel)
+      write_line buf "RELATED" params (write_string rel)
     | `Resource (params, res) ->
       let r = String.concat "," res in
-      write_line buf "RESOURCE" [] (write_string r)
+      write_line buf "RESOURCE" params (write_string r)
     | `Rdate (params, dates_or_times_or_periods) ->
-      write_line buf "RDATE" []
+      write_line buf "RDATE" params
         (dates_or_times_or_periods_to_ics dates_or_times_or_periods)
 
   let eventprops_to_ics buf props = List.iter (eventprop_to_ics buf) props
@@ -415,24 +541,29 @@ module Writer = struct
 
   let alarm_to_ics buf alarm =
     write_line buf "BEGIN" [] (write_string "VALARM") ;
-    let write_trigger buf = function
-      | (_, `Duration d) -> duration_to_ics buf d
-      | (_, `Datetime dt) -> datetime_to_ics buf dt
+    let write_trigger buf trig =
+      let params, print = match trig with
+        | (params, `Duration d) ->
+          (params, (fun buf -> duration_to_ics buf d))
+        | (params, `Datetime dt) ->
+          (params, (fun buf -> datetime_to_ics buf dt))
+      in
+      write_line buf "TRIGGER" params print
     in
     (match alarm with
      | `Audio (audio : audio_struct alarm_struct) ->
        write_line buf "ACTION" [] (write_string "AUDIO") ;
-       write_line buf "TRIGGER" [] (fun buf -> write_trigger buf audio.trigger) ;
+       write_trigger buf audio.trigger ;
        duration_repeat_to_ics buf audio.duration_repeat ;
        attach_to_ics buf audio.special.attach
      | `Display (display : display_struct alarm_struct) ->
        write_line buf "ACTION" [] (write_string "DISPLAY") ;
-       write_line buf "TRIGGER" [] (fun buf -> write_trigger buf display.trigger) ;
+       write_trigger buf display.trigger ;
        duration_repeat_to_ics buf display.duration_repeat ;
        description_to_ics buf display.special.description
      | `Email email ->
        write_line buf "ACTION" [] (write_string "EMAIL") ;
-       write_line buf "TRIGGER" [] (fun buf -> write_trigger buf email.trigger) ;
+       write_trigger buf email.trigger ;
        duration_repeat_to_ics buf email.duration_repeat ;
        attach_to_ics buf email.special.attach ;
        description_to_ics buf email.special.description ;
@@ -682,40 +813,23 @@ let tzidparam =
 let valuetypeparam =
   lift (fun x -> `Valuetype x)
     (string "VALUE=" *>
-     ((string "BINARY" >>| fun _ -> `Binary)
-      <|> (string "BOOLEAN" >>| fun _ -> `Boolean)
-      <|> (string "CAL-ADDRESS" >>| fun _ -> `Caladdress)
-      <|> (string "DATE-TIME" >>| fun _ -> `Datetime)
-      <|> (string "DATE" >>| fun _ -> `Date)
-      <|> (string "DURATION" >>| fun _ -> `Duration)
-      <|> (string "FLOAT" >>| fun _ -> `Float)
-      <|> (string "INTEGER" >>| fun _ -> `Integer)
-      <|> (string "PERIOD" >>| fun _ -> `Period)
-      <|> (string "RECUR" >>| fun _ -> `Recur)
-      <|> (string "TEXT" >>| fun _ -> `Text)
-      <|> (string "TIME" >>| fun _ -> `Time)
-      <|> (string "URI" >>| fun _ -> `Uri)
-      <|> (string "UTC-OFFSET" >>| fun _ -> `Utcoffset)
+     (choice (List.map (fun (str, v) -> string str >>| fun _ -> v) str_valuetypes)
       <|> (x_name >>| fun x -> `Xname x)
       <|> (iana_token >>| fun x -> `Ianatoken x)))
 
 (* TODO use uri parser here *)
-let altrepparam = (string "ALTREP=") *> quoted_string >>| fun uri -> `Altrep (Uri.of_string uri)
+let altrepparam = (string "ALTREP=") *> quoted_caladdress >>| fun uri -> `Altrep uri
 
 (* TODO use language tag rfc5646 parser *)
 let languageparam = (string "LANGUAGE=") *> param_text >>| fun l -> `Language l 
 
 let cnparam = string "CN=" *> param_value >>| fun cn -> `Cn cn
-let dirparam = string "DIR=" *> quoted_string >>| fun s -> `Dir (Uri.of_string s)
+let dirparam = string "DIR=" *> quoted_caladdress >>| fun s -> `Dir s
 let sentbyparam = string "SENT-BY=" *> quoted_caladdress >>| fun s -> `Sentby s
 
 (* Default is INDIVIDUAL *)
-let cutypeparam = lift (fun x -> `Cutype x) ((string "CUTYPE=") *> 
-      ((string "INDIVIDUAL" >>| fun _ -> `Individual)
-   <|> (string "GROUP" >>| fun _ -> `Group)
-   <|> (string "RESOURCE" >>| fun _ -> `Resource)
-   <|> (string "ROOM" >>| fun _ -> `Room)
-   <|> (string "UNKNOWN" >>| fun _ -> `Unknown)
+let cutypeparam = lift (fun x -> `Cutype x) ((string "CUTYPE=") *>
+       (choice (List.map (fun (str, v) -> string str >>| fun _ -> v) str_cutypes)
    <|> (iana_token >>| fun x -> `Ianatoken x)
    <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
 
@@ -724,37 +838,18 @@ let memberparam = lift (fun x -> `Member x)
 
 (* Default is REQ-PARTICIPANT *)
 let roleparam = lift (fun x -> `Role x) ((string "ROLE=") *>
-      ((string "CHAIR" >>| fun _ -> `Chair)  
-   <|> (string "REQ-PARTICIPANT" >>| fun _ -> `Reqparticipant )  
-   <|> (string "OPT-PARTICIPANT" >>| fun _ -> `Optparticipant )  
-   <|> (string "NON-PARTICIPANT" >>| fun _ -> `Nonparticipant )  
+       (choice (List.map (fun (str, v) -> string str >>| fun _ -> v) str_roles)
    <|> (iana_token >>| fun x -> `Ianatoken x)
    <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
 
-let partstatparam = 
-  let statvalue_jour =
-    (string "NEEDS-ACTION" >>| fun _ -> `Needs_action) <|>
-    (string "ACCEPTED" >>| fun _ -> `Accepted) <|>
-    (string "DECLINED" >>| fun _ -> `Declined)
-  and statvalue_todo =
-    (string "NEEDS-ACTION" >>| fun _ -> `Needs_action) <|>
-    (string "ACCEPTED" >>| fun _ -> `Accepted) <|>
-    (string "DECLINED" >>| fun _ -> `Declined) <|>
-    (string "TENTATIVE" >>| fun _ -> `Tentative) <|>
-    (string "DELEGATED" >>| fun _ -> `Delegated) <|>
-    (string "COMPLETED" >>| fun _ -> `Completed) <|>
-    (string "IN-PROCESS" >>| fun _ -> `In_process)
-  and statvalue_event =
-    (string "NEEDS-ACTION" >>| fun _ -> `Needs_action) <|>
-    (string "ACCEPTED" >>| fun _ -> `Accepted) <|>
-    (string "DECLINED" >>| fun _ -> `Declined) <|>
-    (string "TENTATIVE" >>| fun _ -> `Tentative) <|>
-    (string "DELEGATED" >>| fun _ -> `Delegated)
+let partstatparam =
+  let statvalue =
+    choice (List.map (fun (str, v) -> string str >>| fun _ -> v) str_partstats)
   and other =
        (iana_token >>| fun x -> `Ianatoken x)
    <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))
   in
-  let statvalue = statvalue_event <|> statvalue_todo <|> statvalue_jour <|> other in
+  let statvalue = statvalue <|> other in
   lift (fun x -> `Partstat x) ((string "PARTSTAT=") *> statvalue)
 
 let rsvpparam = lift (fun r -> `Rsvp r) (string "RSVP=" *> ((string "TRUE" >>| fun _ -> true) <|> (string "FALSE" >>| fun _ -> false )))
@@ -901,21 +996,7 @@ let seq =
   propparser "SEQUENCE" other_param seqv (fun a b -> `Seq (a, b))
 
 let status =
-  let statvalue_jour =
-    (string "DRAFT" >>| fun _ -> `Draft) <|>
-    (string "FINAL" >>| fun _ -> `Final) <|>
-    (string "CANCELLED" >>| fun _ -> `Cancelled)
-  and statvalue_todo =
-    (string "NEEDS-ACTION" >>| fun _ -> `Needs_action) <|>
-    (string "COMPLETED" >>| fun _ -> `Completed) <|>
-    (string "IN-PROCESS" >>| fun _ -> `In_process) <|>
-    (string "CANCELLED" >>| fun _ -> `Cancelled)
-  and statvalue_event =
-    (string "TENTATIVE" >>| fun _ -> `Tentative) <|>
-    (string "CONFIRMED" >>| fun _ -> `Confirmed) <|>
-    (string "CANCELLED" >>| fun _ -> `Cancelled)
-  in
-  let statvalue = statvalue_event <|> statvalue_todo <|> statvalue_jour in
+  let statvalue = choice (List.map (fun (str, v) -> string str >>| fun _ -> v) str_statuses) in
   propparser "STATUS" other_param statvalue (fun a b -> `Status (a, b))
 
 let summary =
