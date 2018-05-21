@@ -918,9 +918,13 @@ let alarmc =
   ( many (audioprop <|> dispprop <|> emailprop (* <|> otherprop *)) >>| build_alarm )
   <* string "END:VALARM" <* end_of_line
 
+let build_event eventprops alarms = 
+  let f acc alarm = if List.exists (equal_alarm alarm) acc then acc else alarm :: acc in
+  eventprops, List.fold_left f [] alarms
+
 let eventc =
   string "BEGIN:VEVENT" *> end_of_line *>
-  lift2 pair eventprops (many alarmc)
+  lift2 build_event eventprops (many alarmc)
   <* string "END:VEVENT" <* end_of_line
 
 let component = many1 (eventc (* <|> todoc <|> journalc <|> freebusyc <|> timezonec *))

@@ -1480,7 +1480,6 @@ END:VCALENDAR
   let f = Icalendar.parse_calobject input in
   Alcotest.check result_c __LOC__ expected f
 
-
 let calendar_object_with_email_alarm () =
   let input =
 {_|BEGIN:VCALENDAR
@@ -1523,6 +1522,53 @@ END:VCALENDAR
                                  description = ([], "A draft agenda needs to be sent out to the attendees to the weekly managers meeting (MGR-LIST). Attached is a pointer the document template for the agenda file.")
                      }
              }
+          ]
+        ])
+  in
+  let f = Icalendar.parse_calobject input in
+  Alcotest.check result_c __LOC__ expected f
+
+
+
+let calendar_object_with_duplicate_alarm () =
+  let input =
+{_|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:put-8@example.com
+DURATION:P1DT
+DTSTART;VALUE=DATE:20180427
+DTSTAMP:20051222T205953Z
+SUMMARY:event 8
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT5M
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+|_}
+  and expected = Ok
+      ( [ `Version ([], "2.0") ;
+          `Prodid ([], "-//PYVOBJECT//NONSGML Version 1//EN") ],
+        [
+          [ `Uid ([], "put-8@example.com") ;
+            `Dtstamp ([], (to_ptime (2005, 12, 22) (20, 59,53), true) ) ;
+            `Dtstart ([`Valuetype `Date], `Date (2018, 04, 27)) ;
+            `Duration ([], 1*24*60*60) ;
+            `Summary ([], "event 8")
+          ], [
           ]
         ])
   in
@@ -1575,6 +1621,7 @@ let object_tests = [
   "calendar object parsing with audio alarm precise", `Quick, calendar_object_with_audio_alarm_precise ;
   "calendar object parsing with display alarm relative", `Quick, calendar_object_with_display_alarm_relative ;
   "calendar object parsing with email alarm", `Quick, calendar_object_with_email_alarm ;
+  "calendar object parsing with duplicate alarm", `Quick, calendar_object_with_duplicate_alarm ;
 ]
 
 let tests = [
