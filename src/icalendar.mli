@@ -3,20 +3,20 @@ type weekday = [ `Friday | `Monday | `Saturday | `Sunday | `Thursday | `Tuesday 
 
 type recur = [
   | `Byminute of int list
-  | `Byday of (char * int * weekday) list
+  | `Byday of (int * weekday) list
   | `Byhour of int list
-  | `Bymonth of (char * int) list
-  | `Bymonthday of (char * int) list
+  | `Bymonth of int list
+  | `Bymonthday of int list
   | `Bysecond of int list
-  | `Bysetposday of char * int
-  | `Byweek of (char * int) list
-  | `Byyearday of (char * int) list
+  | `Bysetposday of int list
+  | `Byweek of int list
+  | `Byyearday of int list
   | `Count of int
   | `Frequency of [ `Daily | `Hourly | `Minutely | `Monthly | `Secondly | `Weekly | `Yearly ]
   | `Interval of int
   | `Until of Ptime.t * bool
   | `Weekday of weekday
-]
+] [@@deriving eq, show]
 
 type other_param =
   [ `Iana_param of string * string list
@@ -183,5 +183,5 @@ val pp : calendar Fmt.t
 val to_ics : calendar -> string
 
 module Writer : sig
-  val duration_to_ics : Buffer.t -> int -> unit
+  val duration_to_ics : int -> Buffer.t -> unit
 end

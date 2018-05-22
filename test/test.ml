@@ -1651,7 +1651,7 @@ let encode_durations () =
   List.iter2 (fun v e ->
       let to_string v =
         let buf = Buffer.create 10 in
-        Icalendar.Writer.duration_to_ics buf v ;
+        Icalendar.Writer.duration_to_ics v buf ;
         Buffer.contents buf
       in
       Alcotest.(check string __LOC__ e (to_string v)))

@@ -9,6 +9,8 @@ module Ptime = struct
   let pp_date fmt (y, m, d) = Fmt.pf fmt "%04d-%02d-%02d" y m d
 end
 
+let positive = true
+
 type valuetype = [
     `Binary | `Boolean | `Caladdress | `Date | `Datetime | `Duration | `Float
   | `Integer | `Period | `Recur | `Text | `Time | `Uri | `Utcoffset
@@ -32,14 +34,14 @@ type weekday = [ `Friday | `Monday | `Saturday | `Sunday | `Thursday | `Tuesday 
 
 type recur = [
   | `Byminute of int list
-  | `Byday of (char * int * weekday) list
+  | `Byday of (int * weekday) list
   | `Byhour of int list
-  | `Bymonth of (char * int) list
-  | `Bymonthday of (char * int) list
+  | `Bymonth of int list
+  | `Bymonthday of int list
   | `Bysecond of int list
-  | `Bysetposday of char * int
-  | `Byweek of (char * int) list
-  | `Byyearday of (char * int) list
+  | `Bysetposday of int list
+  | `Byweek of int list
+  | `Byyearday of int list
   | `Count of int
   | `Frequency of [ `Daily | `Hourly | `Minutely | `Monthly | `Secondly | `Weekly | `Yearly ]
   | `Interval of int
@@ -246,7 +248,19 @@ let status_to_str, str_statuses =
   let reverse_map = List.map (fun (a, b) -> (b, a)) map in
   ((fun w -> List.assoc w map), reverse_map)
 
-
+let freq_to_str, str_freqs =
+  let map = [
+    (`Daily, "DAILY") ;
+    (`Hourly, "HOURLY") ;
+    (`Minutely, "MINUTELY") ;
+    (`Monthly, "MONTHLY") ;
+    (`Secondly, "SECONDLY") ;
+    (`Weekly, "WEEKLY") ;
+    (`Yearly, "YEARLY") ;
+  ]
+  in
+  let reverse_map = List.map (fun (a, b) -> (b, a)) map in
+  ((fun w -> List.assoc w map), reverse_map)
 
 module Writer = struct
   let write_param buf =
@@ -259,8 +273,7 @@ module Writer = struct
     in
     let quoted_uri uri = quoted (Uri.to_string uri) in
     function
-    | `Iana_param (token, values) ->
-      write_kv token (String.concat "," values)
+    | `Iana_param (token, values) -> write_kv token (String.concat "," values)
     | `Xparam ((vendor, name), values) ->
       let key =
         let has_vendor = String.length vendor > 0 in
@@ -269,42 +282,23 @@ module Writer = struct
           name
       in
       write_kv key (String.concat "," values)
-    | `Valuetype v ->
-      write_kv "VALUE" (valuetype_to_str v)
-    | `Tzid (prefix, str) ->
-      write_kv "TZID" (Printf.sprintf "%s%s"
-                         (if prefix then "/" else "")
-                         str)
-    | `Altrep uri ->
-      write_kv "ALTREP" (quoted_uri uri)
-    | `Language lan ->
-      write_kv "LANGUAGE" lan
-    | `Cn str ->
-      write_kv "CN" str
-    | `Dir uri ->
-      write_kv "DIR" (quoted_uri uri)
-    | `Sentby uri ->
-      write_kv "SENT-BY" (quoted_uri uri)
-    | `Range `Thisandfuture ->
-      write_kv "RANGE" "THISANDFUTURE"
-    | `Media_type (pre, post) ->
-      write_kv "FMTTYPE" (Printf.sprintf "%s/%s" pre post)
-    | `Encoding `Base64 ->
-      write_kv "ENCODING" "BASE64"
-    | `Cutype cu ->
-      write_kv "CUTYPE" (cutype_to_str cu)
-    | `Delegated_from uris ->
-      write_kv "DELEGATED-FROM" (String.concat "," (List.map quoted_uri uris))
-    | `Delegated_to uris ->
-      write_kv "DELEGATED-TO" (String.concat "," (List.map quoted_uri uris))
-    | `Member uris ->
-      write_kv "MEMBER" (String.concat "," (List.map quoted_uri uris))
-    | `Partstat ps ->
-      write_kv "PARTSTAT" (partstat_to_str ps)
-    | `Role role ->
-      write_kv "ROLE" (role_to_str role)
-    | `Rsvp rsvp ->
-      write_kv "RSVP" (if rsvp then "TRUE" else "FALSE")
+    | `Valuetype v -> write_kv "VALUE" (valuetype_to_str v)
+    | `Tzid (prefix, str) -> write_kv "TZID" (Printf.sprintf "%s%s" (if prefix then "/" else "") str)
+    | `Altrep uri -> write_kv "ALTREP" (quoted_uri uri)
+    | `Language lan -> write_kv "LANGUAGE" lan
+    | `Cn str -> write_kv "CN" str
+    | `Dir uri -> write_kv "DIR" (quoted_uri uri)
+    | `Sentby uri -> write_kv "SENT-BY" (quoted_uri uri)
+    | `Range `Thisandfuture -> write_kv "RANGE" "THISANDFUTURE"
+    | `Media_type (pre, post) -> write_kv "FMTTYPE" (Printf.sprintf "%s/%s" pre post)
+    | `Encoding `Base64 -> write_kv "ENCODING" "BASE64"
+    | `Cutype cu -> write_kv "CUTYPE" (cutype_to_str cu)
+    | `Delegated_from uris -> write_kv "DELEGATED-FROM" (String.concat "," (List.map quoted_uri uris))
+    | `Delegated_to uris -> write_kv "DELEGATED-TO" (String.concat "," (List.map quoted_uri uris))
+    | `Member uris -> write_kv "MEMBER" (String.concat "," (List.map quoted_uri uris))
+    | `Partstat ps -> write_kv "PARTSTAT" (partstat_to_str ps)
+    | `Role role -> write_kv "ROLE" (role_to_str role)
+    | `Rsvp rsvp -> write_kv "RSVP" (if rsvp then "TRUE" else "FALSE")
     | `Reltype rel ->
       let r = match rel with `Parent -> "PARENT" | `Child -> "CHILD" | `Sibling -> "SIBLING" | _ -> "TODO" in
       write_kv "RELTYPE" r
@@ -334,7 +328,7 @@ module Writer = struct
 
   let calprops_to_ics buf props = List.iter (calprop_to_ics buf) props
 
-  let duration_to_ics buf dur =
+  let duration_to_ics dur buf =
     if dur < 0 then Buffer.add_char buf '-' ;
     Buffer.add_char buf 'P' ;
     let output_number i d c =
@@ -370,21 +364,23 @@ module Writer = struct
           ignore (output_number rest'' 1 'S')
       end
 
-  let date_to_ics buf (y, m, d) =
-    let str = Printf.sprintf "%04d%02d%02d" y m d in
-    Buffer.add_string buf str
+  let date_to_str (y, m, d) =
+    Printf.sprintf "%04d%02d%02d" y m d
 
-  let datetime_to_ics buf (ptime, utc) =
+  let date_to_ics buf date =
+    Buffer.add_string buf (date_to_str date)
+
+  let datetime_to_str (ptime, utc) =
     let date, ((hh, mm, ss), _) = Ptime.to_date_time ptime in
-    date_to_ics buf date ;
-    let str = Printf.sprintf "T%02d%02d%02d" hh mm ss in
-    Buffer.add_string buf str ;
-    if utc then Buffer.add_char buf 'Z'
+    Printf.sprintf "%sT%02d%02d%02d%s" (date_to_str date) hh mm ss (if utc then "Z" else "")
+
+  let datetime_to_ics datetime buf =
+    Buffer.add_string buf (datetime_to_str datetime)
 
   let duration_repeat_to_ics buf = function
     | None -> ()
     | Some ((durparams, dur), (repparams, rep)) ->
-      write_line buf "DURATION" durparams (fun buf -> duration_to_ics buf dur) ;
+      write_line buf "DURATION" durparams (duration_to_ics dur) ;
       write_line buf "REPEAT" repparams (write_string (string_of_int rep))
 
   let attach_to_ics buf = function
@@ -404,109 +400,97 @@ module Writer = struct
 
   let date_or_time_to_ics dt buf = match dt with
     | `Date d -> date_to_ics buf d
-    | `Datetime dt -> datetime_to_ics buf dt
+    | `Datetime dt -> datetime_to_ics dt buf
 
-  let dates_or_times_to_ics dt buf = match dt with
+  let dates_or_times_to_ics dt buf = 
+    let swap f a b = f b a in
+    match dt with
     | `Dates xs -> List.iter (date_to_ics buf) xs
-    | `Datetimes xs -> List.iter (datetime_to_ics buf) xs
+    | `Datetimes xs -> List.iter (swap datetime_to_ics buf) xs
 
   let period_to_ics buf (start, until, utc) =
-    datetime_to_ics buf (start, utc) ;
+    datetime_to_ics (start, utc) buf ;
     Buffer.add_char buf '/' ;
-    datetime_to_ics buf (until, utc)
+    datetime_to_ics (until, utc) buf
 
-  let dates_or_times_or_periods_to_ics dt buf = match dt with
+  let dates_or_times_or_periods_to_ics dt buf = 
+    let swap f a b = f b a in
+    match dt with
     | `Dates xs -> List.iter (date_to_ics buf) xs
-    | `Datetimes xs -> List.iter (datetime_to_ics buf) xs
+    | `Datetimes xs -> List.iter (swap datetime_to_ics buf) xs
     | `Periods xs -> List.iter (period_to_ics buf) xs
 
-(*
-  let recur_to_ics buf = function
-    | `Byminute ms ->
-      Buffer.add_string buf "BYMINUTE" ;
-      List.iteri (fun idx m ->
-          if idx > 0 then Buffer.add_char buf '.' ;
-          Buffer.add_string buf (string_of_int m))
-        ms
-    | `Byday of (char * int * weekday) list
-    | `Byhour of int list
-    | `Bymonth of (char * int) list
-    | `Bymonthday of (char * int) list
-    | `Bysecond of int list
-    | `Bysetposday of char * int
-    | `Byweek of (char * int) list
-    | `Byyearday of (char * int) list
-    | `Count of int
-    | `Frequency of [ `Daily | `Hourly | `Minutely | `Monthly | `Secondly | `Weekly | `Yearly ]
-    | `Interval of int
-    | `Until of Ptime.t * bool
-    | `Weekday of weekday
-*)
+
+  let recur_to_ics buf = 
+    let write_rulepart key value = 
+      Buffer.add_string buf key ;
+      Buffer.add_char buf '=' ;
+      Buffer.add_string buf value 
+    and int_list l = String.concat "," @@ List.map string_of_int l in
+    function
+    | `Byminute byminlist -> write_rulepart "BYMINUTE" (int_list byminlist)
+    | `Byday bywdaylist -> 
+      let wday (weeknumber, weekday) = 
+        Printf.sprintf "%d%s" weeknumber (weekday_to_str weekday)
+      in
+      write_rulepart "BYDAY" (String.concat "," @@ List.map wday bywdaylist)
+    | `Byhour byhrlist -> write_rulepart "BYHOUR" (int_list byhrlist)
+    | `Bymonth bymolist -> write_rulepart "BYMONTH" (int_list bymolist)
+    | `Bymonthday bymodaylist -> write_rulepart "BYMONTHDAY" (int_list bymodaylist)
+    | `Bysecond byseclist -> write_rulepart "BYSECOND" (int_list byseclist)
+    | `Bysetposday bysplist -> write_rulepart "BYSETPOS" (int_list bysplist)
+    | `Byweek bywknolist -> write_rulepart "BYWEEKNO" (int_list bywknolist)
+    | `Byyearday byyrdaylist -> write_rulepart "BYYEARDAY" (int_list byyrdaylist)
+    | `Count c -> write_rulepart "COUNT" (string_of_int c)
+    | `Frequency f -> write_rulepart "FREQ" (freq_to_str f)
+    | `Interval i -> write_rulepart "INTERVAL" (string_of_int i)
+    | `Until enddate -> write_rulepart "UNTIL" (datetime_to_str enddate)
+    | `Weekday weekday -> write_rulepart "WKST" (weekday_to_str weekday)
+
+  let recurs_to_ics l buf = List.iteri (fun idx recur -> if idx > 0 then Buffer.add_char buf ',' ; recur_to_ics buf recur) l
 
   let attendee_to_ics buf (params, uri) =
     write_line buf "ATTENDEE" params (write_string (Uri.to_string uri))
 
   let eventprop_to_ics buf = function
-    | `Dtstamp (params, ts) ->
-      write_line buf "DTSTAMP" params (fun buf -> datetime_to_ics buf ts)
-    | `Uid (params, str) ->
-      write_line buf "UID" params (write_string str)
-    | `Dtstart (params, date_or_time) ->
-      write_line buf "DTSTART" params (date_or_time_to_ics date_or_time)
+    | `Dtstamp (params, ts) -> write_line buf "DTSTAMP" params (datetime_to_ics ts)
+    | `Uid (params, str) -> write_line buf "UID" params (write_string str)
+    | `Dtstart (params, date_or_time) -> write_line buf "DTSTART" params (date_or_time_to_ics date_or_time)
     | `Class (params, class_) ->
       let str = match class_ with
         | `Public -> "PUBLIC" | `Private -> "PRIVATE" | `Confidential -> "CONFIDENTIAL" | _ -> "BLA"
       in
       write_line buf "CLASS" params (write_string str)
-    | `Created (params, ts) ->
-      write_line buf "CREATED" params (fun buf -> datetime_to_ics buf ts)
-    | `Description desc ->
-      description_to_ics buf desc
+    | `Created (params, ts) -> write_line buf "CREATED" params (datetime_to_ics ts)
+    | `Description desc -> description_to_ics buf desc
     | `Geo (params, (lat, lon)) ->
       write_line buf "GEO" params (fun buf ->
           Buffer.add_string buf (string_of_float lat) ;
           Buffer.add_char buf ';' ;
           Buffer.add_string buf (string_of_float lon))
-    | `Lastmod (params, ts) ->
-      write_line buf "LAST-MODIFIED" params (fun buf -> datetime_to_ics buf ts)
-    | `Location (params, name) ->
-      write_line buf "LOCATION" params (write_string name)
-    | `Organizer (params, uri) ->
-      write_line buf "ORGANIZER" params (write_string (Uri.to_string uri))
-    | `Priority (params, prio) ->
-      write_line buf "PRIORITY" params (write_string (string_of_int prio))
-    | `Seq (params, seq) ->
-      write_line buf "SEQUENCE" params (write_string (string_of_int seq))
-    | `Status (params, status) ->
-      write_line buf "STATUS" params (write_string (status_to_str status))
-    | `Summary summary ->
-      summary_to_ics buf summary
+    | `Lastmod (params, ts) -> write_line buf "LAST-MODIFIED" params (datetime_to_ics ts)
+    | `Location (params, name) -> write_line buf "LOCATION" params (write_string name)
+    | `Organizer (params, uri) -> write_line buf "ORGANIZER" params (write_string (Uri.to_string uri))
+    | `Priority (params, prio) -> write_line buf "PRIORITY" params (write_string (string_of_int prio))
+    | `Seq (params, seq) -> write_line buf "SEQUENCE" params (write_string (string_of_int seq))
+    | `Status (params, status) -> write_line buf "STATUS" params (write_string (status_to_str status))
+    | `Summary summary -> summary_to_ics buf summary
     | `Transparency (params, transp) ->
-      write_line buf "TRANSPARENCY" params (fun buf -> match transp with
-          | `Transparent -> "TRANSPARENT" | `Opaque -> "OPAQUE")
-    | `Url (params, uri) ->
-      write_line buf "URL" params (write_string (Uri.to_string uri))
-    | `Recur_id (params, date_or_time) ->
-      write_line buf "RECURRENCE-ID" params (date_or_time_to_ics date_or_time)
-    | `Rrule (params, recurs) ->
-      write_line buf "RRULE" params (write_string "BLA") (*TODO*)
-    | `Dtend (params, date_or_time) ->
-      write_line buf "DTEND" params (date_or_time_to_ics date_or_time)
-    | `Duration (params, dur) ->
-      write_line buf "DURATION" params (fun buf -> duration_to_ics buf dur)
-    | `Attach att ->
-      attach_to_ics buf (Some att)
-    | `Attendee att ->
-      attendee_to_ics buf att
+      write_line buf "TRANSPARENCY" params (write_string (match transp with
+          | `Transparent -> "TRANSPARENT" | `Opaque -> "OPAQUE"))
+    | `Url (params, uri) -> write_line buf "URL" params (write_string (Uri.to_string uri))
+    | `Recur_id (params, date_or_time) -> write_line buf "RECURRENCE-ID" params (date_or_time_to_ics date_or_time)
+    | `Rrule (params, recurs) -> write_line buf "RRULE" params (recurs_to_ics recurs) 
+    | `Dtend (params, date_or_time) -> write_line buf "DTEND" params (date_or_time_to_ics date_or_time)
+    | `Duration (params, dur) -> write_line buf "DURATION" params (duration_to_ics dur)
+    | `Attach att -> attach_to_ics buf (Some att)
+    | `Attendee att -> attendee_to_ics buf att
     | `Categories (params, cats) ->
       let cat = String.concat "," cats in
       write_line buf "CATEGORIES" params (write_string cat)
-    | `Comment (params, comment) ->
-      write_line buf "COMMENT" params (write_string comment)
-    | `Contact (params, contact) ->
-      write_line buf "CONTACT" params (write_string contact)
-    | `Exdate (params, dates_or_times) ->
-      write_line buf "EXDATE" params (dates_or_times_to_ics dates_or_times)
+    | `Comment (params, comment) -> write_line buf "COMMENT" params (write_string comment)
+    | `Contact (params, contact) -> write_line buf "CONTACT" params (write_string contact)
+    | `Exdate (params, dates_or_times) -> write_line buf "EXDATE" params (dates_or_times_to_ics dates_or_times)
     | `Rstatus (params, (statcode, text, comment)) ->
       write_line buf "REQUEST-STATUS" params
         (fun buf ->
@@ -526,8 +510,7 @@ module Writer = struct
            | Some x ->
              Buffer.add_char buf ';' ;
              Buffer.add_string buf x)
-    | `Related (params, rel) ->
-      write_line buf "RELATED" params (write_string rel)
+    | `Related (params, rel) -> write_line buf "RELATED" params (write_string rel)
     | `Resource (params, res) ->
       let r = String.concat "," res in
       write_line buf "RESOURCE" params (write_string r)
@@ -544,9 +527,9 @@ module Writer = struct
     let write_trigger buf trig =
       let params, print = match trig with
         | (params, `Duration d) ->
-          (params, (fun buf -> duration_to_ics buf d))
+          (params, (duration_to_ics d))
         | (params, `Datetime dt) ->
-          (params, (fun buf -> datetime_to_ics buf dt))
+          (params, (datetime_to_ics dt))
       in
       write_line buf "TRIGGER" params print
     in
@@ -609,7 +592,7 @@ let is_digit = function '0' .. '9' -> true | _ -> false
 let digits = take_while1 is_digit
 let digit = satisfy is_digit >>= fun c -> ensure int_of_string @@ String.make 1 c
 
-let sign = option '+' (char '+' <|> char '-')
+let sign = option positive ((char '+' >>| fun _ -> positive) <|> (char '-' >>| fun _ -> not positive))
 
 (* base grammar *)
 let is_alpha_digit_minus = function | '0' .. '9' | 'a' .. 'z' | 'A' .. 'Z' | '-' -> true | _ -> false
@@ -702,13 +685,13 @@ let dur_value =
   and day = to_seconds (digits <* char 'D') (24 * 3600) in
   let date = lift2 (+) day (option 0 time)
   and week = to_seconds (digits <* char 'W') (7 * 24 * 3600)
-  and apply_sign s n = if s = '+' then n else (- n) in
+  and apply_sign s n = if s = positive then n else (- n) in
   lift2 apply_sign (sign <* char 'P') (date <|> time <|> week)
 
 let float =
   let make_float s i f =
     let n = try float_of_string (i ^ "." ^ f) with Failure _ -> raise Parse_error in
-    if s = '+' then n else (-. n) in
+    if s = positive then n else (-. n) in
   lift3 make_float sign digits (option "" ((char '.') *> digits))
 
 let period =
@@ -723,26 +706,20 @@ let period =
 let recur =
   let up_to_two_digits = (take 2 >>= ensure int_of_string) <|> (take 1 >>= ensure int_of_string) in
   let up_to_three_digits = (take 3 >>= ensure int_of_string) <|> up_to_two_digits in
-  let freq = ( string "SECONDLY" >>| fun _ -> `Secondly )
-         <|> ( string "MINUTELY" >>| fun _ -> `Minutely )
-         <|> ( string "HOURLY"   >>| fun _ -> `Hourly )
-         <|> ( string "DAILY"    >>| fun _ -> `Daily )
-         <|> ( string "WEEKLY"   >>| fun _ -> `Weekly )
-         <|> ( string "MONTHLY"  >>| fun _ -> `Monthly )
-         <|> ( string "YEARLY"   >>| fun _ -> `Yearly )
+  let freq = choice (List.map (fun (str, v) -> string str >>| fun _ -> v) str_freqs)
   and weekday =
     let weekdays =
       List.map (fun (str, v) -> string str >>| fun _ -> v) str_weekdays
     in
     choice weekdays
   in
-  let triple a b c = (a, b, c) in
-  let weekdaynum = lift3 triple sign (option 0 (up_to_two_digits >>= in_range 1 53) ) weekday in
-  let pair a b = (a, b) in
-  let monthdaynum = lift2 pair sign (up_to_two_digits >>= in_range 1 31) 
-  and yeardaynum = lift2 pair sign (up_to_three_digits >>= in_range 1 366)
-  and weeknum = lift2 pair sign (up_to_two_digits >>= in_range 1 53)
-  and monthnum = lift2 pair sign (up_to_two_digits >>= in_range 1 12)
+  let apply_sign s i = (if s = positive then i else (-i)) in
+  let apply_sign_triple s i c = (apply_sign s i, c) in
+  let weekdaynum = lift3 apply_sign_triple sign (option 0 (up_to_two_digits >>= in_range 1 53) ) weekday in
+  let monthdaynum = lift2 apply_sign sign (up_to_two_digits >>= in_range 1 31) 
+  and yeardaynum = lift2 apply_sign sign (up_to_three_digits >>= in_range 1 366)
+  and weeknum = lift2 apply_sign sign (up_to_two_digits >>= in_range 1 53)
+  and monthnum = up_to_two_digits >>= in_range 1 12
   and ptime = date >>= fun d -> match Ptime.of_date d with None -> fail "Parse_error" | Some x -> return (x, true) in
   let recur_rule_part =
        ( string "FREQ=" *> freq >>| fun f -> `Frequency f )
@@ -757,21 +734,21 @@ let recur =
    <|> ( string "BYYEARDAY=" *> (sep_by1 (char ',') yeardaynum) >>| fun d -> `Byyearday d )
    <|> ( string "BYWEEKNO=" *> (sep_by1 (char ',') weeknum) >>| fun w -> `Byweek w )
    <|> ( string "BYMONTH=" *> (sep_by1 (char ',') monthnum) >>| fun m -> `Bymonth m )
-   <|> ( string "BYSETPOS=" *> yeardaynum >>| fun d -> `Bysetposday d )
+   <|> ( string "BYSETPOS=" *> (sep_by1 (char ',') yeardaynum) >>| fun d -> `Bysetposday d )
    <|> ( string "WKST=" *> weekday >>| fun d -> `Weekday d ) in
   sep_by1 (char ';') recur_rule_part
 
 (* out in the wild *)
 let utcoffset =
-  let sign = char '+' <|> char '-'
+  let sign = (char '+' >>| fun _ -> positive) <|> (char '-' >>| fun _ -> not positive)
   and hours = take 2 >>= ensure int_of_string >>= in_range 0 23
   and minutes = take 2 >>= ensure int_of_string >>= in_range 0 59
   and seconds = take 2 >>= ensure int_of_string >>= in_range 0 60
   in
   let to_span sign h m s =
-    let factor = if sign = '+' then 1 else (-1)
+    let factor = if sign = positive then 1 else (-1)
     and seconds = (h * 60 + m) * 60 + s in
-    if sign = '-' && seconds = 0
+    if sign = not positive && seconds = 0
     then raise Parse_error
     else Ptime.Span.of_int_s (factor * seconds)
   in
