@@ -1658,31 +1658,27 @@ let encode_durations () =
     values expecteds
 
 let decode_encode () =
-  let input =
-{_|BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//hacksw/handcal//NONSGML v1.0//EN
-BEGIN:VEVENT
-UID:19970610T172345Z-AF23B2@example.com
-DTSTAMP:19970610T172345Z
-DTSTART:19970714T170000Z
-DTEND:19970715T040000Z
-SUMMARY:Bastille Day Party
-BEGIN:VALARM
-TRIGGER;RELATED=END:-P2D
-ACTION:EMAIL
-ATTENDEE:mailto:john_doe@example.com
-SUMMARY:*** REMINDER: SEND AGENDA FOR WEEKLY STAFF MEETING ***
-DESCRIPTION:A draft agenda needs to be sent out to the attendees
-  to the weekly managers meeting (MGR-LIST). Attached is a
-  pointer the document template for the agenda file.
-ATTACH;FMTTYPE=application/msword:http://example.com/
- templates/agenda.doc
-END:VALARM
-END:VEVENT
-END:VCALENDAR
-|_}
-  in
+  let input = String.concat "\r\n" [
+    "BEGIN:VCALENDAR" ;
+    "VERSION:2.0" ;
+    "PRODID:-//hacksw/handcal//NONSGML v1.0//EN" ;
+    "BEGIN:VEVENT" ;
+    "UID:19970610T172345Z-AF23B2@example.com" ;
+    "DTSTAMP:19970610T172345Z" ;
+    "DTSTART:19970714T170000Z" ;
+    "DTEND:19970715T040000Z" ;
+    "SUMMARY:Bastille Day Party" ;
+    "BEGIN:VALARM" ;
+    "ACTION:EMAIL" ;
+    "TRIGGER;RELATED=END:-P2D" ;
+    "ATTACH;FMTTYPE=application/msword:http://example.com/templates/agenda.doc" ;
+    "DESCRIPTION:A draft agenda needs to be sent out to the attendees to the weekly managers meeting (MGR-LIST). Attached is a pointer the document template for the agenda file." ;
+    "SUMMARY:*** REMINDER: SEND AGENDA FOR WEEKLY STAFF MEETING ***" ;
+    "ATTENDEE:mailto:john_doe@example.com" ;
+    "END:VALARM" ;
+    "END:VEVENT" ;
+    "END:VCALENDAR\r\n" ;
+  ] in
   let c = match Icalendar.parse input with
     | Ok c -> c
     | Error e -> Alcotest.fail e
