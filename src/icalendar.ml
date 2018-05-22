@@ -605,7 +605,8 @@ let is_digit = function '0' .. '9' -> true | _ -> false
 let digits = take_while1 is_digit
 let digit = satisfy is_digit >>= fun c -> ensure int_of_string @@ String.make 1 c
 
-let sign = option positive ((char '+' >>| fun _ -> positive) <|> (char '-' >>| fun _ -> not positive))
+let sign = (char '+' >>| fun _ -> positive) <|> (char '-' >>| fun _ -> not positive)
+let opt_sign = option positive sign
 
 (* base grammar *)
 let is_alpha_digit_minus = function | '0' .. '9' | 'a' .. 'z' | 'A' .. 'Z' | '-' -> true | _ -> false
@@ -699,13 +700,13 @@ let dur_value =
   let date = lift2 (+) day (option 0 time)
   and week = to_seconds (digits <* char 'W') (7 * 24 * 3600)
   and apply_sign s n = if s = positive then n else (- n) in
-  lift2 apply_sign (sign <* char 'P') (date <|> time <|> week)
+  lift2 apply_sign (opt_sign <* char 'P') (date <|> time <|> week)
 
 let float =
   let make_float s i f =
     let n = try float_of_string (i ^ "." ^ f) with Failure _ -> raise Parse_error in
     if s = positive then n else (-. n) in
-  lift3 make_float sign digits (option "" ((char '.') *> digits))
+  lift3 make_float opt_sign digits (option "" ((char '.') *> digits))
 
 let period =
   let to_explicit (dt, utc) dur = match Ptime.add_span dt (Ptime.Span.of_int_s dur) with
@@ -723,10 +724,10 @@ let recur =
   and weekday = choice (string_parsers weekday_strings) in
   let apply_sign s i = (if s = positive then i else (-i)) in
   let apply_sign_triple s i c = (apply_sign s i, c) in
-  let weekdaynum = lift3 apply_sign_triple sign (option 0 (up_to_two_digits >>= in_range 1 53) ) weekday in
-  let monthdaynum = lift2 apply_sign sign (up_to_two_digits >>= in_range 1 31) 
-  and yeardaynum = lift2 apply_sign sign (up_to_three_digits >>= in_range 1 366)
-  and weeknum = lift2 apply_sign sign (up_to_two_digits >>= in_range 1 53)
+  let weekdaynum = lift3 apply_sign_triple opt_sign (option 0 (up_to_two_digits >>= in_range 1 53) ) weekday in
+  let monthdaynum = lift2 apply_sign opt_sign (up_to_two_digits >>= in_range 1 31) 
+  and yeardaynum = lift2 apply_sign opt_sign (up_to_three_digits >>= in_range 1 366)
+  and weeknum = lift2 apply_sign opt_sign (up_to_two_digits >>= in_range 1 53)
   and monthnum = up_to_two_digits >>= in_range 1 12
   and ptime = date >>= fun d -> match Ptime.of_date d with None -> fail "Parse_error" | Some x -> return (x, true) in
   let recur_rule_part =
@@ -748,8 +749,7 @@ let recur =
 
 (* out in the wild *)
 let utcoffset =
-  let sign = (char '+' >>| fun _ -> positive) <|> (char '-' >>| fun _ -> not positive)
-  and hours = take 2 >>= ensure int_of_string >>= in_range 0 23
+  let hours = take 2 >>= ensure int_of_string >>= in_range 0 23
   and minutes = take 2 >>= ensure int_of_string >>= in_range 0 59
   and seconds = take 2 >>= ensure int_of_string >>= in_range 0 60
   in
@@ -760,7 +760,7 @@ let utcoffset =
     then raise Parse_error
     else Ptime.Span.of_int_s (factor * seconds)
   in
-  lift4 to_span sign hours minutes (option 0 seconds)
+  lift4 to_span opt_sign hours minutes (option 0 seconds)
 
 (* processing *)
 let pair a b = (a, b)
@@ -853,13 +853,13 @@ let reltypeparam =
    <|> (iana_token >>| fun x -> `Ianatoken x)
    <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
 
-let fmttype_param =
+let fmttypeparam =
   string "FMTTYPE=" *> media_type >>| fun m -> `Media_type m
 
-let encoding_param =
+let encodingparam =
   string "ENCODING=BASE64" >>| fun _ -> `Encoding `Base64
 
-let range_param = string "RANGE=THISANDFUTURE" >>| fun _ -> `Range `Thisandfuture 
+let rangeparam = string "RANGE=THISANDFUTURE" >>| fun _ -> `Range `Thisandfuture 
 
 let icalparameter =
       altrepparam 
@@ -868,12 +868,12 @@ let icalparameter =
   <|> delfromparam
   <|> deltoparam
   <|> dirparam
-  <|> encoding_param
-  <|> fmttype_param
+  <|> encodingparam
+  <|> fmttypeparam
   <|> languageparam 
   <|> memberparam
   <|> partstatparam
-  <|> range_param 
+  <|> rangeparam 
   <|> reltypeparam
   <|> roleparam
   <|> rsvpparam
@@ -1034,7 +1034,7 @@ let url =
   propparser "URL" other_param caladdress (fun a b -> `Url (a, b))
 
 let recurid =
-  let recur_param = tzidparam <|> valuetypeparam <|> range_param <|> other_param in
+  let recur_param = tzidparam <|> valuetypeparam <|> rangeparam <|> other_param in
   propparser "RECURRENCE-ID" recur_param time_or_date
     (fun a b ->
        check_date_datetime `Datetime a b ;
@@ -1068,7 +1068,7 @@ let binary =
     b_end
 
 let attach =
-  let attach_param = fmttype_param <|> valuetypeparam <|> encoding_param <|> other_param in
+  let attach_param = fmttypeparam <|> valuetypeparam <|> encodingparam <|> other_param in
   let attach_value =
     (binary >>| fun b -> `Binary b) <|> (caladdress >>| fun a -> `Uri a)
   in
