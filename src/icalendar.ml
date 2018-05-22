@@ -165,76 +165,55 @@ type calendar = calprop list * component list [@@deriving eq, show]
 
 let pp = pp_calendar
 
-let weekday_to_str, str_weekdays =
-  let mapping = [
+let weekday_strings = [
     (`Monday, "MO") ; (`Tuesday, "TU") ; (`Wednesday, "WE") ;
     (`Thursday, "TH") ; (`Friday, "FR") ; (`Saturday, "SA") ;
     (`Sunday, "SU")
   ]
-  in
-  let reverse_mapping = List.map (fun (a, b) -> (b, a)) mapping in
-  ((fun w -> List.assoc w mapping), reverse_mapping)
 
-let valuetype_to_str, str_valuetypes =
-  let map = [
-    ("BINARY", `Binary) ;
-    ("BOOLEAN", `Boolean) ;
-    ("CAL-ADDRESS", `Caladdress) ;
-    ("DATE-TIME", `Datetime) ;
-    ("DATE", `Date) ;
-    ("DURATION", `Duration) ;
-    ("FLOAT", `Float) ;
-    ("INTEGER", `Integer) ;
-    ("PERIOD", `Period) ;
-    ("RECUR", `Recur) ;
-    ("TEXT", `Text) ;
-    ("TIME", `Time) ;
-    ("URI", `Uri) ;
-    ("UTC-OFFSET", `Utcoffset) ;
+let valuetype_strings = [
+    (`Binary, "BINARY") ;
+    (`Boolean, "BOOLEAN") ;
+    (`Caladdress, "CAL-ADDRESS") ;
+    (`Datetime, "DATE-TIME") ;
+    (`Date, "DATE") ;
+    (`Duration, "DURATION") ;
+    (`Float, "FLOAT") ;
+    (`Integer, "INTEGER") ;
+    (`Period, "PERIOD") ;
+    (`Recur, "RECUR") ;
+    (`Text, "TEXT") ;
+    (`Time, "TIME") ;
+    (`Uri, "URI") ;
+    (`Utcoffset, "UTC-OFFSET") ;
   ]
-  in
-  let reverse_map = List.map (fun (a, b) -> (b, a)) map in
-  ((fun w -> List.assoc w reverse_map), map)
 
-let cutype_to_str, str_cutypes =
-  let map = [
-    ("INDIVIDUAL", `Individual) ;
-    ("GROUP", `Group) ;
-    ("RESOURCE", `Resource) ;
-    ("ROOM", `Room) ;
-    ("UNKNOWN", `Unknown) ;
+let cutype_strings = [
+    (`Individual, "INDIVIDUAL") ;
+    (`Group, "GROUP") ;
+    (`Resource, "RESOURCE") ;
+    (`Room, "ROOM") ;
+    (`Unknown, "UNKNOWN") ;
   ]
-  in
-  let reverse_map = List.map (fun (a, b) -> (b, a)) map in
-  ((fun w -> List.assoc w reverse_map), map)
 
-let partstat_to_str, str_partstats =
-  let map = [
-    ("NEEDS-ACTION", `Needs_action) ;
-    ("ACCEPTED", `Accepted) ;
-    ("DECLINED", `Declined) ;
-    ("TENTATIVE", `Tentative) ;
-    ("DELEGATED", `Delegated) ;
-    ("COMPLETED", `Completed) ;
-    ("IN-PROCESS", `In_process) ;
+let partstat_strings = [
+    (`Needs_action, "NEEDS-ACTION") ;
+    (`Accepted, "ACCEPTED") ;
+    (`Declined, "DECLINED") ;
+    (`Tentative, "TENTATIVE") ;
+    (`Delegated, "DELEGATED") ;
+    (`Completed, "COMPLETED") ;
+    (`In_process, "IN-PROCESS") ;
   ]
-  in
-  let reverse_map = List.map (fun (a, b) -> (b, a)) map in
-  ((fun w -> List.assoc w reverse_map), map)
 
-let role_to_str, str_roles =
-  let map = [
-    ("CHAIR", `Chair) ;
-    ("REQ-PARTICIPANT", `Reqparticipant ) ;
-    ("OPT-PARTICIPANT", `Optparticipant ) ;
-    ("NON-PARTICIPANT", `Nonparticipant ) ;
+let role_strings = [
+    (`Chair, "CHAIR") ;
+    (`Reqparticipant, "REQ-PARTICIPANT") ;
+    (`Optparticipant, "OPT-PARTICIPANT") ;
+    (`Nonparticipant, "NON-PARTICIPANT") ;
   ]
-  in
-  let reverse_map = List.map (fun (a, b) -> (b, a)) map in
-  ((fun w -> List.assoc w reverse_map), map)
 
-let status_to_str, str_statuses =
-  let map = [
+let status_strings = [
     (`Draft, "DRAFT") ;
     (`Final, "FINAL") ;
     (`Cancelled, "CANCELLED") ;
@@ -244,12 +223,8 @@ let status_to_str, str_statuses =
     (`Tentative, "TENTATIVE") ;
     (`Confirmed, "CONFIRMED") ;
   ]
-  in
-  let reverse_map = List.map (fun (a, b) -> (b, a)) map in
-  ((fun w -> List.assoc w map), reverse_map)
 
-let freq_to_str, str_freqs =
-  let map = [
+let freq_strings = [
     (`Daily, "DAILY") ;
     (`Hourly, "HOURLY") ;
     (`Minutely, "MINUTELY") ;
@@ -258,9 +233,23 @@ let freq_to_str, str_freqs =
     (`Weekly, "WEEKLY") ;
     (`Yearly, "YEARLY") ;
   ]
-  in
-  let reverse_map = List.map (fun (a, b) -> (b, a)) map in
-  ((fun w -> List.assoc w map), reverse_map)
+
+let relation_strings = [
+    (`Parent, "PARENT") ;
+    (`Child, "CHILD") ;
+    (`Sibling, "SIBLING") ; 
+  ]
+
+let class_strings = [
+    (`Public, "PUBLIC") ; 
+    (`Private, "PRIVATE") ;
+    (`Confidential, "CONFIDENTIAL") ;
+  ]
+
+let transp_strings = [
+    (`Transparent, "TRANSPARENT") ;
+    (`Opaque, "OPAQUE") ;
+  ]
 
 module Writer = struct
   let write_param buf =
@@ -282,7 +271,7 @@ module Writer = struct
           name
       in
       write_kv key (String.concat "," values)
-    | `Valuetype v -> write_kv "VALUE" (valuetype_to_str v)
+    | `Valuetype v -> write_kv "VALUE" (List.assoc v valuetype_strings)
     | `Tzid (prefix, str) -> write_kv "TZID" (Printf.sprintf "%s%s" (if prefix then "/" else "") str)
     | `Altrep uri -> write_kv "ALTREP" (quoted_uri uri)
     | `Language lan -> write_kv "LANGUAGE" lan
@@ -292,16 +281,14 @@ module Writer = struct
     | `Range `Thisandfuture -> write_kv "RANGE" "THISANDFUTURE"
     | `Media_type (pre, post) -> write_kv "FMTTYPE" (Printf.sprintf "%s/%s" pre post)
     | `Encoding `Base64 -> write_kv "ENCODING" "BASE64"
-    | `Cutype cu -> write_kv "CUTYPE" (cutype_to_str cu)
+    | `Cutype cu -> write_kv "CUTYPE" (List.assoc cu cutype_strings)
     | `Delegated_from uris -> write_kv "DELEGATED-FROM" (String.concat "," (List.map quoted_uri uris))
     | `Delegated_to uris -> write_kv "DELEGATED-TO" (String.concat "," (List.map quoted_uri uris))
     | `Member uris -> write_kv "MEMBER" (String.concat "," (List.map quoted_uri uris))
-    | `Partstat ps -> write_kv "PARTSTAT" (partstat_to_str ps)
-    | `Role role -> write_kv "ROLE" (role_to_str role)
+    | `Partstat ps -> write_kv "PARTSTAT" (List.assoc ps partstat_strings)
+    | `Role role -> write_kv "ROLE" (List.assoc role role_strings)
     | `Rsvp rsvp -> write_kv "RSVP" (if rsvp then "TRUE" else "FALSE")
-    | `Reltype rel ->
-      let r = match rel with `Parent -> "PARENT" | `Child -> "CHILD" | `Sibling -> "SIBLING" | _ -> "TODO" in
-      write_kv "RELTYPE" r
+    | `Reltype rel -> write_kv "RELTYPE" (List.assoc rel relation_strings)
     | `Related r ->
       let r = match r with `Start -> "START" | `End -> "END" in
       write_kv "RELATED" r
@@ -431,7 +418,7 @@ module Writer = struct
     | `Byminute byminlist -> write_rulepart "BYMINUTE" (int_list byminlist)
     | `Byday bywdaylist -> 
       let wday (weeknumber, weekday) = 
-        Printf.sprintf "%d%s" weeknumber (weekday_to_str weekday)
+        Printf.sprintf "%d%s" weeknumber (List.assoc weekday weekday_strings)
       in
       write_rulepart "BYDAY" (String.concat "," @@ List.map wday bywdaylist)
     | `Byhour byhrlist -> write_rulepart "BYHOUR" (int_list byhrlist)
@@ -442,10 +429,10 @@ module Writer = struct
     | `Byweek bywknolist -> write_rulepart "BYWEEKNO" (int_list bywknolist)
     | `Byyearday byyrdaylist -> write_rulepart "BYYEARDAY" (int_list byyrdaylist)
     | `Count c -> write_rulepart "COUNT" (string_of_int c)
-    | `Frequency f -> write_rulepart "FREQ" (freq_to_str f)
+    | `Frequency f -> write_rulepart "FREQ" (List.assoc f freq_strings)
     | `Interval i -> write_rulepart "INTERVAL" (string_of_int i)
     | `Until enddate -> write_rulepart "UNTIL" (datetime_to_str enddate)
-    | `Weekday weekday -> write_rulepart "WKST" (weekday_to_str weekday)
+    | `Weekday weekday -> write_rulepart "WKST" (List.assoc weekday weekday_strings)
 
   let recurs_to_ics l buf = List.iteri (fun idx recur -> if idx > 0 then Buffer.add_char buf ',' ; recur_to_ics buf recur) l
 
@@ -456,11 +443,7 @@ module Writer = struct
     | `Dtstamp (params, ts) -> write_line buf "DTSTAMP" params (datetime_to_ics ts)
     | `Uid (params, str) -> write_line buf "UID" params (write_string str)
     | `Dtstart (params, date_or_time) -> write_line buf "DTSTART" params (date_or_time_to_ics date_or_time)
-    | `Class (params, class_) ->
-      let str = match class_ with
-        | `Public -> "PUBLIC" | `Private -> "PRIVATE" | `Confidential -> "CONFIDENTIAL" | _ -> "BLA"
-      in
-      write_line buf "CLASS" params (write_string str)
+    | `Class (params, class_) -> write_line buf "CLASS" params (write_string (List.assoc class_ class_strings))
     | `Created (params, ts) -> write_line buf "CREATED" params (datetime_to_ics ts)
     | `Description desc -> description_to_ics buf desc
     | `Geo (params, (lat, lon)) ->
@@ -473,11 +456,9 @@ module Writer = struct
     | `Organizer (params, uri) -> write_line buf "ORGANIZER" params (write_string (Uri.to_string uri))
     | `Priority (params, prio) -> write_line buf "PRIORITY" params (write_string (string_of_int prio))
     | `Seq (params, seq) -> write_line buf "SEQUENCE" params (write_string (string_of_int seq))
-    | `Status (params, status) -> write_line buf "STATUS" params (write_string (status_to_str status))
+    | `Status (params, status) -> write_line buf "STATUS" params (write_string (List.assoc status status_strings))
     | `Summary summary -> summary_to_ics buf summary
-    | `Transparency (params, transp) ->
-      write_line buf "TRANSPARENCY" params (write_string (match transp with
-          | `Transparent -> "TRANSPARENT" | `Opaque -> "OPAQUE"))
+    | `Transparency (params, transp) -> write_line buf "TRANSPARENCY" params (write_string (List.assoc transp transp_strings)) 
     | `Url (params, uri) -> write_line buf "URL" params (write_string (Uri.to_string uri))
     | `Recur_id (params, date_or_time) -> write_line buf "RECURRENCE-ID" params (date_or_time_to_ics date_or_time)
     | `Rrule (params, recurs) -> write_line buf "RRULE" params (recurs_to_ics recurs) 
@@ -578,6 +559,8 @@ let to_ics calendar =
 
 open Angstrom
 exception Parse_error
+
+let string_parsers m = List.map (fun (t, str) -> string str >>| fun _ -> t) m
 
 (* pre-processing of the input: remove "\n " *)
 let normalize_lines s =
@@ -706,13 +689,8 @@ let period =
 let recur =
   let up_to_two_digits = (take 2 >>= ensure int_of_string) <|> (take 1 >>= ensure int_of_string) in
   let up_to_three_digits = (take 3 >>= ensure int_of_string) <|> up_to_two_digits in
-  let freq = choice (List.map (fun (str, v) -> string str >>| fun _ -> v) str_freqs)
-  and weekday =
-    let weekdays =
-      List.map (fun (str, v) -> string str >>| fun _ -> v) str_weekdays
-    in
-    choice weekdays
-  in
+  let freq = choice (string_parsers freq_strings)
+  and weekday = choice (string_parsers weekday_strings) in
   let apply_sign s i = (if s = positive then i else (-i)) in
   let apply_sign_triple s i c = (apply_sign s i, c) in
   let weekdaynum = lift3 apply_sign_triple sign (option 0 (up_to_two_digits >>= in_range 1 53) ) weekday in
@@ -790,7 +768,7 @@ let tzidparam =
 let valuetypeparam =
   lift (fun x -> `Valuetype x)
     (string "VALUE=" *>
-     (choice (List.map (fun (str, v) -> string str >>| fun _ -> v) str_valuetypes)
+     (choice (string_parsers valuetype_strings)
       <|> (x_name >>| fun x -> `Xname x)
       <|> (iana_token >>| fun x -> `Ianatoken x)))
 
@@ -806,7 +784,7 @@ let sentbyparam = string "SENT-BY=" *> quoted_caladdress >>| fun s -> `Sentby s
 
 (* Default is INDIVIDUAL *)
 let cutypeparam = lift (fun x -> `Cutype x) ((string "CUTYPE=") *>
-       (choice (List.map (fun (str, v) -> string str >>| fun _ -> v) str_cutypes)
+       (choice (string_parsers cutype_strings)
    <|> (iana_token >>| fun x -> `Ianatoken x)
    <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
 
@@ -815,13 +793,13 @@ let memberparam = lift (fun x -> `Member x)
 
 (* Default is REQ-PARTICIPANT *)
 let roleparam = lift (fun x -> `Role x) ((string "ROLE=") *>
-       (choice (List.map (fun (str, v) -> string str >>| fun _ -> v) str_roles)
+       (choice (string_parsers role_strings)
    <|> (iana_token >>| fun x -> `Ianatoken x)
    <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
 
 let partstatparam =
   let statvalue =
-    choice (List.map (fun (str, v) -> string str >>| fun _ -> v) str_partstats)
+    choice (string_parsers partstat_strings)
   and other =
        (iana_token >>| fun x -> `Ianatoken x)
    <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))
@@ -840,9 +818,7 @@ let delfromparam = lift (fun x -> `Delegated_from x)
 let reltypeparam =
   lift (fun x -> `Reltype x)
    (string "RELTYPE=" *>
-      ((string "PARENT" >>| fun _ -> `Parent)
-   <|> (string "CHILD" >>| fun _ -> `Child)
-   <|> (string "SIBLING" >>| fun _ -> `Sibling)
+     (choice (string_parsers relation_strings)
    <|> (iana_token >>| fun x -> `Ianatoken x)
    <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
 
@@ -930,10 +906,7 @@ let dtstart =
        `Dtstart (a, b))
 
 let class_ =
-  let class_value =
-       (string "PUBLIC" >>| fun _ -> `Public)
-   <|> (string "PRIVATE" >>| fun _ -> `Private)
-   <|> (string "CONFIDENTIAL" >>| fun _ -> `Confidential)
+  let class_value = choice (string_parsers class_strings)
    <|> (iana_token >>| fun x -> `Ianatoken x)
    <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))
   in
@@ -973,7 +946,7 @@ let seq =
   propparser "SEQUENCE" other_param seqv (fun a b -> `Seq (a, b))
 
 let status =
-  let statvalue = choice (List.map (fun (str, v) -> string str >>| fun _ -> v) str_statuses) in
+  let statvalue = choice (string_parsers status_strings) in
   propparser "STATUS" other_param statvalue (fun a b -> `Status (a, b))
 
 let summary =
@@ -981,10 +954,7 @@ let summary =
   propparser "SUMMARY" summ_param text (fun a b -> `Summary (a, b))
 
 let transp =
-  let t_value =
-    (string "TRANSPARENT" >>| fun _ -> `Transparent) <|>
-    (string "OPAQUE" >>| fun _ -> `Opaque)
-  in
+  let t_value = choice (string_parsers transp_strings) in
   propparser "TRANSP" other_param t_value (fun a b -> `Transparency (a, b))
 
 let url =
