@@ -1114,7 +1114,7 @@ END:VCALENDAR
             `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
             `Summary ([], "Bastille Day Party")
           ],
-          [ `Audio { Icalendar.trigger = ([`Valuetype `Datetime], `Datetime (to_ptime (1997, 03, 17) (13, 30, 00), true)) ; duration_repeat = None ; special = {Icalendar.attach = None } } ]
+          [ `Audio { Icalendar.trigger = ([`Valuetype `Datetime], `Datetime (to_ptime (1997, 03, 17) (13, 30, 00), true)) ; duration_repeat = None ; other = [] ; special = {Icalendar.attach = None } } ]
         ])
   in
   let f = Icalendar.parse input in
@@ -1148,7 +1148,7 @@ END:VCALENDAR
             `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
             `Summary ([], "Bastille Day Party")
           ],
-          [ `Audio { Icalendar.trigger = s ; duration_repeat = None ; special = {Icalendar.attach = None } } ]
+          [ `Audio { Icalendar.trigger = s ; duration_repeat = None ; other = [] ; special = {Icalendar.attach = None } } ]
         ])
   in
   let inputs = List.map input [
@@ -1199,6 +1199,7 @@ END:VCALENDAR
           ], [
             `Audio { Icalendar.trigger = ([], `Duration (-1800)) ; 
                      duration_repeat = Some (([], 3600), ([], 2)) ; 
+                     other = [] ;
                      special = { Icalendar.attach = None }}
           ]
         ])
@@ -1238,6 +1239,7 @@ END:VCALENDAR
           ], [
              `Audio { Icalendar.trigger = ([], `Duration (-1800)) ; 
                       duration_repeat = Some (([], 3600), ([], 4)) ;
+                      other = [] ;
                       special = { Icalendar.attach = None } }
           ]
         ])
@@ -1286,6 +1288,7 @@ END:VCALENDAR
           ], [
              `Audio { Icalendar.trigger = ([], `Duration (-1800)) ; 
                       duration_repeat = None;
+                      other = [] ;
                       special = { Icalendar.attach = Some
                ([`Media_type ("text", "plain") ; `Encoding `Base64 ; `Valuetype `Binary], `Binary "TG9yZW\
 0gaXBzdW0gZG9sb3Igc2l0IGFtZXQsIGNvbnNlY3RldHVyIGFkaXBpc2ljaW\
@@ -1339,6 +1342,7 @@ END:VCALENDAR
           ], [
             `Display { Icalendar.trigger = ([], `Duration (-1800)) ;
                        duration_repeat = None ;
+                       other = [] ;
                        special = { Icalendar.description = ([`Altrep (Uri.of_string "CID:part3.msg970930T083000SILVER@example.com")], "Meeting to provide technical review for \"Phoenix\" design.\nHappy Face Conference Room. Phoenix design team MUST attend this meeting.\nRSVP to team leader.") } }
           ]
         ])
@@ -1381,6 +1385,7 @@ END:VCALENDAR
           ], [
             `Email { Icalendar.trigger = ([], `Duration (-1800)) ;
                      duration_repeat = None ;
+                     other = [] ;
                      special = { Icalendar.summary = ([], "*** REMINDER: SEND AGENDA FOR WEEKLY STAFF MEETING ***") ;
                                  description = ([], "A draft agenda needs to be sent out to the attendees to the weekly managers meeting (MGR-LIST). Attached is a pointer the document template for the agenda file.") ;
                                  attendees = [([], Uri.of_string "mailto:john_doe@example.com")] ;
@@ -1427,6 +1432,7 @@ END:VCALENDAR
           ], [
             `Display { Icalendar.trigger = ([], `Duration (-1800));
                      duration_repeat = Some (([], 15 * 60), ([], 2)) ;
+                     other = [] ;
                      special = { Icalendar.description = ([], "Breakfast meeting with executive\nteam at 8:30 AM EST.");
                      }
              }
@@ -1471,6 +1477,7 @@ END:VCALENDAR
           ], [
             `Audio { Icalendar.trigger = ([`Valuetype `Datetime], `Datetime (to_ptime (1997,03,17) (13,30,00), true)) ;
                      duration_repeat = Some (([], 15 * 60), ([], 4)) ;
+                     other = [] ;
                      special = { Icalendar.attach = Some ([`Media_type ("audio", "basic")], `Uri(Uri.of_string "ftp://example.com/pub/sounds/bell-01.aud"));
                      }
              }
@@ -1517,6 +1524,7 @@ END:VCALENDAR
           ], [
             `Email { Icalendar.trigger = ([`Related `End], `Duration (-2*24*60*60)) ;
                      duration_repeat = None ;
+                     other = [] ;
                      special = { Icalendar.attach = Some ([`Media_type ("application", "msword")], `Uri(Uri.of_string "http://example.com/templates/agenda.doc")) ; attendees = [([], Uri.of_string "mailto:john_doe@example.com")]; 
                                  summary = ([], "*** REMINDER: SEND AGENDA FOR WEEKLY STAFF MEETING ***");
                                  description = ([], "A draft agenda needs to be sent out to the attendees to the weekly managers meeting (MGR-LIST). Attached is a pointer the document template for the agenda file.")
@@ -1569,8 +1577,8 @@ END:VCALENDAR
             `Dtstamp ([], (to_ptime (2005, 12, 22) (20, 59,53), true) ) ;
             `Summary ([], "event 8")
           ], [
-            `Display { Icalendar.trigger = ([`Related `Start], `Duration (- 5 * 60)) ; duration_repeat = None ; special = { Icalendar.description = ([], "Test") } } ;
-            `Display { Icalendar.trigger = ([`Related `Start], `Duration (- 10 * 60)) ; duration_repeat = None ; special = { Icalendar.description = ([], "Test") } } ;
+            `Display { Icalendar.trigger = ([`Related `Start], `Duration (- 5 * 60)) ; duration_repeat = None ; other = [] ; special = { Icalendar.description = ([], "Test") } } ;
+            `Display { Icalendar.trigger = ([`Related `Start], `Duration (- 10 * 60)) ; duration_repeat = None ; other = [] ; special = { Icalendar.description = ([], "Test") } } ;
           ]
         ])
   in
@@ -1685,9 +1693,36 @@ let decode_encode () =
   in
   Alcotest.(check string __LOC__ input (Icalendar.to_ics c))
 
+let x_apple_put () =
+  let input = {|BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+X-WR-CALNAME:CalDAV tests
+BEGIN:VEVENT
+DTSTAMP:20060202T205536Z
+DTSTART:20180101T120000
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@example.local
+END:VEVENT
+END:VCALENDAR
+|}
+  and expected = [ `Calscale ([], "GREGORIAN") ; `Prodid ([], "-//Example Inc.//Example Calendar//EN") ; `Version ([], "2.0") ; `Xprop (("", "WR-CALNAME"), [], "CalDAV tests") ], 
+    [ [ `Dtstamp ([], (to_ptime (2006, 02, 02) (20, 55, 36), true)) ;
+        `Dtstart ([], `Datetime (to_ptime (2018, 01, 01) (12, 0, 0 ), false)) ;
+        `Duration ([], 60 * 60 ) ;
+        `Summary ([], "event 1") ;
+        `Uid ([], "event1@example.local") ;
+      ], []
+    ]
+  in
+  Alcotest.check result_c __LOC__ (Ok expected) (Icalendar.parse input) 
+
 let decode_encode_tests = [
   "encode durations", `Quick, encode_durations ;
   "decode and encode is identity", `Quick, decode_encode ;
+  "apple calendar tester case for put", `Quick, x_apple_put ;
 ]
 
 let tests = [

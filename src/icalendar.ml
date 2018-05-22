@@ -23,11 +23,54 @@ type other_param =
   [ `Iana_param of string * string list
   | `Xparam of (string * string) * string list ] [@@deriving eq, show]
 
+type cutype = [ `Group | `Individual | `Resource | `Room | `Unknown
+              | `Ianatoken of string | `Xname of string * string ] [@@deriving eq, show]
+
+type partstat = [ `Accepted | `Completed | `Declined | `Delegated
+                | `In_process | `Needs_action | `Tentative
+                | `Ianatoken of string | `Xname of string * string ] [@@deriving eq, show]
+
+type relationship =
+  [ `Parent | `Child | `Sibling |
+    `Ianatoken of string | `Xname of string * string ] [@@deriving eq, show]
+
+type role = [ `Chair | `Nonparticipant | `Optparticipant | `Reqparticipant
+            | `Ianatoken of string | `Xname of string * string ] [@@deriving eq, show]
+
+type icalparameter =
+  [ `Altrep of Uri.t
+  | `Cn of string 
+  | `Cutype of cutype
+  | `Delegated_from of Uri.t list
+  | `Delegated_to of Uri.t list
+  | `Dir of Uri.t
+  | `Encoding of [ `Base64 ]
+  | `Media_type of string * string
+  (*| `Fbtype       ; Free/busy time type*)
+  | `Language of string
+  | `Member of Uri.t list
+  | `Partstat of partstat
+  | `Range of [ `Thisandfuture ]
+  | `Related of [ `Start | `End ]
+  | `Reltype of relationship
+  | `Role of role
+  | `Rsvp of bool
+  | `Sentby of Uri.t 
+  | `Tzid of bool * string
+  | valuetypeparam 
+  | other_param
+  ] [@@deriving eq, show]
+
+type other_prop =
+  [ `Iana_prop of string * icalparameter list * string
+  | `Xprop of (string * string) * icalparameter list * string ] [@@deriving eq, show]
+
 type calprop =
   [ `Prodid of other_param list * string
   | `Version of other_param list * string
   | `Calscale of other_param list * string
   | `Method of other_param list * string
+  | other_prop
   ] [@@deriving eq, show]
 
 type weekday = [ `Friday | `Monday | `Saturday | `Sunday | `Thursday | `Tuesday | `Wednesday ] [@@deriving eq, show]
@@ -54,20 +97,6 @@ type class_ = [ `Public | `Private | `Confidential | `Ianatoken of string | `Xna
 type status = [ `Draft | `Final | `Cancelled |
                 `Needs_action | `Completed | `In_process | (* `Cancelled *)
                 `Tentative | `Confirmed (* | `Cancelled *) ] [@@deriving eq, show]
-
-type cutype = [ `Group | `Individual | `Resource | `Room | `Unknown
-              | `Ianatoken of string | `Xname of string * string ] [@@deriving eq, show]
-
-type partstat = [ `Accepted | `Completed | `Declined | `Delegated
-                | `In_process | `Needs_action | `Tentative
-                | `Ianatoken of string | `Xname of string * string ] [@@deriving eq, show]
-
-type role = [ `Chair | `Nonparticipant | `Optparticipant | `Reqparticipant
-            | `Ianatoken of string | `Xname of string * string ] [@@deriving eq, show]
-
-type relationship =
-  [ `Parent | `Child | `Sibling |
-    `Ianatoken of string | `Xname of string * string ] [@@deriving eq, show]
 
 type eventprop =
   [ `Dtstamp of other_param list * (Ptime.t * bool)
@@ -117,21 +146,20 @@ type eventprop =
   | `Resource of [ other_param | `Language of string | `Altrep of Uri.t ] list * string list
   | `Rdate of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
               [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
-  (* xprop and iana-prop not done yet *)
+  | other_prop
   ] [@@deriving eq, show]
 
 type 'a alarm_struct = {
   trigger : [ other_param | valuetypeparam | `Related of [ `Start | `End ] ] list *
     [ `Duration of int | `Datetime of (Ptime.t * bool) ] ;
   duration_repeat: ((other_param list * int) * (other_param list * int )) option ;
+  other: other_prop list ;
   special: 'a ;
 } [@@deriving eq, show] 
 
 type audio_struct = { 
   attach: ([`Media_type of string * string | `Encoding of [ `Base64 ] | valuetypeparam | other_param ] list *
     [ `Uri of Uri.t | `Binary of string ]) option ;
-  (* xprop: list ;
-  iana_prop: list ; *)
 } [@@deriving eq, show]
 
 type display_struct = {
@@ -251,7 +279,10 @@ let transp_strings = [
     (`Opaque, "OPAQUE") ;
   ]
 
+
 module Writer = struct
+  let print_x vendor token = Printf.sprintf "X-%s%s%s" vendor (if String.length vendor = 0 then "" else "-") token
+
   let write_param buf =
     let write_kv k v =
       Buffer.add_string buf k ;
@@ -263,14 +294,7 @@ module Writer = struct
     let quoted_uri uri = quoted (Uri.to_string uri) in
     function
     | `Iana_param (token, values) -> write_kv token (String.concat "," values)
-    | `Xparam ((vendor, name), values) ->
-      let key =
-        let has_vendor = String.length vendor > 0 in
-        Printf.sprintf "X-%s%s%s"
-          vendor (if has_vendor then "-" else "")
-          name
-      in
-      write_kv key (String.concat "," values)
+    | `Xparam ((vendor, name), values) -> write_kv (print_x vendor name) (String.concat "," values)
     | `Valuetype v -> write_kv "VALUE" (List.assoc v valuetype_strings)
     | `Tzid (prefix, str) -> write_kv "TZID" (Printf.sprintf "%s%s" (if prefix then "/" else "") str)
     | `Altrep uri -> write_kv "ALTREP" (quoted_uri uri)
@@ -307,11 +331,16 @@ module Writer = struct
 
   let write_string str buf = Buffer.add_string buf str
 
+  let other_prop_to_ics buf = function
+    | `Iana_prop (ianatoken, params, value) -> write_line buf ianatoken params (write_string value)
+    | `Xprop ((vendor, token), params, value) -> write_line buf (print_x vendor token) params (write_string value)
+ 
   let calprop_to_ics buf = function
     | `Prodid (params, value) -> write_line buf "PRODID" params (write_string value)
     | `Version (params, value) -> write_line buf "VERSION" params (write_string value)
     | `Calscale (params, value) -> write_line buf "CALSCALE" params (write_string value)
     | `Method (params, value) -> write_line buf "METHOD" params (write_string value)
+    | #other_prop as x -> other_prop_to_ics buf x
 
   let calprops_to_ics buf props = List.iter (calprop_to_ics buf) props
 
@@ -498,6 +527,7 @@ module Writer = struct
     | `Rdate (params, dates_or_times_or_periods) ->
       write_line buf "RDATE" params
         (dates_or_times_or_periods_to_ics dates_or_times_or_periods)
+    | #other_prop as x -> other_prop_to_ics buf x
 
   let eventprops_to_ics buf props = List.iter (eventprop_to_ics buf) props
 
@@ -756,6 +786,7 @@ let media_type =
 let iana_param = lift2 (fun k v -> `Iana_param (k, v))
     (iana_token <* (char '=')) value_list
 
+    
 let x_param = lift2 (fun k v -> `Xparam (k, v))
     (x_name <* char '=') value_list
 
@@ -822,12 +853,54 @@ let reltypeparam =
    <|> (iana_token >>| fun x -> `Ianatoken x)
    <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
 
+let fmttype_param =
+  string "FMTTYPE=" *> media_type >>| fun m -> `Media_type m
+
+let encoding_param =
+  string "ENCODING=BASE64" >>| fun _ -> `Encoding `Base64
+
+let range_param = string "RANGE=THISANDFUTURE" >>| fun _ -> `Range `Thisandfuture 
+
+let icalparameter =
+      altrepparam 
+  <|> cnparam
+  <|> cutypeparam
+  <|> delfromparam
+  <|> deltoparam
+  <|> dirparam
+  <|> encoding_param
+  <|> fmttype_param
+  <|> languageparam 
+  <|> memberparam
+  <|> partstatparam
+  <|> range_param 
+  <|> reltypeparam
+  <|> roleparam
+  <|> rsvpparam
+  <|> sentbyparam
+  <|> tzidparam
+  <|> valuetypeparam
+  <|> other_param
+
 (* Properties *)
 let propparser id pparser vparser lift =
   let params = many (char ';' *> pparser) in
   lift2 lift
     (string id *> params <* char ':')
     (vparser <* end_of_line)
+
+let otherprop =
+  let params = many (char ';' *> icalparameter) in
+  let buildprop t p v = match t with 
+    | `Iana i -> `Iana_prop (i, p, v)
+    | `Xname x -> `Xprop (x, p, v) in
+  let my_iana_token = 
+    let not_legal s = s = "BEGIN" || String.sub s 0 3 = "END" in
+    peek_string 5 >>= fun s -> if not_legal s then fail "Too eager" else iana_token in
+  lift3 buildprop 
+    ((x_name >>| fun x -> `Xname x ) <|> (my_iana_token >>| fun i -> `Iana i))
+    (params <* char ':') 
+    (text <* end_of_line)
 
 let prodid =
   propparser "PRODID" other_param text (fun a b -> `Prodid (a, b))
@@ -845,7 +918,7 @@ let meth =
   propparser "METHOD" other_param metvalue (fun a b -> `Method (a, b))
 
 let calprops =
-  many (prodid <|> version <|> calscale <|> meth)
+  many (prodid <|> version <|> calscale <|> meth <|> otherprop)
 
 let dtstamp =
   propparser "DTSTAMP" other_param datetime (fun a b -> `Dtstamp (a, b))
@@ -961,7 +1034,6 @@ let url =
   propparser "URL" other_param caladdress (fun a b -> `Url (a, b))
 
 let recurid =
-  let range_param = string "RANGE=THISANDFUTURE" >>| fun _ -> `Range `Thisandfuture in
   let recur_param = tzidparam <|> valuetypeparam <|> range_param <|> other_param in
   propparser "RECURRENCE-ID" recur_param time_or_date
     (fun a b ->
@@ -996,11 +1068,6 @@ let binary =
     b_end
 
 let attach =
-  let fmttype_param =
-    string "FMTTYPE=" *> media_type >>| fun m -> `Media_type m
-  and encoding_param =
-    string "ENCODING=BASE64" >>| fun _ -> `Encoding `Base64
-  in
   let attach_param = fmttype_param <|> valuetypeparam <|> encoding_param <|> other_param in
   let attach_value =
     (binary >>| fun b -> `Binary b) <|> (caladdress >>| fun a -> `Uri a)
@@ -1121,7 +1188,7 @@ let eventprop =
   dtend <|> duration <|>
   attach <|> attendee <|> categories <|> comment <|>
   contact <|> exdate <|> rstatus <|> related <|>
-  resources <|> rdate (* iana_prop <|> x_prop *)
+  resources <|> rdate <|> otherprop
 
 let eventprops = many eventprop
 
@@ -1174,8 +1241,6 @@ let emailprop =
   duration <|> repeat <|>
   attach *)
 
-(* let otherprop = x_prop <|> iana_prop *)
-
 let build_alarm props =
   let actions, rest = List.partition (function `Action _ -> true | _ -> false) props in
   let action = match actions with
@@ -1203,7 +1268,7 @@ let build_alarm props =
      | [] -> None
      | _ -> raise Parse_error in
     match rest' with
-     | [] -> `Audio { trigger ; duration_repeat ; special = { attach } } 
+     | [] -> `Audio { trigger ; duration_repeat ; other = [] ; special = { attach } } 
      | _ -> raise Parse_error in
 
   let build_display rest =
@@ -1212,7 +1277,7 @@ let build_alarm props =
      | [`Description x] -> x 
      | _ -> raise Parse_error in
     match rest' with 
-     | [] -> `Display { trigger ; duration_repeat ; special = { description } } 
+     | [] -> `Display { trigger ; duration_repeat ; other = [] ; special = { description } } 
      | _ -> raise Parse_error in
 
   let build_email rest =
@@ -1233,7 +1298,7 @@ let build_alarm props =
      | [] -> None
      | _ -> raise Parse_error in
     match rest'''' with 
-     | [] -> `Email { trigger ; duration_repeat ; special = { description ; summary ; attach ; attendees } } 
+     | [] -> `Email { trigger ; duration_repeat ; other = [] ; special = { description ; summary ; attach ; attendees } } 
      | _ -> raise Parse_error in
     
   match action with
@@ -1244,7 +1309,7 @@ let build_alarm props =
 
 let alarmc =
   string "BEGIN:VALARM" *> end_of_line *>
-  ( many (audioprop <|> dispprop <|> emailprop (* <|> otherprop *)) >>| build_alarm )
+  ( many (audioprop <|> dispprop <|> emailprop <|> otherprop) >>| build_alarm )
   <* string "END:VALARM" <* end_of_line
 
 let build_event eventprops alarms =

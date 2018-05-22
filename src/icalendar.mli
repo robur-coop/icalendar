@@ -30,19 +30,6 @@ type valuetype = [
 
 type valuetypeparam = [ `Valuetype of valuetype ]
 
-type calprop =
-  [ `Prodid of other_param list * string
-  | `Version of other_param list * string
-  | `Calscale of other_param list * string
-  | `Method of other_param list * string
-  ]
-
-type class_ = [ `Public | `Private | `Confidential | `Ianatoken of string | `Xname of string * string ]
-
-type status = [ `Draft | `Final | `Cancelled |
-                `Needs_action | `Completed | `In_process | (* `Cancelled *)
-                `Tentative | `Confirmed (* | `Cancelled *) ]
-
 type cutype = [ `Group | `Individual | `Resource | `Room | `Unknown
               | `Ianatoken of string | `Xname of string * string ]
 
@@ -56,6 +43,48 @@ type role = [ `Chair | `Nonparticipant | `Optparticipant | `Reqparticipant
 type relationship =
   [ `Parent | `Child | `Sibling |
     `Ianatoken of string | `Xname of string * string ]
+
+type icalparameter =
+  [ `Altrep of Uri.t
+  | `Cn of string 
+  | `Cutype of cutype
+  | `Delegated_from of Uri.t list
+  | `Delegated_to of Uri.t list
+  | `Dir of Uri.t
+  | `Encoding of [ `Base64 ]
+  | `Media_type of string * string
+  (*| `Fbtype       ; Free/busy time type*)
+  | `Language of string
+  | `Member of Uri.t list
+  | `Partstat of partstat
+  | `Range of [ `Thisandfuture ]
+  | `Related of [ `Start | `End ]
+  | `Reltype of relationship
+  | `Role of role
+  | `Rsvp of bool
+  | `Sentby of Uri.t 
+  | `Tzid of bool * string
+  | valuetypeparam 
+  | other_param
+  ] 
+
+type other_prop =
+  [ `Iana_prop of string * icalparameter list * string
+  | `Xprop of (string * string) * icalparameter list * string ] [@@deriving eq, show]
+
+type calprop =
+  [ `Prodid of other_param list * string
+  | `Version of other_param list * string
+  | `Calscale of other_param list * string
+  | `Method of other_param list * string
+  | other_prop
+  ]
+
+type class_ = [ `Public | `Private | `Confidential | `Ianatoken of string | `Xname of string * string ]
+
+type status = [ `Draft | `Final | `Cancelled |
+                `Needs_action | `Completed | `In_process | (* `Cancelled *)
+                `Tentative | `Confirmed (* | `Cancelled *) ]
 
 type eventprop =
   [ `Dtstamp of other_param list * (Ptime.t * bool)
@@ -104,38 +133,14 @@ type eventprop =
   | `Resource of [ other_param | `Language of string | `Altrep of Uri.t ] list * string list
   | `Rdate of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
               [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
+  | other_prop
   ]
-
-(*
-type alarm = [
-  | `Action of other_param list * [ `Audio | `Display | `Email | `Ianatoken of string | `Xname of string * string ]
-  | `Trigger of [ other_param | valuetypeparam | `Related of [ `Start | `End ] ] list *
-                [ `Duration of int | `Datetime of (Ptime.t * bool) ]
-  | `Duration of other_param list * int
-  | `Repeat of other_param list * int
-  | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | valuetypeparam | other_param ] list *
-               [ `Uri of Uri.t | `Binary of string ]
-  | `Description of [other_param | `Altrep of Uri.t | `Language of string ] list * string
-  | `Summary of [other_param | `Altrep of Uri.t | `Language of string ] list * string
-  | `Attendee of [ other_param
-                 | `Cn of string
-                 | `Cutype of cutype
-                 | `Delegated_from of Uri.t list
-                 | `Delegated_to of Uri.t list
-                 | `Dir of Uri.t
-                 | `Language of string
-                 | `Member of Uri.t list
-                 | `Partstat of partstat
-                 | `Role of role
-                 | `Rsvp of bool
-                 | `Sentby of Uri.t ] list * Uri.t
-] list
-*)
 
 type 'a alarm_struct = {
   trigger : [ other_param | valuetypeparam | `Related of [ `Start | `End ] ] list *
     [ `Duration of int | `Datetime of (Ptime.t * bool) ] ;
   duration_repeat: ((other_param list * int) * (other_param list * int )) option ;
+  other: other_prop list ;
   special: 'a ;
 }
 
