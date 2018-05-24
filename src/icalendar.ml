@@ -517,7 +517,7 @@ module Writer = struct
     | `Status (params, status) -> write_line buf "STATUS" params (write_string (List.assoc status status_strings))
     | `Summary summary -> summary_to_ics buf summary
     | `Transparency (params, transp) -> write_line buf "TRANSPARENCY" params (write_string (List.assoc transp transp_strings))
-    | `Url (params, uri) -> write_line buf "URL" params (write_string (Uri.to_string uri))
+    | `Url (params, uri) -> write_line buf "URL" params (write_string Uri.(pct_decode (to_string uri)))
     | `Recur_id (params, date_or_time) -> write_line buf "RECURRENCE-ID" params (date_or_time_to_ics date_or_time)
     | `Rrule (params, recurs) -> write_line buf "RRULE" params (recurs_to_ics recurs)
     | `Dtend (params, date_or_time) -> write_line buf "DTEND" params (date_or_time_to_ics date_or_time)
