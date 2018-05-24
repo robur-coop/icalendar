@@ -692,11 +692,15 @@ let opt_sign = option positive sign
 let is_alpha_digit_minus = function | '0' .. '9' | 'a' .. 'z' | 'A' .. 'Z' | '-' -> true | _ -> false
 let name = take_while1 is_alpha_digit_minus
 let param_name = name
+
 let is_control = function '\x00' .. '\x08' | '\x0a' .. '\x1f' | '\x7f' -> true | _ -> false
 let is_qsafe_char = function x when is_control x -> false | '"' -> false | _ -> true
+
 let quoted_string = char '"' *> take_while1 is_qsafe_char <* char '"'
+
 let is_safe_char = function x when is_control x -> false | '"' | ';' | ':' | ',' -> false | _ -> true
 let param_text = take_while1 is_safe_char
+
 let param_value = param_text <|> quoted_string (* in contrast to rfc we require at least 1 char for param_value *)
 
 let value_list = sep_by1 (char ',') param_value
@@ -980,7 +984,7 @@ let otherprop =
   lift3 buildprop
     ((x_name >>| fun x -> `Xname x ) <|> (my_iana_token >>| fun i -> `Iana i))
     (params <* char ':')
-    (text <* end_of_line)
+    (value <* end_of_line)
 
 let prodid =
   propparser "PRODID" other_param text (fun a b -> `Prodid (a, b))

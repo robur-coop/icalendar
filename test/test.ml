@@ -1660,6 +1660,40 @@ END:VCALENDAR
   Alcotest.check result_c __LOC__ expected f
 *)
 
+let apple_test_with_x_not_text () =
+  let input = {|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:put-3X-@example.com
+DTSTART;VALUE=DATE:20180427
+DURATION:P1DT
+DTSTAMP:20051222T205953Z
+SUMMARY:event 1
+X-APPLE-STRUCTURED-LOCATION;VALUE=URI:geo:123.123,123.123
+X-Test:Just some text\, <- here.
+X-Test:geo:123.123,123.123
+END:VEVENT
+END:VCALENDAR
+|} and expected =
+     Ok ([ `Version ([], "2.0") ; `Prodid ([], "-//PYVOBJECT//NONSGML Version 1//EN") ],
+         [ `Event ([
+               `Uid ([], "put-3X-@example.com") ;
+               `Dtstart ([`Valuetype `Date], `Date (2018, 04, 27)) ;
+               `Duration ([], 1 * 24 * 60 * 60) ;
+               `Dtstamp ([], (to_ptime (2005, 12, 22) (20, 59, 53), true)) ;
+               `Summary ([], "event 1") ;
+               `Xprop (("", "APPLE-STRUCTURED-LOCATION"),
+                       [ `Valuetype `Uri ],
+                       "geo:123.123,123.123") ;
+               `Xprop (("", "Test"), [], "Just some text\\, <- here.") ;
+               `Xprop (("", "Test"), [], "geo:123.123,123.123")
+             ], [])
+         ])
+  in
+  let f = Icalendar.parse input in
+  Alcotest.check result_c __LOC__ expected f
+
 let object_tests = [
   "test single long line", `Quick, test_line ;
   "test multiline", `Quick, test_multiline ;
@@ -1707,6 +1741,7 @@ let object_tests = [
   "calendar object parsing with email alarm", `Quick, calendar_object_with_email_alarm ;
   "calendar object parsing with duplicate alarm", `Quick, calendar_object_with_duplicate_alarm ;
   (*  "calendar object with unencoded url", `Quick, apple_put_relaxed_url ; *)
+  "calendar object with X- and not text value", `Quick, apple_test_with_x_not_text ;
 ]
 
 let timezone_new_york_dtstart () =
