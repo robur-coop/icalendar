@@ -1842,9 +1842,162 @@ END:VCALENDAR
   let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
+let timezone_new_york_since_2007 () =
+  let input = {|BEGIN:VCALENDAR
+BEGIN:VTIMEZONE
+TZID:America/New_York
+LAST-MODIFIED:20050809T050000Z
+TZURL:http://zones.example.com/tz/America-New_York.ics
+BEGIN:STANDARD
+DTSTART:20071104T020000
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+TZNAME:EST
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:20070311T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+TZNAME:EDT
+END:DAYLIGHT
+END:VTIMEZONE
+END:VCALENDAR
+|} and expected =
+     Ok ([], [
+         `Timezone [
+           `Tzid ([], (false, "America/New_York")) ;
+           `Lastmod ([], (to_ptime (2005, 08, 09) (05, 00, 00), true)) ;
+           `Tzurl ([], Uri.of_string "http://zones.example.com/tz/America-New_York.ics") ;
+           `Standard [
+             `Dtstart ([], `Datetime (to_ptime (2007, 11, 04) (02, 00, 00), false)) ;
+             `Rrule ([], [ `Frequency `Yearly ;
+                           `Bymonth [11] ;
+                           `Byday [(1, `Sunday)] ]) ;
+             `Tzoffset_from ([], Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
+             `Tzoffset_to ([], Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
+             `Tzname ([], "EST") ] ;
+           `Daylight [
+             `Dtstart ([], `Datetime (to_ptime (2007, 03, 11) (02, 00, 00), false)) ;
+             `Rrule ([], [
+                 `Frequency `Yearly ;
+                 `Bymonth [3] ;
+                 `Byday [(2, `Sunday)] ]) ;
+             `Tzoffset_from ([], Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
+             `Tzoffset_to ([], Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
+             `Tzname ([], "EDT") ] ;
+         ] ])
+  in
+  let f = Icalendar.parse input in
+  Alcotest.check result_c __LOC__ expected f
+
+let timezone_fictitious_end_date () =
+  let input = {|BEGIN:VCALENDAR
+BEGIN:VTIMEZONE
+TZID:Fictitious
+LAST-MODIFIED:19870101T000000Z
+BEGIN:STANDARD
+DTSTART:19671029T020000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+TZNAME:EST
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19870405T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4;UNTIL=19980404T070000Z
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+TZNAME:EDT
+END:DAYLIGHT
+END:VTIMEZONE
+END:VCALENDAR
+|} and expected =
+     Ok ([],
+         [ `Timezone [
+               `Tzid ([], (false, "Fictitious")) ;
+               `Lastmod ([], (to_ptime (1987, 01, 01) (00, 00, 00), true)) ;
+               `Standard [
+                 `Dtstart ([], `Datetime (to_ptime (1967, 10, 29) (02, 00, 00), false)) ;
+                 `Rrule ([], [ `Frequency `Yearly ; `Byday [(-1, `Sunday)] ; `Bymonth [10]]) ;
+                 `Tzoffset_from ([], Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
+                 `Tzoffset_to ([], Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
+                 `Tzname ([], "EST") ] ;
+               `Daylight [
+                 `Dtstart ([], `Datetime (to_ptime (1987, 04, 05) (02, 00, 00), false)) ;
+                 `Rrule ([], [ `Frequency `Yearly ; `Byday [(1, `Sunday)] ; `Bymonth [4] ;
+                               `Until (to_ptime (1998, 04, 04) (07, 00, 00), true) ]) ;
+                 `Tzoffset_from ([], Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
+                 `Tzoffset_to ([], Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
+                 `Tzname ([], "EDT") ] ;
+             ] ])
+  in
+  let f = Icalendar.parse input in
+  Alcotest.check result_c __LOC__ expected f
+
+let timezone_fictitious_two_daylight () =
+  let input = {|BEGIN:VCALENDAR
+BEGIN:VTIMEZONE
+TZID:Fictitious
+LAST-MODIFIED:19870101T000000Z
+BEGIN:STANDARD
+DTSTART:19671029T020000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+TZNAME:EST
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19870405T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4;UNTIL=19980404T070000Z
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+TZNAME:EDT
+END:DAYLIGHT
+BEGIN:DAYLIGHT
+DTSTART:19990424T020000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=4
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+TZNAME:EDT
+END:DAYLIGHT
+END:VTIMEZONE
+END:VCALENDAR
+|} and expected =
+     Ok ([], [
+         `Timezone [
+           `Tzid ([], (false, "Fictitious")) ;
+           `Lastmod ([], (to_ptime (1987, 01, 01) (00, 00, 00), true)) ;
+           `Standard [
+             `Dtstart ([], `Datetime (to_ptime (1967, 10, 29) (02, 00, 00), false)) ;
+             `Rrule ([], [ `Frequency `Yearly ; `Byday [(-1, `Sunday)] ; `Bymonth [10] ]) ;
+             `Tzoffset_from ([], Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
+             `Tzoffset_to ([], Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
+             `Tzname ([], "EST") ] ;
+           `Daylight [
+             `Dtstart ([], `Datetime (to_ptime (1987, 04, 05) (02, 00, 00), false)) ;
+             `Rrule ([], [ `Frequency `Yearly ; `Byday [(1, `Sunday)] ; `Bymonth [4]; `Until (to_ptime (1998, 04, 04) (07, 00, 00), true) ]) ;
+             `Tzoffset_from ([], Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
+             `Tzoffset_to ([], Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
+             `Tzname ([], "EDT") ] ;
+           `Daylight [
+             `Dtstart ([], `Datetime (to_ptime (1999, 04, 24) (02, 00, 00), false)) ;
+             `Rrule ([], [ `Frequency `Yearly ; `Byday [(-1, `Sunday)] ; `Bymonth [4] ]) ;
+             `Tzoffset_from ([], Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
+             `Tzoffset_to ([], Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
+             `Tzname ([], "EDT") ] ;
+         ] ])
+  in
+  let f = Icalendar.parse input in
+  Alcotest.check result_c __LOC__ expected f
+
 let timezone_tests = [
   "New York timezone with dtstart only", `Quick, timezone_new_york_dtstart ;
   "New York timezone since 30 April 1967", `Quick, timezone_new_york_since_april_1967 ;
+  "New York timezone since 2007", `Quick, timezone_new_york_since_2007 ;
+  "Fictitious timezone with until", `Quick, timezone_fictitious_end_date ;
+  "Fictitious timezone with two daylight", `Quick, timezone_fictitious_two_daylight ;
 ]
 
 let encode_durations () =
