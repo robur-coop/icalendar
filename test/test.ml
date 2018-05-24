@@ -1625,6 +1625,40 @@ END:VCALENDAR
   let f = Icalendar.parse input in
   Alcotest.check result_c __LOC__ expected f
 
+(*
+It is not very clear whether an URI may contain a \ character, but
+ocaml-uri throws away content in hostname after a \ (in the Uri_re.authority
+regular expression) -- once Uri.of_string may return either success or failure,
+this should explicitly return a failure!
+
+let apple_put_relaxed_url () =
+  let input = {|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PYVOBJECT//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:put-i2@example.com
+DTSTART;VALUE=DATE:20180427
+DURATION:P1DT
+DTSTAMP:20051222T205953Z
+SUMMARY:event 1
+URL:http://www.example.com$abc\,def
+END:VEVENT
+END:VCALENDAR
+|} and expected =
+     Ok ([ `Version ([], "2.0") ; `Prodid ([], "-//PYVOBJECT//NONSGML Version 1//EN") ],
+         [ `Event ([
+               `Uid ([], "put-i2@example.com") ;
+               `Dtstart ([`Valuetype `Date], `Date (2018, 04, 27)) ;
+               `Duration ([], 1 * 24 * 60 * 60) ;
+               `Dtstamp ([], (to_ptime (2005, 12, 22) (20, 59, 53), true)) ;
+               `Summary ([], "event 1") ;
+               `Url ([], Uri.of_string "http://www.example.com$abc\\,def")
+             ], [])
+         ])
+  in
+  let f = Icalendar.parse input in
+  Alcotest.check result_c __LOC__ expected f
+*)
 
 let object_tests = [
   "test single long line", `Quick, test_line ;
@@ -1672,6 +1706,7 @@ let object_tests = [
   "calendar object parsing with display alarm relative", `Quick, calendar_object_with_display_alarm_relative ;
   "calendar object parsing with email alarm", `Quick, calendar_object_with_email_alarm ;
   "calendar object parsing with duplicate alarm", `Quick, calendar_object_with_duplicate_alarm ;
+  (*  "calendar object with unencoded url", `Quick, apple_put_relaxed_url ; *)
 ]
 
 let timezone_new_york_dtstart () =
