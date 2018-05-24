@@ -608,10 +608,11 @@ module Writer = struct
     | None -> assert false
     | Some seconds ->
       let sign = if seconds >= 0 then "+" else "-" in
-      let hours, rest = seconds / (60 * 60), seconds mod (60 * 60) in
+      let abs_seconds = abs seconds in
+      let hours, rest = abs_seconds / (60 * 60), abs_seconds mod (60 * 60) in
       let minutes, seconds = rest / 60, rest mod 60 in
-      Printf.sprintf "%s%d%d%s" sign hours minutes
-        (if seconds = 0 then "" else string_of_int seconds)
+      Printf.sprintf "%s%02d%02d%s" sign hours minutes
+        (if seconds = 0 then "" else Printf.sprintf "%02d" seconds)
 
   let tzprop_to_ics buf = function
     | `Dtstart (params, date_or_time) -> write_line buf "DTSTART" params (date_or_time_to_ics date_or_time)
