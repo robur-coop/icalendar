@@ -488,7 +488,11 @@ module Writer = struct
     | `Until enddate -> write_rulepart "UNTIL" (datetime_to_str enddate)
     | `Weekday weekday -> write_rulepart "WKST" (List.assoc weekday weekday_strings)
 
-  let recurs_to_ics l buf = List.iteri (fun idx recur -> if idx > 0 then Buffer.add_char buf ',' ; recur_to_ics buf recur) l
+  let recurs_to_ics l buf =
+    List.iteri (fun idx recur ->
+        if idx > 0 then Buffer.add_char buf ';' ;
+        recur_to_ics buf recur)
+      l
 
   let attendee_to_ics buf (params, uri) =
     write_line buf "ATTENDEE" params (write_string (Uri.to_string uri))
