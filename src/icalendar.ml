@@ -187,7 +187,32 @@ type email_struct = {
 
 type alarm = [ `Audio of audio_struct alarm_struct | `Display of display_struct alarm_struct | `Email of email_struct alarm_struct ] [@@deriving eq, show]
 
-type component = eventprop list * alarm list [@@deriving eq, show]
+type tzprop = [
+  | `Dtstart of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
+    [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Tzoffset_to of other_param list * Ptime.Span.t
+  | `Tzoffset_from of other_param list * Ptime.Span.t
+  | `Rrule of other_param list * recur list
+  | `Comment of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
+  | `Rdate of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
+              [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
+  | `Tzname of [ other_param | `Language of string ] list * string
+  | other_prop
+] [@@deriving eq, show]
+
+type timezoneprop = [
+  | `Tzid of other_param list * (bool * string)
+  | `Lastmod of other_param list * (Ptime.t * bool)
+  | `Tzurl of other_param list * Uri.t
+  | `Standard of tzprop list
+  | `Daylight of tzprop list
+  | other_prop
+] [@@deriving eq, show]
+
+type component = [
+  | `Event of eventprop list * alarm list
+  | `Timezone of timezoneprop list
+] [@@deriving eq, show]
 
 type calendar = calprop list * component list [@@deriving eq, show]
 
@@ -534,6 +559,7 @@ module Writer = struct
   let attendees_to_ics buf xs = List.iter (attendee_to_ics buf) xs
 
   let alarm_to_ics buf alarm =
+    (* TODO: output alarm.other field *)
     write_line buf "BEGIN" [] (write_string "VALARM") ;
     let write_trigger buf trig =
       let params, print = match trig with
@@ -567,11 +593,60 @@ module Writer = struct
 
   let alarms_to_ics buf alarms = List.iter (alarm_to_ics buf) alarms
 
-  let component_to_ics buf (eventprops, alarms) =
+  let event_to_ics buf eventprops alarms =
     write_line buf "BEGIN" [] (write_string "VEVENT") ;
     eventprops_to_ics buf eventprops ;
     alarms_to_ics buf alarms ;
     write_line buf "END" [] (write_string "VEVENT")
+
+  let span_to_string span =
+    match Ptime.Span.to_int_s span with
+    | None -> assert false
+    | Some seconds ->
+      let sign = if seconds >= 0 then "+" else "-" in
+      let hours, rest = seconds / (60 * 60), seconds mod (60 * 60) in
+      let minutes, seconds = rest / 60, rest mod 60 in
+      Printf.sprintf "%s%d%d%s" sign hours minutes
+        (if seconds = 0 then "" else string_of_int seconds)
+
+  let tzprop_to_ics buf = function
+    | `Dtstart (params, date_or_time) -> write_line buf "DTSTART" params (date_or_time_to_ics date_or_time)
+    | `Tzoffset_to (params, span) -> write_line buf "TZOFFSETTO" params (write_string (span_to_string span))
+    | `Tzoffset_from (params, span) -> write_line buf "TZOFFSETFROM" params (write_string (span_to_string span))
+    | `Rrule (params, recurs) -> write_line buf "RRULE" params (recurs_to_ics recurs)
+    | `Comment (params, comment) -> write_line buf "COMMENT" params (write_string comment)
+    | `Rdate (params, dates_or_times_or_periods) ->
+      write_line buf "RDATE" params
+        (dates_or_times_or_periods_to_ics dates_or_times_or_periods)
+    | `Tzname (params, id) -> write_line buf "TZNAME" params (write_string id)
+    | #other_prop as x -> other_prop_to_ics buf x
+
+  let tzprops_to_ics buf tzprops = List.iter (tzprop_to_ics buf) tzprops
+
+  let timezone_prop_to_ics buf = function
+    | `Tzid (params, (prefix, name)) ->
+      let value = Printf.sprintf "%s%s" (if prefix then "/" else "") name in
+      write_line buf "TZID" params (write_string value)
+    | `Lastmod (params, ts) -> write_line buf "LAST-MODIFIED" params (datetime_to_ics ts)
+    | `Tzurl (params, uri) -> write_line buf "TZURL" params (write_string (Uri.to_string uri))
+    | `Standard tzprops ->
+      write_line buf "BEGIN" [] (write_string "STANDARD") ;
+      tzprops_to_ics buf tzprops ;
+      write_line buf "END" [] (write_string "STANDARD")
+    | `Daylight tzprops ->
+      write_line buf "BEGIN" [] (write_string "DAYLIGHT") ;
+      tzprops_to_ics buf tzprops ;
+      write_line buf "END" [] (write_string "DAYLIGHT")
+    | #other_prop as x -> other_prop_to_ics buf x
+
+  let timezone_to_ics buf props =
+    write_line buf "BEGIN" [] (write_string "VTIMEZONE") ;
+    List.iter (timezone_prop_to_ics buf) props ;
+    write_line buf "END" [] (write_string "VTIMEZONE")
+
+  let component_to_ics buf = function
+    | `Event (eventprops, alarms) -> event_to_ics buf eventprops alarms
+    | `Timezone tzprops -> timezone_to_ics buf tzprops
 
   let components_to_ics buf comps = List.iter (component_to_ics buf) comps
 
@@ -760,7 +835,7 @@ let utcoffset =
     then raise Parse_error
     else Ptime.Span.of_int_s (factor * seconds)
   in
-  lift4 to_span opt_sign hours minutes (option 0 seconds)
+  lift4 to_span sign hours minutes (option 0 seconds)
 
 (* processing *)
 let pair a b = (a, b)
@@ -1314,14 +1389,56 @@ let alarmc =
 
 let build_event eventprops alarms =
   let f acc alarm = if List.exists (equal_alarm alarm) acc then acc else alarm :: acc in
-  eventprops, List.fold_left f [] alarms
+  `Event (eventprops, List.fold_left f [] alarms)
 
 let eventc =
   string "BEGIN:VEVENT" *> end_of_line *>
   lift2 build_event eventprops (many alarmc)
   <* string "END:VEVENT" <* end_of_line
 
-let component = many1 (eventc (* <|> todoc <|> journalc <|> freebusyc <|> timezonec *))
+let tzid =
+  propparser "TZID" other_param
+    (lift2 (fun a b -> (a = '/', b)) (option ' ' (char '/')) text)
+    (fun p v -> `Tzid (p, v))
+
+let tzurl =
+  propparser "TZURL" other_param text
+    (fun a b -> `Tzurl (a, Uri.of_string b))
+
+let tzoffsetto =
+  propparser "TZOFFSETTO" other_param utcoffset
+    (fun p v -> `Tzoffset_to (p, v))
+
+let tzoffsetfrom =
+  propparser "TZOFFSETFROM" other_param utcoffset
+    (fun p v -> `Tzoffset_from (p, v))
+
+let tzname =
+  let tznparam = languageparam <|> other_param in
+  propparser "TZNAME" tznparam text
+    (fun p v -> `Tzname (p, v))
+
+let tzprop =
+  dtstart <|> tzoffsetto <|> tzoffsetfrom <|>
+  rrule <|>
+  comment <|> rdate <|> tzname <|> otherprop
+
+let standardc =
+  string "BEGIN:STANDARD" *> end_of_line *>
+  (many tzprop >>| fun props -> `Standard props)
+  <* string "END:STANDARD" <* end_of_line
+
+let daylightc =
+  string "BEGIN:DAYLIGHT" *> end_of_line *>
+  (many tzprop >>| fun props -> `Daylight props)
+  <* string "END:DAYLIGHT" <* end_of_line
+
+let timezonec =
+  string "BEGIN:VTIMEZONE" *> end_of_line *>
+  (many (tzid <|> last_mod <|> tzurl <|> standardc <|> daylightc <|> otherprop) >>| fun props -> `Timezone props)
+  <* string "END:VTIMEZONE" <* end_of_line
+
+let component = many1 (eventc (* <|> todoc <|> journalc <|> freebusyc *) <|> timezonec)
 
 let icalbody = lift2 pair calprops component
 

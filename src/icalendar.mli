@@ -46,7 +46,7 @@ type relationship =
 
 type icalparameter =
   [ `Altrep of Uri.t
-  | `Cn of string 
+  | `Cn of string
   | `Cutype of cutype
   | `Delegated_from of Uri.t list
   | `Delegated_to of Uri.t list
@@ -62,11 +62,11 @@ type icalparameter =
   | `Reltype of relationship
   | `Role of role
   | `Rsvp of bool
-  | `Sentby of Uri.t 
+  | `Sentby of Uri.t
   | `Tzid of bool * string
-  | valuetypeparam 
+  | valuetypeparam
   | other_param
-  ] 
+  ]
 
 type other_prop =
   [ `Iana_prop of string * icalparameter list * string
@@ -89,7 +89,7 @@ type status = [ `Draft | `Final | `Cancelled |
 type eventprop =
   [ `Dtstamp of other_param list * (Ptime.t * bool)
   | `Uid of other_param list * string
-  | `Dtstart of [ other_param | valuetypeparam | `Tzid of bool * string ] list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ] 
+  | `Dtstart of [ other_param | valuetypeparam | `Tzid of bool * string ] list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Class of other_param list * class_
   | `Created of other_param list * (Ptime.t * bool)
   | `Description of [other_param | `Altrep of Uri.t | `Language of string ] list * string
@@ -106,7 +106,7 @@ type eventprop =
   | `Recur_id of [ other_param | `Tzid of bool * string | valuetypeparam | `Range of [ `Thisandfuture ] ] list *
                  [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Rrule of other_param list * recur list
-  | `Dtend of [ other_param | valuetypeparam | `Tzid of bool * string ] list * 
+  | `Dtend of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
               [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Duration of other_param list * int
   | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | valuetypeparam | other_param ] list *
@@ -144,7 +144,7 @@ type 'a alarm_struct = {
   special: 'a ;
 }
 
-type audio_struct = { 
+type audio_struct = {
   attach: ([`Media_type of string * string | `Encoding of [ `Base64 ] | valuetypeparam | other_param ] list *
     [ `Uri of Uri.t | `Binary of string ]) option ;
   (* xprop: list ;
@@ -176,9 +176,32 @@ type email_struct = {
 
 type alarm = [ `Audio of audio_struct alarm_struct | `Display of display_struct alarm_struct | `Email of email_struct alarm_struct ]
 
+type tzprop = [
+  | `Dtstart of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
+    [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Tzoffset_to of other_param list * Ptime.Span.t
+  | `Tzoffset_from of other_param list * Ptime.Span.t
+  | `Rrule of other_param list * recur list
+  | `Comment of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
+  | `Rdate of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
+              [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
+  | `Tzname of [ other_param | `Language of string ] list * string
+  | other_prop
+]
 
+type timezoneprop = [
+  | `Tzid of other_param list * (bool * string)
+  | `Lastmod of other_param list * (Ptime.t * bool)
+  | `Tzurl of other_param list * Uri.t
+  | `Standard of tzprop list
+  | `Daylight of tzprop list
+  | other_prop
+]
 
-type component = eventprop list * alarm list
+type component = [
+  | `Event of eventprop list * alarm list
+  | `Timezone of timezoneprop list
+]
 
 type calendar = calprop list * component list
 
