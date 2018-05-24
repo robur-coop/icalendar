@@ -39,7 +39,7 @@ type role = [ `Chair | `Nonparticipant | `Optparticipant | `Reqparticipant
 
 type icalparameter =
   [ `Altrep of Uri.t
-  | `Cn of string 
+  | `Cn of string
   | `Cutype of cutype
   | `Delegated_from of Uri.t list
   | `Delegated_to of Uri.t list
@@ -55,9 +55,9 @@ type icalparameter =
   | `Reltype of relationship
   | `Role of role
   | `Rsvp of bool
-  | `Sentby of Uri.t 
+  | `Sentby of Uri.t
   | `Tzid of bool * string
-  | valuetypeparam 
+  | valuetypeparam
   | other_param
   ] [@@deriving eq, show]
 
@@ -119,7 +119,7 @@ type eventprop =
   | `Recur_id of [ other_param | `Tzid of bool * string | valuetypeparam | `Range of [ `Thisandfuture ] ] list *
                  [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Rrule of other_param list * recur list
-  | `Dtend of [ other_param | valuetypeparam | `Tzid of bool * string ] list * 
+  | `Dtend of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
               [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Duration of other_param list * int
   | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | valuetypeparam | other_param ] list *
@@ -155,9 +155,9 @@ type 'a alarm_struct = {
   duration_repeat: ((other_param list * int) * (other_param list * int )) option ;
   other: other_prop list ;
   special: 'a ;
-} [@@deriving eq, show] 
+} [@@deriving eq, show]
 
-type audio_struct = { 
+type audio_struct = {
   attach: ([`Media_type of string * string | `Encoding of [ `Base64 ] | valuetypeparam | other_param ] list *
     [ `Uri of Uri.t | `Binary of string ]) option ;
 } [@@deriving eq, show]
@@ -265,11 +265,11 @@ let freq_strings = [
 let relation_strings = [
     (`Parent, "PARENT") ;
     (`Child, "CHILD") ;
-    (`Sibling, "SIBLING") ; 
+    (`Sibling, "SIBLING") ;
   ]
 
 let class_strings = [
-    (`Public, "PUBLIC") ; 
+    (`Public, "PUBLIC") ;
     (`Private, "PRIVATE") ;
     (`Confidential, "CONFIDENTIAL") ;
   ]
@@ -334,7 +334,7 @@ module Writer = struct
   let other_prop_to_ics buf = function
     | `Iana_prop (ianatoken, params, value) -> write_line buf ianatoken params (write_string value)
     | `Xprop ((vendor, token), params, value) -> write_line buf (print_x vendor token) params (write_string value)
- 
+
   let calprop_to_ics buf = function
     | `Prodid (params, value) -> write_line buf "PRODID" params (write_string value)
     | `Version (params, value) -> write_line buf "VERSION" params (write_string value)
@@ -418,7 +418,7 @@ module Writer = struct
     | `Date d -> date_to_ics buf d
     | `Datetime dt -> datetime_to_ics dt buf
 
-  let dates_or_times_to_ics dt buf = 
+  let dates_or_times_to_ics dt buf =
     let swap f a b = f b a in
     match dt with
     | `Dates xs -> List.iter (date_to_ics buf) xs
@@ -429,7 +429,7 @@ module Writer = struct
     Buffer.add_char buf '/' ;
     datetime_to_ics (until, utc) buf
 
-  let dates_or_times_or_periods_to_ics dt buf = 
+  let dates_or_times_or_periods_to_ics dt buf =
     let swap f a b = f b a in
     match dt with
     | `Dates xs -> List.iter (date_to_ics buf) xs
@@ -437,16 +437,16 @@ module Writer = struct
     | `Periods xs -> List.iter (period_to_ics buf) xs
 
 
-  let recur_to_ics buf = 
-    let write_rulepart key value = 
+  let recur_to_ics buf =
+    let write_rulepart key value =
       Buffer.add_string buf key ;
       Buffer.add_char buf '=' ;
-      Buffer.add_string buf value 
+      Buffer.add_string buf value
     and int_list l = String.concat "," @@ List.map string_of_int l in
     function
     | `Byminute byminlist -> write_rulepart "BYMINUTE" (int_list byminlist)
-    | `Byday bywdaylist -> 
-      let wday (weeknumber, weekday) = 
+    | `Byday bywdaylist ->
+      let wday (weeknumber, weekday) =
         Printf.sprintf "%d%s" weeknumber (List.assoc weekday weekday_strings)
       in
       write_rulepart "BYDAY" (String.concat "," @@ List.map wday bywdaylist)
@@ -487,10 +487,10 @@ module Writer = struct
     | `Seq (params, seq) -> write_line buf "SEQUENCE" params (write_string (string_of_int seq))
     | `Status (params, status) -> write_line buf "STATUS" params (write_string (List.assoc status status_strings))
     | `Summary summary -> summary_to_ics buf summary
-    | `Transparency (params, transp) -> write_line buf "TRANSPARENCY" params (write_string (List.assoc transp transp_strings)) 
+    | `Transparency (params, transp) -> write_line buf "TRANSPARENCY" params (write_string (List.assoc transp transp_strings))
     | `Url (params, uri) -> write_line buf "URL" params (write_string (Uri.to_string uri))
     | `Recur_id (params, date_or_time) -> write_line buf "RECURRENCE-ID" params (date_or_time_to_ics date_or_time)
-    | `Rrule (params, recurs) -> write_line buf "RRULE" params (recurs_to_ics recurs) 
+    | `Rrule (params, recurs) -> write_line buf "RRULE" params (recurs_to_ics recurs)
     | `Dtend (params, date_or_time) -> write_line buf "DTEND" params (date_or_time_to_ics date_or_time)
     | `Duration (params, dur) -> write_line buf "DURATION" params (duration_to_ics dur)
     | `Attach att -> attach_to_ics buf (Some att)
@@ -644,7 +644,7 @@ let x_name = lift2 pair
 
 let caladdress = take_while1 is_qsafe_char >>| Uri.of_string
 
-let quoted_caladdress = char '"' *> caladdress <* char '"' 
+let quoted_caladdress = char '"' *> caladdress <* char '"'
 
 (* value parsers *)
 let text =
@@ -725,7 +725,7 @@ let recur =
   let apply_sign s i = (if s = positive then i else (-i)) in
   let apply_sign_triple s i c = (apply_sign s i, c) in
   let weekdaynum = lift3 apply_sign_triple opt_sign (option 0 (up_to_two_digits >>= in_range 1 53) ) weekday in
-  let monthdaynum = lift2 apply_sign opt_sign (up_to_two_digits >>= in_range 1 31) 
+  let monthdaynum = lift2 apply_sign opt_sign (up_to_two_digits >>= in_range 1 31)
   and yeardaynum = lift2 apply_sign opt_sign (up_to_three_digits >>= in_range 1 366)
   and weeknum = lift2 apply_sign opt_sign (up_to_two_digits >>= in_range 1 53)
   and monthnum = up_to_two_digits >>= in_range 1 12
@@ -733,7 +733,7 @@ let recur =
   let recur_rule_part =
        ( string "FREQ=" *> freq >>| fun f -> `Frequency f )
    <|> ( string "UNTIL=" *> (datetime <|> ptime) >>| fun u -> `Until u )
-   <|> ( string "COUNT=" *> digits >>= ensure int_of_string >>| fun c -> `Count c ) 
+   <|> ( string "COUNT=" *> digits >>= ensure int_of_string >>| fun c -> `Count c )
    <|> ( string "INTERVAL=" *> digits >>= ensure int_of_string >>| fun i -> `Interval i )
    <|> ( string "BYSECOND=" *> (sep_by1 (char ',') (up_to_two_digits >>= in_range 0 60)) >>| fun s -> `Bysecond s )
    <|> ( string "BYMINUTE=" *> (sep_by1 (char ',') (up_to_two_digits >>= in_range 0 59)) >>| fun m -> `Byminute m )
@@ -786,7 +786,7 @@ let media_type =
 let iana_param = lift2 (fun k v -> `Iana_param (k, v))
     (iana_token <* (char '=')) value_list
 
-    
+
 let x_param = lift2 (fun k v -> `Xparam (k, v))
     (x_name <* char '=') value_list
 
@@ -807,7 +807,7 @@ let valuetypeparam =
 let altrepparam = (string "ALTREP=") *> quoted_caladdress >>| fun uri -> `Altrep uri
 
 (* TODO use language tag rfc5646 parser *)
-let languageparam = (string "LANGUAGE=") *> param_text >>| fun l -> `Language l 
+let languageparam = (string "LANGUAGE=") *> param_text >>| fun l -> `Language l
 
 let cnparam = string "CN=" *> param_value >>| fun cn -> `Cn cn
 let dirparam = string "DIR=" *> quoted_caladdress >>| fun s -> `Dir s
@@ -859,10 +859,10 @@ let fmttypeparam =
 let encodingparam =
   string "ENCODING=BASE64" >>| fun _ -> `Encoding `Base64
 
-let rangeparam = string "RANGE=THISANDFUTURE" >>| fun _ -> `Range `Thisandfuture 
+let rangeparam = string "RANGE=THISANDFUTURE" >>| fun _ -> `Range `Thisandfuture
 
 let icalparameter =
-      altrepparam 
+      altrepparam
   <|> cnparam
   <|> cutypeparam
   <|> delfromparam
@@ -870,10 +870,10 @@ let icalparameter =
   <|> dirparam
   <|> encodingparam
   <|> fmttypeparam
-  <|> languageparam 
+  <|> languageparam
   <|> memberparam
   <|> partstatparam
-  <|> rangeparam 
+  <|> rangeparam
   <|> reltypeparam
   <|> roleparam
   <|> rsvpparam
@@ -891,15 +891,15 @@ let propparser id pparser vparser lift =
 
 let otherprop =
   let params = many (char ';' *> icalparameter) in
-  let buildprop t p v = match t with 
+  let buildprop t p v = match t with
     | `Iana i -> `Iana_prop (i, p, v)
     | `Xname x -> `Xprop (x, p, v) in
-  let my_iana_token = 
+  let my_iana_token =
     let not_legal s = s = "BEGIN" || String.sub s 0 3 = "END" in
     peek_string 5 >>= fun s -> if not_legal s then fail "Too eager" else iana_token in
-  lift3 buildprop 
+  lift3 buildprop
     ((x_name >>| fun x -> `Xname x ) <|> (my_iana_token >>| fun i -> `Iana i))
-    (params <* char ':') 
+    (params <* char ':')
     (text <* end_of_line)
 
 let prodid =
@@ -1268,39 +1268,39 @@ let build_alarm props =
      | [] -> None
      | _ -> raise Parse_error in
     match rest' with
-     | [] -> `Audio { trigger ; duration_repeat ; other = [] ; special = { attach } } 
+     | [] -> `Audio { trigger ; duration_repeat ; other = [] ; special = { attach } }
      | _ -> raise Parse_error in
 
   let build_display rest =
     let descriptions, rest' = List.partition (function `Description _ -> true | _ -> false ) rest in
-    let description = match descriptions with 
-     | [`Description x] -> x 
+    let description = match descriptions with
+     | [`Description x] -> x
      | _ -> raise Parse_error in
-    match rest' with 
-     | [] -> `Display { trigger ; duration_repeat ; other = [] ; special = { description } } 
+    match rest' with
+     | [] -> `Display { trigger ; duration_repeat ; other = [] ; special = { description } }
      | _ -> raise Parse_error in
 
   let build_email rest =
     let descriptions, rest' = List.partition (function `Description _ -> true | _ -> false ) rest in
-    let description = match descriptions with 
-     | [`Description x] -> x 
+    let description = match descriptions with
+     | [`Description x] -> x
      | _ -> raise Parse_error in
     let summarys, rest'' = List.partition (function `Summary _ -> true | _ -> false ) rest' in
-    let summary = match summarys with 
-     | [`Summary x] -> x 
+    let summary = match summarys with
+     | [`Summary x] -> x
      | _ -> raise Parse_error in
     let raw_attendees, rest''' = List.partition (function `Attendee _ -> true | _ -> false ) rest'' in
     let attendees = List.map (function `Attendee x -> x | _ -> raise Parse_error) raw_attendees in
     if attendees = [] then raise Parse_error;
     let attachs, rest'''' = List.partition (function `Attach _ -> true | _ -> false ) rest''' in
-    let attach = match attachs with 
-     | [`Attach x] -> Some x 
+    let attach = match attachs with
+     | [`Attach x] -> Some x
      | [] -> None
      | _ -> raise Parse_error in
-    match rest'''' with 
-     | [] -> `Email { trigger ; duration_repeat ; other = [] ; special = { description ; summary ; attach ; attendees } } 
+    match rest'''' with
+     | [] -> `Email { trigger ; duration_repeat ; other = [] ; special = { description ; summary ; attach ; attendees } }
      | _ -> raise Parse_error in
-    
+
   match action with
     | _, `Audio -> build_audio rest'''
     | _, `Display -> build_display rest'''
