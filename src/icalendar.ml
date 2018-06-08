@@ -472,7 +472,8 @@ module Writer = struct
     | `Byminute byminlist -> write_rulepart "BYMINUTE" (int_list byminlist)
     | `Byday bywdaylist ->
       let wday (weeknumber, weekday) =
-        Printf.sprintf "%d%s" weeknumber (List.assoc weekday weekday_strings)
+        (if weeknumber > 0 then string_of_int weeknumber else "") ^
+          List.assoc weekday weekday_strings
       in
       write_rulepart "BYDAY" (String.concat "," @@ List.map wday bywdaylist)
     | `Byhour byhrlist -> write_rulepart "BYHOUR" (int_list byhrlist)
