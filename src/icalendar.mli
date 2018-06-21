@@ -86,8 +86,8 @@ type status = [ `Draft | `Final | `Cancelled |
                 `Needs_action | `Completed | `In_process | (* `Cancelled *)
                 `Tentative | `Confirmed (* | `Cancelled *) ]
 
-type eventprop =
-  [ `Dtstamp of other_param list * (Ptime.t * bool)
+type generalprop = [
+  | `Dtstamp of other_param list * (Ptime.t * bool)
   | `Uid of other_param list * string
   | `Dtstart of [ other_param | valuetypeparam | `Tzid of bool * string ] list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Class of other_param list * class_
@@ -101,13 +101,10 @@ type eventprop =
   | `Seq of other_param list * int
   | `Status of other_param list * status
   | `Summary of [other_param | `Altrep of Uri.t | `Language of string ] list * string
-  | `Transparency of other_param list * [ `Transparent | `Opaque ]
   | `Url of other_param list * Uri.t
   | `Recur_id of [ other_param | `Tzid of bool * string | valuetypeparam | `Range of [ `Thisandfuture ] ] list *
                  [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Rrule of other_param list * recur list
-  | `Dtend of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
-              [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Duration of other_param list * int
   | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | valuetypeparam | other_param ] list *
                [ `Uri of Uri.t | `Binary of string ]
@@ -133,8 +130,15 @@ type eventprop =
   | `Resource of [ other_param | `Language of string | `Altrep of Uri.t ] list * string list
   | `Rdate of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
               [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
+]
+
+type eventprop = [
+  | generalprop
+  | `Transparency of other_param list * [ `Transparent | `Opaque ]
+  | `Dtend of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
+              [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | other_prop
-  ]
+]
 
 type 'a alarm_struct = {
   trigger : [ other_param | valuetypeparam | `Related of [ `Start | `End ] ] list *
@@ -198,9 +202,19 @@ type timezoneprop = [
   | other_prop
 ]
 
+type todoprop = [
+  | generalprop
+  | `Completed of other_param list * (Ptime.t * bool)
+  | `Percent of other_param list * int
+  | `Due of  [ other_param | valuetypeparam | `Tzid of bool * string ] list *
+             [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | other_prop
+]
+
 type component = [
   | `Event of eventprop list * alarm list
   | `Timezone of timezoneprop list
+  | `Todo of todoprop list * alarm list
 ]
 
 type calendar = calprop list * component list

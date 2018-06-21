@@ -98,11 +98,10 @@ type status = [ `Draft | `Final | `Cancelled |
                 `Needs_action | `Completed | `In_process | (* `Cancelled *)
                 `Tentative | `Confirmed (* | `Cancelled *) ] [@@deriving eq, show]
 
-type eventprop =
-  [ `Dtstamp of other_param list * (Ptime.t * bool)
+type generalprop = [
+  | `Dtstamp of other_param list * (Ptime.t * bool)
   | `Uid of other_param list * string
-  | `Dtstart of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
-    [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Dtstart of [ other_param | valuetypeparam | `Tzid of bool * string ] list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Class of other_param list * class_
   | `Created of other_param list * (Ptime.t * bool)
   | `Description of [other_param | `Altrep of Uri.t | `Language of string ] list * string
@@ -114,13 +113,10 @@ type eventprop =
   | `Seq of other_param list * int
   | `Status of other_param list * status
   | `Summary of [other_param | `Altrep of Uri.t | `Language of string ] list * string
-  | `Transparency of other_param list * [ `Transparent | `Opaque ]
   | `Url of other_param list * Uri.t
   | `Recur_id of [ other_param | `Tzid of bool * string | valuetypeparam | `Range of [ `Thisandfuture ] ] list *
                  [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Rrule of other_param list * recur list
-  | `Dtend of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
-              [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Duration of other_param list * int
   | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | valuetypeparam | other_param ] list *
                [ `Uri of Uri.t | `Binary of string ]
@@ -140,14 +136,21 @@ type eventprop =
   | `Comment of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
   | `Contact of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
   | `Exdate of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
-               [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list ]
+    [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list ]
   | `Rstatus of [ other_param | `Language of string ] list * ((int * int * int option) * string * string option)
   | `Related of [ other_param | `Reltype of relationship ] list * string
   | `Resource of [ other_param | `Language of string | `Altrep of Uri.t ] list * string list
   | `Rdate of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
               [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
+] [@@deriving eq, show]
+
+type eventprop = [
+  | generalprop
+  | `Transparency of other_param list * [ `Transparent | `Opaque ]
+  | `Dtend of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
+              [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | other_prop
-  ] [@@deriving eq, show]
+] [@@deriving eq, show]
 
 type 'a alarm_struct = {
   trigger : [ other_param | valuetypeparam | `Related of [ `Start | `End ] ] list *
@@ -209,9 +212,19 @@ type timezoneprop = [
   | other_prop
 ] [@@deriving eq, show]
 
+type todoprop = [
+  | generalprop
+  | `Completed of other_param list * (Ptime.t * bool)
+  | `Percent of other_param list * int
+  | `Due of  [ other_param | valuetypeparam | `Tzid of bool * string ] list *
+             [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | other_prop
+] [@@deriving eq, show]
+
 type component = [
   | `Event of eventprop list * alarm list
   | `Timezone of timezoneprop list
+  | `Todo of todoprop list * alarm list
 ] [@@deriving eq, show]
 
 type calendar = calprop list * component list [@@deriving eq, show]
@@ -498,7 +511,7 @@ module Writer = struct
   let attendee_to_ics buf (params, uri) =
     write_line buf "ATTENDEE" params (write_string (Uri.to_string uri))
 
-  let eventprop_to_ics buf = function
+  let generalprop_to_ics buf = function
     | `Dtstamp (params, ts) -> write_line buf "DTSTAMP" params (datetime_to_ics ts)
     | `Uid (params, str) -> write_line buf "UID" params (write_string str)
     | `Dtstart (params, date_or_time) -> write_line buf "DTSTART" params (date_or_time_to_ics date_or_time)
@@ -517,11 +530,9 @@ module Writer = struct
     | `Seq (params, seq) -> write_line buf "SEQUENCE" params (write_string (string_of_int seq))
     | `Status (params, status) -> write_line buf "STATUS" params (write_string (List.assoc status status_strings))
     | `Summary summary -> summary_to_ics buf summary
-    | `Transparency (params, transp) -> write_line buf "TRANSP" params (write_string (List.assoc transp transp_strings))
     | `Url (params, uri) -> write_line buf "URL" params (write_string Uri.(pct_decode (to_string uri)))
     | `Recur_id (params, date_or_time) -> write_line buf "RECURRENCE-ID" params (date_or_time_to_ics date_or_time)
     | `Rrule (params, recurs) -> write_line buf "RRULE" params (recurs_to_ics recurs)
-    | `Dtend (params, date_or_time) -> write_line buf "DTEND" params (date_or_time_to_ics date_or_time)
     | `Duration (params, dur) -> write_line buf "DURATION" params (duration_to_ics dur)
     | `Attach att -> attach_to_ics buf (Some att)
     | `Attendee att -> attendee_to_ics buf att
@@ -557,11 +568,25 @@ module Writer = struct
     | `Rdate (params, dates_or_times_or_periods) ->
       write_line buf "RDATE" params
         (dates_or_times_or_periods_to_ics dates_or_times_or_periods)
+
+  let eventprop_to_ics buf = function
+    | #generalprop as x -> generalprop_to_ics buf x
     | #other_prop as x -> other_prop_to_ics buf x
+    | `Transparency (params, transp) -> write_line buf "TRANSP" params (write_string (List.assoc transp transp_strings))
+    | `Dtend (params, date_or_time) -> write_line buf "DTEND" params (date_or_time_to_ics date_or_time)
 
   let eventprops_to_ics buf props = List.iter (eventprop_to_ics buf) props
 
   let attendees_to_ics buf xs = List.iter (attendee_to_ics buf) xs
+
+  let todoprop_to_ics buf = function
+    | #generalprop as x -> generalprop_to_ics buf x
+    | #other_prop as x -> other_prop_to_ics buf x
+    | `Completed (params, ts) -> write_line buf "COMPLETED" params (datetime_to_ics ts)
+    | `Percent (params, pct) -> write_line buf "PERCENT" params (write_string (string_of_int pct))
+    | `Due (params, date_or_time) -> write_line buf "DUE" params (date_or_time_to_ics date_or_time)
+
+  let todoprops_to_ics buf props = List.iter (todoprop_to_ics buf) props
 
   let alarm_to_ics buf alarm =
     (* TODO: output alarm.other field *)
@@ -603,6 +628,12 @@ module Writer = struct
     eventprops_to_ics buf eventprops ;
     alarms_to_ics buf alarms ;
     write_line buf "END" [] (write_string "VEVENT")
+
+  let todo_to_ics buf todoprops alarms =
+    write_line buf "BEGIN" [] (write_string "VTODO") ;
+    todoprops_to_ics buf todoprops ;
+    alarms_to_ics buf alarms ;
+    write_line buf "END" [] (write_string "VTODO")
 
   let span_to_string span =
     match Ptime.Span.to_int_s span with
@@ -653,6 +684,7 @@ module Writer = struct
   let component_to_ics buf = function
     | `Event (eventprops, alarms) -> event_to_ics buf eventprops alarms
     | `Timezone tzprops -> timezone_to_ics buf tzprops
+    | `Todo (todoprops, alarms) -> todo_to_ics buf todoprops alarms
 
   let components_to_ics buf comps = List.iter (component_to_ics buf) comps
 
@@ -1063,6 +1095,22 @@ let dtstart =
        check_date_datetime `Datetime a b ;
        `Dtstart (a, b))
 
+let completed =
+  propparser "COMPLETED" other_param datetime
+    (fun a b -> `Completed (a, b))
+
+let percent =
+  let pv = digits >>= ensure int_of_string >>= in_range 0 100 in
+  propparser "PERCENT" other_param pv
+    (fun a b -> `Percent (a, b))
+
+let due =
+  let dueparam = valuetypeparam <|> tzidparam <|> other_param in
+  propparser "DUE" dueparam time_or_date
+    (fun a b ->
+       check_date_datetime `Datetime a b ;
+       `Due (a, b))
+
 let class_ =
   let class_value = choice (string_parsers class_strings)
    <|> (iana_token >>| fun x -> `Ianatoken x)
@@ -1277,6 +1325,20 @@ let eventprop =
 
 let eventprops = many eventprop
 
+let todoprop =
+  dtstamp <|> uid <|>
+  class_ <|> completed <|> created <|> description <|>
+  dtstart <|> geo <|> last_mod <|> location <|> organizer <|>
+  percent <|> priority <|> recurid <|> seq <|> status <|>
+  summary <|> url <|>
+  rrule <|>
+  due <|> duration <|>
+  attach <|> attendee <|> categories <|> comment <|> contact <|>
+  exdate <|> rstatus <|> related <|> resources <|>
+  rdate <|> otherprop
+
+let todoprops = many todoprop
+
 let action =
   let actionvalue =
         (string "AUDIO" >>| fun _ -> `Audio)
@@ -1397,6 +1459,15 @@ let alarmc =
   ( many (audioprop <|> dispprop <|> emailprop <|> otherprop) >>| build_alarm )
   <* string "END:VALARM" <* end_of_line
 
+let build_todo todoprops alarms =
+  let f acc alarm = if List.exists (equal_alarm alarm) acc then acc else alarm :: acc in
+  `Todo (todoprops, List.fold_left f [] alarms)
+
+let todoc =
+  string "BEGIN:VTODO" *> end_of_line *>
+  lift2 build_todo todoprops (many alarmc)
+  <* string "END:VTODO" <* end_of_line
+
 let build_event eventprops alarms =
   let f acc alarm = if List.exists (equal_alarm alarm) acc then acc else alarm :: acc in
   `Event (eventprops, List.fold_left f [] alarms)
@@ -1448,7 +1519,7 @@ let timezonec =
   (many (tzid <|> last_mod <|> tzurl <|> standardc <|> daylightc <|> otherprop) >>| fun props -> `Timezone props)
   <* string "END:VTIMEZONE" <* end_of_line
 
-let component = many1 (eventc (* <|> todoc <|> journalc <|> freebusyc *) <|> timezonec)
+let component = many1 (eventc <|> todoc (* <|> journalc <|> freebusyc *) <|> timezonec)
 
 let icalbody = lift2 pair calprops component
 
