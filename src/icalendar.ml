@@ -690,7 +690,8 @@ let sign = (char '+' >>| fun _ -> positive) <|> (char '-' >>| fun _ -> not posit
 let opt_sign = option positive sign
 
 (* base grammar *)
-let is_alpha_digit_minus = function | '0' .. '9' | 'a' .. 'z' | 'A' .. 'Z' | '-' -> true | _ -> false
+let is_alpha_digit = function '0' .. '9' | 'a' .. 'z' | 'A' .. 'Z' -> true | _ -> false
+let is_alpha_digit_minus c = is_alpha_digit c || c = '-'
 let name = take_while1 is_alpha_digit_minus
 let param_name = name
 
@@ -719,7 +720,6 @@ let is_valid p str =
 let up_to_two p = (take 2 >>= is_valid p) <|> (take 1 >>= is_valid p)
 let up_to_three p = (take 3 >>= is_valid p) <|> up_to_two p
 
-let is_alpha_digit = function '0' .. '9' | 'a' .. 'z' -> true | _ -> false
 let vendorid = up_to_three is_alpha_digit
 
 let pair a b = (a, b)

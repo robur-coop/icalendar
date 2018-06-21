@@ -2144,7 +2144,7 @@ UID:event1@example.local
 END:VEVENT
 END:VCALENDAR
 |}
-  and expected = [ `Calscale ([], "GREGORIAN") ; `Prodid ([], "-//Example Inc.//Example Calendar//EN") ; `Version ([], "2.0") ; `Xprop (("", "WR-CALNAME"), [], "CalDAV tests") ], 
+  and expected = [ `Calscale ([], "GREGORIAN") ; `Prodid ([], "-//Example Inc.//Example Calendar//EN") ; `Version ([], "2.0") ; `Xprop (("WR", "CALNAME"), [], "CalDAV tests") ], 
     [ `Event ([ `Dtstamp ([], (to_ptime (2006, 02, 02) (20, 55, 36), true)) ;
                 `Dtstart ([], `Datetime (to_ptime (2018, 01, 01) (12, 0, 0 ), false)) ;
                 `Duration ([], 60 * 60 ) ;
