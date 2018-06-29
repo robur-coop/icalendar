@@ -226,4 +226,7 @@ val to_ics : calendar -> string
 
 module Writer : sig
   val duration_to_ics : int -> Buffer.t -> unit
+  val calprop_to_ics_key : calprop -> string
+  val eventprop_to_ics_key : eventprop -> string
+  val todoprop_to_ics_key : todoprop -> string
 end

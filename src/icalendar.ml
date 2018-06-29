@@ -369,15 +369,31 @@ module Writer = struct
 
   let write_string str buf = Buffer.add_string buf str
 
-  let other_prop_to_ics buf = function
-    | `Iana_prop (ianatoken, params, value) -> write_line buf ianatoken params (write_string value)
-    | `Xprop ((vendor, token), params, value) -> write_line buf (print_x vendor token) params (write_string value)
+  let other_prop_to_ics_key (prop: other_prop) = match prop with
+    | `Iana_prop (ianatoken, _, _) -> ianatoken
+    | `Xprop ((vendor, token), _, _) -> print_x vendor token
 
-  let calprop_to_ics buf = function
-    | `Prodid (params, value) -> write_line buf "PRODID" params (write_string value)
-    | `Version (params, value) -> write_line buf "VERSION" params (write_string value)
-    | `Calscale (params, value) -> write_line buf "CALSCALE" params (write_string value)
-    | `Method (params, value) -> write_line buf "METHOD" params (write_string value)
+  let calprop_to_ics_key (prop: calprop) = match prop with
+    | `Prodid _ -> "PRODID"
+    | `Version _ -> "VERSION"
+    | `Calscale _ -> "CALSCALE"
+    | `Method _ -> "METHOD"
+    | #other_prop as x -> other_prop_to_ics_key x
+
+  let other_prop_to_ics buf prop = 
+    let key = other_prop_to_ics_key prop in
+    match prop with
+    | `Iana_prop (_, params, value) -> write_line buf key params (write_string value)
+    | `Xprop (_, params, value) -> write_line buf key params (write_string value)
+
+  let calprop_to_ics buf prop =
+    let key = calprop_to_ics_key prop in
+    let output = write_line buf key in
+    match prop with
+    | `Prodid (params, value) -> output params (write_string value)
+    | `Version (params, value) -> output params (write_string value)
+    | `Calscale (params, value) -> output params (write_string value)
+    | `Method (params, value) -> output params (write_string value)
     | #other_prop as x -> other_prop_to_ics buf x
 
   let calprops_to_ics buf props = List.iter (calprop_to_ics buf) props
@@ -511,39 +527,73 @@ module Writer = struct
   let attendee_to_ics buf (params, uri) =
     write_line buf "ATTENDEE" params (write_string (Uri.to_string uri))
 
-  let generalprop_to_ics buf = function
-    | `Dtstamp (params, ts) -> write_line buf "DTSTAMP" params (datetime_to_ics ts)
-    | `Uid (params, str) -> write_line buf "UID" params (write_string str)
-    | `Dtstart (params, date_or_time) -> write_line buf "DTSTART" params (date_or_time_to_ics date_or_time)
-    | `Class (params, class_) -> write_line buf "CLASS" params (write_string (List.assoc class_ class_strings))
-    | `Created (params, ts) -> write_line buf "CREATED" params (datetime_to_ics ts)
+  let generalprop_to_ics_key = function
+    | `Dtstamp (params, ts) -> "DTSTAMP"
+    | `Uid (params, str) -> "UID"
+    | `Dtstart (params, date_or_time) -> "DTSTART"
+    | `Class (params, class_) -> "CLASS"
+    | `Created (params, ts) -> "CREATED"
+    | `Description desc -> "DESCRIPTION" 
+    | `Geo (params, (lat, lon)) -> "GEO" 
+    | `Lastmod (params, ts) -> "LAST-MODIFIED"
+    | `Location (params, name) -> "LOCATION"
+    | `Organizer (params, uri) -> "ORGANIZER"
+    | `Priority (params, prio) -> "PRIORITY"
+    | `Seq (params, seq) -> "SEQUENCE"
+    | `Status (params, status) -> "STATUS"
+    | `Summary summary -> "SUMMARY"
+    | `Url (params, uri) -> "URL"
+    | `Recur_id (params, date_or_time) -> "RECURRENCE-ID"
+    | `Rrule (params, recurs) -> "RRULE"
+    | `Duration (params, dur) -> "DURATION"
+    | `Attach att -> "ATTACH" 
+    | `Attendee att -> "ATTENDEE"
+    | `Categories (params, cats) -> "CATEGORIES"
+    | `Comment (params, comment) -> "COMMENT"
+    | `Contact (params, contact) -> "CONTACT"
+    | `Exdate (params, dates_or_times) -> "EXDATE"
+    | `Rstatus (params, (statcode, text, comment)) -> "REQUEST-STATUS"
+    | `Related (params, rel) -> "RELATED"
+    | `Resource (params, res) -> "RESOURCE"
+    | `Rdate (params, dates_or_times_or_periods) -> "RDATE"
+
+
+  let generalprop_to_ics buf prop = 
+    let key = generalprop_to_ics_key prop in
+    let output params v = write_line buf key params v in
+    match prop with
+    | `Dtstamp (params, ts) -> output params (datetime_to_ics ts)
+    | `Uid (params, str) -> output params (write_string str)
+    | `Dtstart (params, date_or_time) -> output params (date_or_time_to_ics date_or_time)
+    | `Class (params, class_) -> output params (write_string (List.assoc class_ class_strings))
+    | `Created (params, ts) -> output params (datetime_to_ics ts)
     | `Description desc -> description_to_ics buf desc
     | `Geo (params, (lat, lon)) ->
-      write_line buf "GEO" params (fun buf ->
+      output params (fun buf ->
           Buffer.add_string buf (string_of_float lat) ;
           Buffer.add_char buf ';' ;
           Buffer.add_string buf (string_of_float lon))
-    | `Lastmod (params, ts) -> write_line buf "LAST-MODIFIED" params (datetime_to_ics ts)
-    | `Location (params, name) -> write_line buf "LOCATION" params (write_string name)
-    | `Organizer (params, uri) -> write_line buf "ORGANIZER" params (write_string (Uri.to_string uri))
-    | `Priority (params, prio) -> write_line buf "PRIORITY" params (write_string (string_of_int prio))
-    | `Seq (params, seq) -> write_line buf "SEQUENCE" params (write_string (string_of_int seq))
-    | `Status (params, status) -> write_line buf "STATUS" params (write_string (List.assoc status status_strings))
+    | `Lastmod (params, ts) -> output params (datetime_to_ics ts)
+    | `Location (params, name) -> output params (write_string name)
+    | `Organizer (params, uri) -> output params (write_string (Uri.to_string uri))
+    | `Priority (params, prio) -> output params (write_string (string_of_int prio))
+    | `Seq (params, seq) -> output params (write_string (string_of_int seq))
+    | `Status (params, status) -> output params (write_string (List.assoc status status_strings))
     | `Summary summary -> summary_to_ics buf summary
-    | `Url (params, uri) -> write_line buf "URL" params (write_string Uri.(pct_decode (to_string uri)))
-    | `Recur_id (params, date_or_time) -> write_line buf "RECURRENCE-ID" params (date_or_time_to_ics date_or_time)
-    | `Rrule (params, recurs) -> write_line buf "RRULE" params (recurs_to_ics recurs)
-    | `Duration (params, dur) -> write_line buf "DURATION" params (duration_to_ics dur)
+    | `Url (params, uri) -> output params (write_string Uri.(pct_decode (to_string uri)))
+    | `Recur_id (params, date_or_time) -> output params (date_or_time_to_ics date_or_time)
+    | `Rrule (params, recurs) -> output params (recurs_to_ics recurs)
+    | `Duration (params, dur) -> output params (duration_to_ics dur)
     | `Attach att -> attach_to_ics buf (Some att)
     | `Attendee att -> attendee_to_ics buf att
     | `Categories (params, cats) ->
       let cat = String.concat "," cats in
-      write_line buf "CATEGORIES" params (write_string cat)
-    | `Comment (params, comment) -> write_line buf "COMMENT" params (write_string comment)
-    | `Contact (params, contact) -> write_line buf "CONTACT" params (write_string contact)
-    | `Exdate (params, dates_or_times) -> write_line buf "EXDATE" params (dates_or_times_to_ics dates_or_times)
+      output params (write_string cat)
+    | `Comment (params, comment) -> output params (write_string comment)
+    | `Contact (params, contact) -> output params (write_string contact)
+    | `Exdate (params, dates_or_times) -> output params (dates_or_times_to_ics dates_or_times)
     | `Rstatus (params, (statcode, text, comment)) ->
-      write_line buf "REQUEST-STATUS" params
+      output params
         (fun buf ->
            let (major, minor, patch) = statcode in
            Buffer.add_string buf (string_of_int major) ;
@@ -561,30 +611,47 @@ module Writer = struct
            | Some x ->
              Buffer.add_char buf ';' ;
              Buffer.add_string buf x)
-    | `Related (params, rel) -> write_line buf "RELATED" params (write_string rel)
+    | `Related (params, rel) -> output params (write_string rel)
     | `Resource (params, res) ->
       let r = String.concat "," res in
-      write_line buf "RESOURCE" params (write_string r)
+      output params (write_string r)
     | `Rdate (params, dates_or_times_or_periods) ->
-      write_line buf "RDATE" params
+      output params
         (dates_or_times_or_periods_to_ics dates_or_times_or_periods)
 
-  let eventprop_to_ics buf = function
+  let eventprop_to_ics_key = function
+    | #generalprop as x -> generalprop_to_ics_key x
+    | #other_prop as x -> other_prop_to_ics_key x
+    | `Transparency _ -> "TRANSP"
+    | `Dtend _ -> "DTEND"
+
+  let eventprop_to_ics buf (prop: eventprop) =
+    let key = eventprop_to_ics_key prop in
+    match prop with
     | #generalprop as x -> generalprop_to_ics buf x
     | #other_prop as x -> other_prop_to_ics buf x
-    | `Transparency (params, transp) -> write_line buf "TRANSP" params (write_string (List.assoc transp transp_strings))
-    | `Dtend (params, date_or_time) -> write_line buf "DTEND" params (date_or_time_to_ics date_or_time)
+    | `Transparency (params, transp) -> write_line buf key params (write_string (List.assoc transp transp_strings))
+    | `Dtend (params, date_or_time) -> write_line buf key params (date_or_time_to_ics date_or_time)
 
   let eventprops_to_ics buf props = List.iter (eventprop_to_ics buf) props
 
   let attendees_to_ics buf xs = List.iter (attendee_to_ics buf) xs
 
-  let todoprop_to_ics buf = function
+  let todoprop_to_ics_key = function
+    | #generalprop as x -> generalprop_to_ics_key x
+    | #other_prop as x -> other_prop_to_ics_key x
+    | `Completed _ -> "COMPLETED"
+    | `Percent _ -> "PERCENT"
+    | `Due _ -> "DUE"
+
+  let todoprop_to_ics buf prop =
+    let key = todoprop_to_ics_key prop in
+    match prop with
     | #generalprop as x -> generalprop_to_ics buf x
     | #other_prop as x -> other_prop_to_ics buf x
-    | `Completed (params, ts) -> write_line buf "COMPLETED" params (datetime_to_ics ts)
-    | `Percent (params, pct) -> write_line buf "PERCENT" params (write_string (string_of_int pct))
-    | `Due (params, date_or_time) -> write_line buf "DUE" params (date_or_time_to_ics date_or_time)
+    | `Completed (params, ts) -> write_line buf key params (datetime_to_ics ts)
+    | `Percent (params, pct) -> write_line buf key params (write_string (string_of_int pct))
+    | `Due (params, date_or_time) -> write_line buf key params (date_or_time_to_ics date_or_time)
 
   let todoprops_to_ics buf props = List.iter (todoprop_to_ics buf) props
 
