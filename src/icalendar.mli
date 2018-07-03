@@ -259,4 +259,6 @@ module Writer : sig
   val calprop_to_ics_key : calprop -> string
   val eventprop_to_ics_key : eventprop -> string
   val todoprop_to_ics_key : todoprop -> string
+  val freebusyprop_to_ics_key : freebusyprop -> string
+  val timezoneprop_to_ics_key : timezoneprop -> string
 end

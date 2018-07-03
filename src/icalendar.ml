@@ -765,6 +765,14 @@ module Writer = struct
 
   let tzprops_to_ics buf tzprops = List.iter (tzprop_to_ics buf) tzprops
 
+  let timezoneprop_to_ics_key = function
+    | `Tzid _ -> "TZID"
+    | `Lastmod _ -> "LAST-MODIFIED"
+    | `Tzurl _ -> "TZURL"
+    | `Standard tzprops -> "STANDARD" (* TODO preserve structure *)
+    | `Daylight tzprops -> "DAYLIGHT"
+    | #other_prop as x -> other_prop_to_ics_key x
+
   let timezone_prop_to_ics buf = function
     | `Tzid (params, (prefix, name)) ->
       let value = Printf.sprintf "%s%s" (if prefix then "/" else "") name in
