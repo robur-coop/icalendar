@@ -44,6 +44,8 @@ type relationship =
   [ `Parent | `Child | `Sibling |
     `Ianatoken of string | `Xname of string * string ]
 
+type fbtype = [ `Free | `Busy | `Busy_Unavailable | `Busy_Tentative | `Ianatoken of string | `Xname of string * string ] [@@deriving eq, show]
+
 type icalparameter =
   [ `Altrep of Uri.t
   | `Cn of string
@@ -53,7 +55,7 @@ type icalparameter =
   | `Dir of Uri.t
   | `Encoding of [ `Base64 ]
   | `Media_type of string * string
-  (*| `Fbtype       ; Free/busy time type*)
+  | `Fbtype of fbtype
   | `Language of string
   | `Member of Uri.t list
   | `Partstat of partstat
@@ -211,10 +213,38 @@ type todoprop = [
   | other_prop
 ]
 
+type freebusyprop = [
+  | `Dtstamp of other_param list * (Ptime.t * bool)
+  | `Uid of other_param list * string
+  | `Contact of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
+  | `Dtstart of [ other_param | valuetypeparam | `Tzid of bool * string ] list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Dtend of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
+              [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Organizer of [other_param | `Cn of string | `Dir of Uri.t | `Sentby of Uri.t | `Language of string] list * Uri.t
+  | `Url of other_param list * Uri.t
+  | `Attendee of [ other_param
+                 | `Cn of string
+                 | `Cutype of cutype
+                 | `Delegated_from of Uri.t list
+                 | `Delegated_to of Uri.t list
+                 | `Dir of Uri.t
+                 | `Language of string
+                 | `Member of Uri.t list
+                 | `Partstat of partstat
+                 | `Role of role
+                 | `Rsvp of bool
+                 | `Sentby of Uri.t ] list * Uri.t
+  | `Comment of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
+  | `Freebusy of [ other_param | `Fbtype of fbtype ] list * (Ptime.t * Ptime.t * bool) list 
+  | `Rstatus of [ other_param | `Language of string ] list * ((int * int * int option) * string * string option)
+  | other_prop 
+]
+
 type component = [
   | `Event of eventprop list * alarm list
-  | `Timezone of timezoneprop list
   | `Todo of todoprop list * alarm list
+  | `Freebusy of freebusyprop list 
+  | `Timezone of timezoneprop list
 ]
 
 type calendar = calprop list * component list

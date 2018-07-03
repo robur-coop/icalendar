@@ -2161,10 +2161,97 @@ let decode_encode_tests = [
   "apple calendar tester case for put", `Quick, x_apple_put ;
 ]
 
+let reply_busy_time () = 
+  let input = {|BEGIN:VCALENDAR
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VFREEBUSY
+UID:19970901T095957Z-76A912@example.com
+ORGANIZER:mailto:jane_doe@example.com
+ATTENDEE:mailto:john_public@example.com
+DTSTAMP:19970901T100000Z
+FREEBUSY:19971015T050000Z/PT8H30M,
+ 19971015T160000Z/PT5H30M,19971015T223000Z/PT6H30M
+URL:http://example.com/pub/busy/jpublic-01.ifb
+COMMENT:This iCalendar file contains busy time information for
+  the next three months.
+END:VFREEBUSY
+END:VCALENDAR
+|}
+  and expected = 
+  [`Prodid (([], "-//Example Inc.//Example Calendar//EN"));
+     `Version (([], "2.0"))],
+   [`Freebusy ([`Uid (([], "19970901T095957Z-76A912@example.com"));
+                 `Organizer (([], Uri.of_string "mailto:jane_doe@example.com"));
+                 `Attendee (([], Uri.of_string "mailto:john_public@example.com"));
+                 `Dtstamp (([], (to_ptime (1997,09,01) (10,00,00), true)));
+                 `Freebusy (([],
+                             [(to_ptime (1997,10,15) (05,00,00),
+                               to_ptime (1997,10,15) (13,30,00), true);
+                               (to_ptime (1997,10,15) (16,00,00),
+                                to_ptime (1997,10,15) (21,30,00), true);
+                               (to_ptime (1997,10,15) (22,30,00),
+                                to_ptime (1997,10,16) (05,00,00), true)
+                               ]));
+                 `Url (([], Uri.of_string "http://example.com/pub/busy/jpublic-01.ifb"));
+                 `Comment (([],
+                            "This iCalendar file contains busy time information for the next three months."))
+                 ])
+     ]
+  in
+  Alcotest.check result_c __LOC__ (Ok expected) (Icalendar.parse input) 
+
+let publish_busy_time () = 
+  let input = {|BEGIN:VCALENDAR
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VFREEBUSY
+UID:19970901T115957Z-76A912@example.com
+DTSTAMP:19970901T120000Z
+ORGANIZER:jsmith@example.com
+DTSTART:19980313T141711Z
+DTEND:19980410T141711Z
+FREEBUSY:19980314T233000Z/19980315T003000Z
+FREEBUSY:19980316T153000Z/19980316T163000Z
+FREEBUSY:19980318T030000Z/19980318T040000Z
+URL:http://www.example.com/calendar/busytime/jsmith.ifb
+END:VFREEBUSY
+END:VCALENDAR
+|}
+  and expected = [`Prodid (([], "-//Example Inc.//Example Calendar//EN"));
+     `Version (([], "2.0"))],
+   [`Freebusy ([`Uid (([], "19970901T115957Z-76A912@example.com"));
+                 `Dtstamp (([], (to_ptime (1997,09,01) (12,00,00), true)));
+                 `Organizer (([], Uri.of_string "jsmith@example.com"));
+                 `Dtstart (([],
+                            `Datetime ((to_ptime (1998,03,13) (14,17,11), true))));
+                 `Dtend (([], `Datetime ((to_ptime (1998,04,10) (14,17,11), true))));
+                 `Freebusy (([],
+                             [(to_ptime (1998,03,14) (23,30,00),
+                               to_ptime (1998,03,15) (00,30,00), true)]));
+                 `Freebusy (([],
+                             [(to_ptime (1998,03,16) (15,30,00),
+                               to_ptime (1998,03,16) (16,30,00), true)]));
+                 `Freebusy (([],
+                             [(to_ptime (1998,03,18) (03,00,00),
+                               to_ptime (1998,03,18) (04,00,00), true)]));
+                 `Url (([],
+                        Uri.of_string "http://www.example.com/calendar/busytime/jsmith.ifb"))
+                 ])
+     ]
+  in
+  Alcotest.check result_c __LOC__ (Ok expected) (Icalendar.parse input) 
+
+let freebusy_tests = [
+  "reply busy time", `Quick, reply_busy_time ;
+  "publish busy time", `Quick, publish_busy_time ;
+]
+
 let tests = [
   "Object tests", object_tests ;
   "Timezone tests", timezone_tests ;
-  "Decode Encode tests", decode_encode_tests ;
+  "Decode-Encode tests", decode_encode_tests ;
+  "Freebusy tests", freebusy_tests ;
 ]
 
 let () =

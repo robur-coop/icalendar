@@ -37,6 +37,8 @@ type relationship =
 type role = [ `Chair | `Nonparticipant | `Optparticipant | `Reqparticipant
             | `Ianatoken of string | `Xname of string * string ] [@@deriving eq, show]
 
+type fbtype = [ `Free | `Busy | `Busy_Unavailable | `Busy_Tentative | `Ianatoken of string | `Xname of string * string ] [@@deriving eq, show]
+
 type icalparameter =
   [ `Altrep of Uri.t
   | `Cn of string
@@ -46,7 +48,7 @@ type icalparameter =
   | `Dir of Uri.t
   | `Encoding of [ `Base64 ]
   | `Media_type of string * string
-  (*| `Fbtype       ; Free/busy time type*)
+  | `Fbtype of fbtype
   | `Language of string
   | `Member of Uri.t list
   | `Partstat of partstat
@@ -97,6 +99,33 @@ type class_ = [ `Public | `Private | `Confidential | `Ianatoken of string | `Xna
 type status = [ `Draft | `Final | `Cancelled |
                 `Needs_action | `Completed | `In_process | (* `Cancelled *)
                 `Tentative | `Confirmed (* | `Cancelled *) ] [@@deriving eq, show]
+
+type freebusyprop = [
+  | `Dtstamp of other_param list * (Ptime.t * bool)
+  | `Uid of other_param list * string
+  | `Contact of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
+  | `Dtstart of [ other_param | valuetypeparam | `Tzid of bool * string ] list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Dtend of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
+              [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Organizer of [other_param | `Cn of string | `Dir of Uri.t | `Sentby of Uri.t | `Language of string] list * Uri.t
+  | `Url of other_param list * Uri.t
+  | `Attendee of [ other_param
+                 | `Cn of string
+                 | `Cutype of cutype
+                 | `Delegated_from of Uri.t list
+                 | `Delegated_to of Uri.t list
+                 | `Dir of Uri.t
+                 | `Language of string
+                 | `Member of Uri.t list
+                 | `Partstat of partstat
+                 | `Role of role
+                 | `Rsvp of bool
+                 | `Sentby of Uri.t ] list * Uri.t
+  | `Comment of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
+  | `Freebusy of [ other_param | `Fbtype of fbtype ] list * (Ptime.t * Ptime.t * bool) list 
+  | `Rstatus of [ other_param | `Language of string ] list * ((int * int * int option) * string * string option)
+  | other_prop 
+] [@@deriving eq, show]
 
 type generalprop = [
   | `Dtstamp of other_param list * (Ptime.t * bool)
@@ -223,8 +252,9 @@ type todoprop = [
 
 type component = [
   | `Event of eventprop list * alarm list
-  | `Timezone of timezoneprop list
   | `Todo of todoprop list * alarm list
+  | `Freebusy of freebusyprop list 
+  | `Timezone of timezoneprop list
 ] [@@deriving eq, show]
 
 type calendar = calprop list * component list [@@deriving eq, show]
@@ -260,6 +290,13 @@ let cutype_strings = [
     (`Resource, "RESOURCE") ;
     (`Room, "ROOM") ;
     (`Unknown, "UNKNOWN") ;
+  ]
+
+let fbtype_strings = [
+    (`Free, "FREE") ;
+    (`Busy, "BUSY") ;
+    (`Busy_Unavailable, "BUSY-UNAVAILABLE") ;
+    (`Busy_Tentative, "BUSY-TENTATIVE") ;
   ]
 
 let partstat_strings = [
@@ -342,6 +379,7 @@ module Writer = struct
     | `Sentby uri -> write_kv "SENT-BY" (quoted_uri uri)
     | `Range `Thisandfuture -> write_kv "RANGE" "THISANDFUTURE"
     | `Media_type (pre, post) -> write_kv "FMTTYPE" (Printf.sprintf "%s/%s" pre post)
+    | `Fbtype fbtype -> write_kv "FBTYPE" (List.assoc fbtype fbtype_strings)
     | `Encoding `Base64 -> write_kv "ENCODING" "BASE64"
     | `Cutype cu -> write_kv "CUTYPE" (List.assoc cu cutype_strings)
     | `Delegated_from uris -> write_kv "DELEGATED-FROM" (String.concat "," (List.map quoted_uri uris))
@@ -743,14 +781,34 @@ module Writer = struct
       write_line buf "END" [] (write_string "DAYLIGHT")
     | #other_prop as x -> other_prop_to_ics buf x
 
+  let freebusyprop_to_ics_key = function
+    | #generalprop as x -> generalprop_to_ics_key x
+    | #other_prop as x -> other_prop_to_ics_key x
+    | `Dtend _ -> "DTEND"
+    | `Freebusy _ -> "FREEBUSY"
+ 
+  let freebusy_prop_to_ics buf prop = 
+    let key = freebusyprop_to_ics_key prop in
+    match prop with
+    | `Freebusy (params, periods) -> write_line buf key params (fun buf -> List.iter (period_to_ics buf) periods)
+    | `Dtend (params, date_or_time) -> write_line buf key params (date_or_time_to_ics date_or_time)
+    | #generalprop as x -> generalprop_to_ics buf x
+    | #other_prop as x -> other_prop_to_ics buf x
+
   let timezone_to_ics buf props =
     write_line buf "BEGIN" [] (write_string "VTIMEZONE") ;
     List.iter (timezone_prop_to_ics buf) props ;
     write_line buf "END" [] (write_string "VTIMEZONE")
 
+  let freebusy_to_ics buf props =
+    write_line buf "BEGIN" [] (write_string "VFREEBUSY") ;
+    List.iter (freebusy_prop_to_ics buf) props ;
+    write_line buf "END" [] (write_string "VFREEBUSY")
+
   let component_to_ics buf = function
     | `Event (eventprops, alarms) -> event_to_ics buf eventprops alarms
     | `Timezone tzprops -> timezone_to_ics buf tzprops
+    | `Freebusy fbprops -> freebusy_to_ics buf fbprops
     | `Todo (todoprops, alarms) -> todo_to_ics buf todoprops alarms
 
   let components_to_ics buf comps = List.iter (component_to_ics buf) comps
@@ -1000,6 +1058,11 @@ let sentbyparam = string "SENT-BY=" *> quoted_caladdress >>| fun s -> `Sentby s
 (* Default is INDIVIDUAL *)
 let cutypeparam = lift (fun x -> `Cutype x) ((string "CUTYPE=") *>
        (choice (string_parsers cutype_strings)
+   <|> (iana_token >>| fun x -> `Ianatoken x)
+   <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
+
+let fbtypeparam = lift (fun x -> `Fbtype x) ((string "FBTYPE=") *>
+       (choice (string_parsers fbtype_strings)
    <|> (iana_token >>| fun x -> `Ianatoken x)
    <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
 
@@ -1571,6 +1634,15 @@ let tzprop =
   rrule <|>
   comment <|> rdate <|> tzname <|> otherprop
 
+let freebusy =
+  let fbparam = fbtypeparam <|> other_param in
+  propparser "FREEBUSY" fbparam (sep_by1 (char ',') period)
+    (fun p v -> `Freebusy (p, v))
+
+let freebusyprop =
+  dtstamp <|> uid <|> contact <|> dtstart <|> dtend <|>
+  organizer <|> url <|> attendee <|> comment <|> freebusy <|> rstatus <|> otherprop
+
 let standardc =
   string "BEGIN:STANDARD" *> end_of_line *>
   (many tzprop >>| fun props -> `Standard props)
@@ -1586,7 +1658,12 @@ let timezonec =
   (many (tzid <|> last_mod <|> tzurl <|> standardc <|> daylightc <|> otherprop) >>| fun props -> `Timezone props)
   <* string "END:VTIMEZONE" <* end_of_line
 
-let component = many1 (eventc <|> todoc (* <|> journalc <|> freebusyc *) <|> timezonec)
+let freebusyc =
+  string "BEGIN:VFREEBUSY" *> end_of_line *>
+  (many freebusyprop >>| fun props -> `Freebusy props)
+  <* string "END:VFREEBUSY" <* end_of_line
+  
+let component = many1 (eventc <|> todoc (* <|> journalc *) <|> freebusyc <|> timezonec)
 
 let icalbody = lift2 pair calprops component
 
