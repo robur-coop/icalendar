@@ -249,6 +249,7 @@ type component = [
 
 type calendar = calprop list * component list
 
+val parse_datetime: string -> (Ptime.t * bool, string) result
 val parse : string -> (calendar, string) result
 val pp : calendar Fmt.t
 

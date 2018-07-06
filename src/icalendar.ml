@@ -939,6 +939,9 @@ let datetime =
   | None -> raise Parse_error in
   lift2 ptime date (char 'T' *> time)
 
+let parse_datetime s =
+  try parse_string datetime s with Parse_error -> Error "Invalid datetime."
+ 
 let dur_value =
   let to_seconds p factor = p >>= ensure int_of_string >>| ( * ) factor in
   let second = to_seconds (digits <* char 'S') 1 in
