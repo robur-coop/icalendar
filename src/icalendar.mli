@@ -247,6 +247,8 @@ type component = [
   | `Timezone of timezoneprop list
 ]
 
+val component_to_ics_key : component -> string
+
 type calendar = calprop list * component list
 
 val parse_datetime: string -> (Ptime.t * bool, string) result

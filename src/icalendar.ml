@@ -259,6 +259,12 @@ type component = [
 
 type calendar = calprop list * component list [@@deriving eq, show]
 
+let component_to_ics_key = function
+  | `Event _ -> "VEVENT"
+  | `Todo _ -> "VTODO"
+  | `Freebusy _ -> "VFREEBUSY"
+  | `Timezone _ -> "VTIMEZONE"
+
 let pp = pp_calendar
 
 let weekday_strings = [
@@ -729,16 +735,12 @@ module Writer = struct
   let alarms_to_ics buf alarms = List.iter (alarm_to_ics buf) alarms
 
   let event_to_ics buf eventprops alarms =
-    write_line buf "BEGIN" [] (write_string "VEVENT") ;
     eventprops_to_ics buf eventprops ;
-    alarms_to_ics buf alarms ;
-    write_line buf "END" [] (write_string "VEVENT")
+    alarms_to_ics buf alarms
 
   let todo_to_ics buf todoprops alarms =
-    write_line buf "BEGIN" [] (write_string "VTODO") ;
     todoprops_to_ics buf todoprops ;
-    alarms_to_ics buf alarms ;
-    write_line buf "END" [] (write_string "VTODO")
+    alarms_to_ics buf alarms
 
   let span_to_string span =
     match Ptime.Span.to_int_s span with
@@ -803,21 +805,19 @@ module Writer = struct
     | #generalprop as x -> generalprop_to_ics buf x
     | #other_prop as x -> other_prop_to_ics buf x
 
-  let timezone_to_ics buf props =
-    write_line buf "BEGIN" [] (write_string "VTIMEZONE") ;
-    List.iter (timezone_prop_to_ics buf) props ;
-    write_line buf "END" [] (write_string "VTIMEZONE")
+  let timezone_to_ics buf props = List.iter (timezone_prop_to_ics buf) props
 
-  let freebusy_to_ics buf props =
-    write_line buf "BEGIN" [] (write_string "VFREEBUSY") ;
-    List.iter (freebusy_prop_to_ics buf) props ;
-    write_line buf "END" [] (write_string "VFREEBUSY")
+  let freebusy_to_ics buf props = List.iter (freebusy_prop_to_ics buf) props
 
-  let component_to_ics buf = function
-    | `Event (eventprops, alarms) -> event_to_ics buf eventprops alarms
-    | `Timezone tzprops -> timezone_to_ics buf tzprops
-    | `Freebusy fbprops -> freebusy_to_ics buf fbprops
-    | `Todo (todoprops, alarms) -> todo_to_ics buf todoprops alarms
+  let component_to_ics buf comp =
+    let key = component_to_ics_key comp in
+    write_line buf "BEGIN" [] (write_string key) ;
+    (match comp with
+     | `Event (eventprops, alarms) -> event_to_ics buf eventprops alarms
+     | `Timezone tzprops -> timezone_to_ics buf tzprops
+     | `Freebusy fbprops -> freebusy_to_ics buf fbprops
+     | `Todo (todoprops, alarms) -> todo_to_ics buf todoprops alarms) ;
+    write_line buf "END" [] (write_string key)
 
   let components_to_ics buf comps = List.iter (component_to_ics buf) comps
 
