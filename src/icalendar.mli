@@ -251,6 +251,8 @@ val component_to_ics_key : component -> string
 
 type calendar = calprop list * component list
 
+val collect_tzids: component -> string list
+
 val parse_datetime: string -> (Ptime.t * bool, string) result
 val parse : string -> (calendar, string) result
 val pp : calendar Fmt.t

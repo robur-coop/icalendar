@@ -259,6 +259,77 @@ type component = [
 
 type calendar = calprop list * component list [@@deriving eq, show]
 
+
+
+  let other_prop_to_params : (other_prop -> [< icalparameter] list) = function 
+    | `Iana_prop (_, params, value) -> params
+    | `Xprop (_, params, value) -> params
+
+
+  let generalprop_to_params : (generalprop -> [< icalparameter] list) = function 
+    | `Dtstamp (params, _) -> (params :> icalparameter list)
+    | `Uid (params, _) -> (params :> icalparameter list)
+    | `Dtstart (params, _) -> (params :> icalparameter list)
+    | `Class (params, _) -> (params :> icalparameter list)
+    | `Created (params, _) -> (params :> icalparameter list)
+    | `Description (params, _) -> (params :> icalparameter list)
+    | `Geo (params, _)  -> (params :> icalparameter list)
+    | `Lastmod (params, _) -> (params :> icalparameter list)
+    | `Location (params, _) -> (params :> icalparameter list)
+    | `Organizer (params, _) -> (params :> icalparameter list)
+    | `Priority (params, _) -> (params :> icalparameter list)
+    | `Seq (params, _) -> (params :> icalparameter list)
+    | `Status (params, _) -> (params :> icalparameter list)
+    | `Summary (params, _) -> (params :> icalparameter list)
+    | `Url (params, _) -> (params :> icalparameter list)
+    | `Recur_id (params, _) -> (params :> icalparameter list)
+    | `Rrule (params, _) -> (params :> icalparameter list)
+    | `Duration (params, _) -> (params :> icalparameter list)
+    | `Attach (params, _) -> (params :> icalparameter list)
+    | `Attendee (params, _) -> (params :> icalparameter list)
+    | `Categories (params, _) -> (params :> icalparameter list)
+    | `Comment (params, _) -> (params :> icalparameter list)
+    | `Contact (params, _) -> (params :> icalparameter list)
+    | `Exdate (params, _) -> (params :> icalparameter list)
+    | `Rstatus (params, _) -> (params :> icalparameter list)
+    | `Related (params, _) -> (params :> icalparameter list)
+    | `Resource (params, _) -> (params :> icalparameter list)
+    | `Rdate (params, _) -> (params :> icalparameter list)
+
+  let eventprop_to_params : eventprop -> icalparameter list = function
+    | #generalprop as x -> generalprop_to_params x
+    | #other_prop as x -> other_prop_to_params x
+    | `Transparency (params, transp) -> (params :> icalparameter list)
+    | `Dtend (params, date_or_time) -> (params :> icalparameter list)
+
+  let todoprop_to_params : todoprop -> icalparameter list = function
+    | #generalprop as x -> generalprop_to_params x
+    | #other_prop as x -> other_prop_to_params x
+    | `Completed (params, ts) -> (params :> icalparameter list)
+    | `Percent (params, pct) -> (params :> icalparameter list)
+    | `Due (params, date_or_time) -> (params :> icalparameter list)
+
+  let freebusyprop_to_params = function
+    | #generalprop as x -> generalprop_to_params x
+    | #other_prop as x -> other_prop_to_params x
+    | `Freebusy (params, periods) -> (params :> icalparameter list)
+    | `Dtend (params, date_or_time) -> (params :> icalparameter list)
+
+let params_to_tzid (params : icalparameter list) =
+  let find_tzid_param acc = function 
+     | `Tzid (_, tzid) -> tzid :: acc
+     | _ -> acc in
+  List.fold_left find_tzid_param [] params
+ 
+let collect_tzids (comp: component) = 
+  let params = match comp with
+  | `Event (props, alarms) -> List.map eventprop_to_params props
+  | `Todo (props, alarms) -> List.map todoprop_to_params props
+  | `Freebusy props -> List.map freebusyprop_to_params props
+  | `Timezone _ -> []
+  in
+  params_to_tzid (List.flatten params)
+
 let component_to_ics_key = function
   | `Event _ -> "VEVENT"
   | `Todo _ -> "VTODO"
