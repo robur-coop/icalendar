@@ -196,7 +196,7 @@ type tzprop = [
 ]
 
 type timezoneprop = [
-  | `Tzid of other_param list * (bool * string)
+  | `Timezone_id of other_param list * (bool * string)
   | `Lastmod of other_param list * (Ptime.t * bool)
   | `Tzurl of other_param list * Uri.t
   | `Standard of tzprop list

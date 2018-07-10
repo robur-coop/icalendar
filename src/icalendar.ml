@@ -233,7 +233,7 @@ type tzprop = [
 ] [@@deriving eq, show]
 
 type timezoneprop = [
-  | `Tzid of other_param list * (bool * string)
+  | `Timezone_id of other_param list * (bool * string)
   | `Lastmod of other_param list * (Ptime.t * bool)
   | `Tzurl of other_param list * Uri.t
   | `Standard of tzprop list
@@ -839,7 +839,7 @@ module Writer = struct
   let tzprops_to_ics buf tzprops = List.iter (tzprop_to_ics buf) tzprops
 
   let timezoneprop_to_ics_key = function
-    | `Tzid _ -> "TZID"
+    | `Timezone_id _ -> "TZID"
     | `Lastmod _ -> "LAST-MODIFIED"
     | `Tzurl _ -> "TZURL"
     | `Standard tzprops -> "STANDARD" (* TODO preserve structure *)
@@ -847,7 +847,7 @@ module Writer = struct
     | #other_prop as x -> other_prop_to_ics_key x
 
   let timezone_prop_to_ics buf = function
-    | `Tzid (params, (prefix, name)) ->
+    | `Timezone_id (params, (prefix, name)) ->
       let value = Printf.sprintf "%s%s" (if prefix then "/" else "") name in
       write_line buf "TZID" params (write_string value)
     | `Lastmod (params, ts) -> write_line buf "LAST-MODIFIED" params (datetime_to_ics ts)
@@ -1692,7 +1692,7 @@ let eventc =
 let tzid =
   propparser "TZID" other_param
     (lift2 (fun a b -> (a = '/', b)) (option ' ' (char '/')) text)
-    (fun p v -> `Tzid (p, v))
+    (fun p v -> `Timezone_id (p, v))
 
 let tzurl =
   propparser "TZURL" other_param text

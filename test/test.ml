@@ -1767,7 +1767,7 @@ END:VCALENDAR
 |}
   and expected = Ok ([], [
       `Timezone [
-        `Tzid ([], (false, "America/New_York")) ;
+        `Timezone_id ([], (false, "America/New_York")) ;
         `Lastmod ([], (to_ptime (2005, 08, 09) (05, 00, 00), true)) ;
         `Standard [
           `Dtstart ([], `Datetime (to_ptime (2007, 11, 04) (02, 00, 00), false)) ;
@@ -1847,7 +1847,7 @@ END:VCALENDAR
   and expected =
     Ok ([], [
         `Timezone [
-          `Tzid ([], (false, "America/New_York")) ;
+          `Timezone_id ([], (false, "America/New_York")) ;
           `Lastmod ([], (to_ptime (2005, 08, 09) (05, 00, 00), true)) ;
           `Daylight [
             `Dtstart ([], `Datetime (to_ptime (1967, 04, 30) (02, 00, 00), false)) ;
@@ -1937,7 +1937,7 @@ END:VCALENDAR
 |} and expected =
      Ok ([], [
          `Timezone [
-           `Tzid ([], (false, "America/New_York")) ;
+           `Timezone_id ([], (false, "America/New_York")) ;
            `Lastmod ([], (to_ptime (2005, 08, 09) (05, 00, 00), true)) ;
            `Tzurl ([], Uri.of_string "http://zones.example.com/tz/America-New_York.ics") ;
            `Standard [
@@ -1986,7 +1986,7 @@ END:VCALENDAR
 |} and expected =
      Ok ([],
          [ `Timezone [
-               `Tzid ([], (false, "Fictitious")) ;
+               `Timezone_id ([], (false, "Fictitious")) ;
                `Lastmod ([], (to_ptime (1987, 01, 01) (00, 00, 00), true)) ;
                `Standard [
                  `Dtstart ([], `Datetime (to_ptime (1967, 10, 29) (02, 00, 00), false)) ;
@@ -2037,7 +2037,7 @@ END:VCALENDAR
 |} and expected =
      Ok ([], [
          `Timezone [
-           `Tzid ([], (false, "Fictitious")) ;
+           `Timezone_id ([], (false, "Fictitious")) ;
            `Lastmod ([], (to_ptime (1987, 01, 01) (00, 00, 00), true)) ;
            `Standard [
              `Dtstart ([], `Datetime (to_ptime (1967, 10, 29) (02, 00, 00), false)) ;
