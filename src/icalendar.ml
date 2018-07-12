@@ -317,10 +317,10 @@ type calendar = calprop list * component list [@@deriving eq, show]
 
 let params_to_tzid (params : icalparameter list) =
   let find_tzid_param acc = function 
-     | `Tzid (_, tzid) -> tzid :: acc
+     | `Tzid (_, tzid) -> Astring.String.Set.add tzid acc
      | _ -> acc in
-  List.fold_left find_tzid_param [] params
- 
+  List.fold_left find_tzid_param Astring.String.Set.empty params
+
 let collect_tzids (comp: component) = 
   let params = match comp with
   | `Event (props, alarms) -> List.map eventprop_to_params props
