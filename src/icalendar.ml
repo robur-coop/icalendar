@@ -470,7 +470,7 @@ module Writer = struct
       let r = match r with `Start -> "START" | `End -> "END" in
       write_kv "RELATED" r
 
-  let write_line buf name params write_value =
+  let write_line cr buf name params write_value =
     let write = Buffer.add_string buf in
     let write_char = Buffer.add_char buf in
     write name ;
@@ -480,7 +480,9 @@ module Writer = struct
       params ;
     write_char ':' ;
     write_value buf ;
-    write "\r\n"
+    if cr then
+      write_char '\r' ;
+    write_char '\n'
 
   let write_string str buf = Buffer.add_string buf str
 
@@ -495,23 +497,23 @@ module Writer = struct
     | `Method _ -> "METHOD"
     | #other_prop as x -> other_prop_to_ics_key x
 
-  let other_prop_to_ics buf prop = 
+  let other_prop_to_ics cr buf prop = 
     let key = other_prop_to_ics_key prop in
     match prop with
-    | `Iana_prop (_, params, value) -> write_line buf key params (write_string value)
-    | `Xprop (_, params, value) -> write_line buf key params (write_string value)
+    | `Iana_prop (_, params, value) -> write_line cr buf key params (write_string value)
+    | `Xprop (_, params, value) -> write_line cr buf key params (write_string value)
 
-  let calprop_to_ics buf prop =
+  let calprop_to_ics cr buf prop =
     let key = calprop_to_ics_key prop in
-    let output = write_line buf key in
+    let output = write_line cr buf key in
     match prop with
     | `Prodid (params, value) -> output params (write_string value)
     | `Version (params, value) -> output params (write_string value)
     | `Calscale (params, value) -> output params (write_string value)
     | `Method (params, value) -> output params (write_string value)
-    | #other_prop as x -> other_prop_to_ics buf x
+    | #other_prop as x -> other_prop_to_ics cr buf x
 
-  let calprops_to_ics buf props = List.iter (calprop_to_ics buf) props
+  let calprops_to_ics cr buf props = List.iter (calprop_to_ics cr buf) props
 
   let duration_to_ics dur buf =
     if dur < 0 then Buffer.add_char buf '-' ;
@@ -562,26 +564,26 @@ module Writer = struct
   let datetime_to_ics datetime buf =
     Buffer.add_string buf (datetime_to_str datetime)
 
-  let duration_repeat_to_ics buf = function
+  let duration_repeat_to_ics cr buf = function
     | None -> ()
     | Some ((durparams, dur), (repparams, rep)) ->
-      write_line buf "DURATION" durparams (duration_to_ics dur) ;
-      write_line buf "REPEAT" repparams (write_string (string_of_int rep))
+      write_line cr buf "DURATION" durparams (duration_to_ics dur) ;
+      write_line cr buf "REPEAT" repparams (write_string (string_of_int rep))
 
-  let attach_to_ics buf = function
+  let attach_to_ics cr buf = function
     | None -> ()
     | Some (params, value) ->
       let value' = match value with
         | `Uri uri -> Uri.to_string uri
         | `Binary s -> s
       in
-      write_line buf "ATTACH" params (write_string value')
+      write_line cr buf "ATTACH" params (write_string value')
 
-  let description_to_ics buf (params, desc) =
-    write_line buf "DESCRIPTION" params (write_string desc)
+  let description_to_ics cr buf (params, desc) =
+    write_line cr buf "DESCRIPTION" params (write_string desc)
 
-  let summary_to_ics buf (params, summary) =
-    write_line buf "SUMMARY" params (write_string summary)
+  let summary_to_ics cr buf (params, summary) =
+    write_line cr buf "SUMMARY" params (write_string summary)
 
   let date_or_time_to_ics dt buf = match dt with
     | `Date d -> date_to_ics buf d
@@ -639,8 +641,8 @@ module Writer = struct
         recur_to_ics buf recur)
       l
 
-  let attendee_to_ics buf (params, uri) =
-    write_line buf "ATTENDEE" params (write_string (Uri.to_string uri))
+  let attendee_to_ics cr buf (params, uri) =
+    write_line cr buf "ATTENDEE" params (write_string (Uri.to_string uri))
 
   let generalprop_to_ics_key = function
     | `Dtstamp (params, ts) -> "DTSTAMP"
@@ -672,17 +674,16 @@ module Writer = struct
     | `Resource (params, res) -> "RESOURCE"
     | `Rdate (params, dates_or_times_or_periods) -> "RDATE"
 
-
-  let generalprop_to_ics buf prop = 
+  let generalprop_to_ics cr buf prop = 
     let key = generalprop_to_ics_key prop in
-    let output params v = write_line buf key params v in
+    let output params v = write_line cr buf key params v in
     match prop with
     | `Dtstamp (params, ts) -> output params (datetime_to_ics ts)
     | `Uid (params, str) -> output params (write_string str)
     | `Dtstart (params, date_or_time) -> output params (date_or_time_to_ics date_or_time)
     | `Class (params, class_) -> output params (write_string (List.assoc class_ class_strings))
     | `Created (params, ts) -> output params (datetime_to_ics ts)
-    | `Description desc -> description_to_ics buf desc
+    | `Description desc -> description_to_ics cr buf desc
     | `Geo (params, (lat, lon)) ->
       output params (fun buf ->
           Buffer.add_string buf (string_of_float lat) ;
@@ -694,13 +695,13 @@ module Writer = struct
     | `Priority (params, prio) -> output params (write_string (string_of_int prio))
     | `Seq (params, seq) -> output params (write_string (string_of_int seq))
     | `Status (params, status) -> output params (write_string (List.assoc status status_strings))
-    | `Summary summary -> summary_to_ics buf summary
+    | `Summary summary -> summary_to_ics cr buf summary
     | `Url (params, uri) -> output params (write_string Uri.(pct_decode (to_string uri)))
     | `Recur_id (params, date_or_time) -> output params (date_or_time_to_ics date_or_time)
     | `Rrule (params, recurs) -> output params (recurs_to_ics recurs)
     | `Duration (params, dur) -> output params (duration_to_ics dur)
-    | `Attach att -> attach_to_ics buf (Some att)
-    | `Attendee att -> attendee_to_ics buf att
+    | `Attach att -> attach_to_ics cr buf (Some att)
+    | `Attendee att -> attendee_to_ics cr buf att
     | `Categories (params, cats) ->
       let cat = String.concat "," cats in
       output params (write_string cat)
@@ -740,17 +741,17 @@ module Writer = struct
     | `Transparency _ -> "TRANSP"
     | `Dtend _ -> "DTEND"
 
-  let eventprop_to_ics buf (prop: eventprop) =
+  let eventprop_to_ics cr buf (prop: eventprop) =
     let key = eventprop_to_ics_key prop in
     match prop with
-    | #generalprop as x -> generalprop_to_ics buf x
-    | #other_prop as x -> other_prop_to_ics buf x
-    | `Transparency (params, transp) -> write_line buf key params (write_string (List.assoc transp transp_strings))
-    | `Dtend (params, date_or_time) -> write_line buf key params (date_or_time_to_ics date_or_time)
+    | #generalprop as x -> generalprop_to_ics cr buf x
+    | #other_prop as x -> other_prop_to_ics cr buf x
+    | `Transparency (params, transp) -> write_line cr buf key params (write_string (List.assoc transp transp_strings))
+    | `Dtend (params, date_or_time) -> write_line cr buf key params (date_or_time_to_ics date_or_time)
 
-  let eventprops_to_ics buf props = List.iter (eventprop_to_ics buf) props
+  let eventprops_to_ics cr buf props = List.iter (eventprop_to_ics cr buf) props
 
-  let attendees_to_ics buf xs = List.iter (attendee_to_ics buf) xs
+  let attendees_to_ics cr buf xs = List.iter (attendee_to_ics cr buf) xs
 
   let todoprop_to_ics_key = function
     | #generalprop as x -> generalprop_to_ics_key x
@@ -759,20 +760,20 @@ module Writer = struct
     | `Percent _ -> "PERCENT"
     | `Due _ -> "DUE"
 
-  let todoprop_to_ics buf prop =
+  let todoprop_to_ics cr buf prop =
     let key = todoprop_to_ics_key prop in
     match prop with
-    | #generalprop as x -> generalprop_to_ics buf x
-    | #other_prop as x -> other_prop_to_ics buf x
-    | `Completed (params, ts) -> write_line buf key params (datetime_to_ics ts)
-    | `Percent (params, pct) -> write_line buf key params (write_string (string_of_int pct))
-    | `Due (params, date_or_time) -> write_line buf key params (date_or_time_to_ics date_or_time)
+    | #generalprop as x -> generalprop_to_ics cr buf x
+    | #other_prop as x -> other_prop_to_ics cr buf x
+    | `Completed (params, ts) -> write_line cr buf key params (datetime_to_ics ts)
+    | `Percent (params, pct) -> write_line cr buf key params (write_string (string_of_int pct))
+    | `Due (params, date_or_time) -> write_line cr buf key params (date_or_time_to_ics date_or_time)
 
-  let todoprops_to_ics buf props = List.iter (todoprop_to_ics buf) props
+  let todoprops_to_ics cr buf props = List.iter (todoprop_to_ics cr buf) props
 
-  let alarm_to_ics buf alarm =
+  let alarm_to_ics cr buf alarm =
     (* TODO: output alarm.other field *)
-    write_line buf "BEGIN" [] (write_string "VALARM") ;
+    write_line cr buf "BEGIN" [] (write_string "VALARM") ;
     let write_trigger buf trig =
       let params, print = match trig with
         | (params, `Duration d) ->
@@ -780,38 +781,38 @@ module Writer = struct
         | (params, `Datetime dt) ->
           (params, (datetime_to_ics dt))
       in
-      write_line buf "TRIGGER" params print
+      write_line cr buf "TRIGGER" params print
     in
     (match alarm with
      | `Audio (audio : audio_struct alarm_struct) ->
-       write_line buf "ACTION" [] (write_string "AUDIO") ;
+       write_line cr buf "ACTION" [] (write_string "AUDIO") ;
        write_trigger buf audio.trigger ;
-       duration_repeat_to_ics buf audio.duration_repeat ;
-       attach_to_ics buf audio.special.attach
+       duration_repeat_to_ics cr buf audio.duration_repeat ;
+       attach_to_ics cr buf audio.special.attach
      | `Display (display : display_struct alarm_struct) ->
-       write_line buf "ACTION" [] (write_string "DISPLAY") ;
+       write_line cr buf "ACTION" [] (write_string "DISPLAY") ;
        write_trigger buf display.trigger ;
-       duration_repeat_to_ics buf display.duration_repeat ;
-       description_to_ics buf display.special.description
+       duration_repeat_to_ics cr buf display.duration_repeat ;
+       description_to_ics cr buf display.special.description
      | `Email email ->
-       write_line buf "ACTION" [] (write_string "EMAIL") ;
+       write_line cr buf "ACTION" [] (write_string "EMAIL") ;
        write_trigger buf email.trigger ;
-       duration_repeat_to_ics buf email.duration_repeat ;
-       attach_to_ics buf email.special.attach ;
-       description_to_ics buf email.special.description ;
-       summary_to_ics buf email.special.summary ;
-       attendees_to_ics buf email.special.attendees ) ;
-    write_line buf "END" [] (write_string "VALARM")
+       duration_repeat_to_ics cr buf email.duration_repeat ;
+       attach_to_ics cr buf email.special.attach ;
+       description_to_ics cr buf email.special.description ;
+       summary_to_ics cr buf email.special.summary ;
+       attendees_to_ics cr buf email.special.attendees ) ;
+    write_line cr buf "END" [] (write_string "VALARM")
 
-  let alarms_to_ics buf alarms = List.iter (alarm_to_ics buf) alarms
+  let alarms_to_ics cr buf alarms = List.iter (alarm_to_ics cr buf) alarms
 
-  let event_to_ics buf eventprops alarms =
-    eventprops_to_ics buf eventprops ;
-    alarms_to_ics buf alarms
+  let event_to_ics cr buf eventprops alarms =
+    eventprops_to_ics cr buf eventprops ;
+    alarms_to_ics cr buf alarms
 
-  let todo_to_ics buf todoprops alarms =
-    todoprops_to_ics buf todoprops ;
-    alarms_to_ics buf alarms
+  let todo_to_ics cr buf todoprops alarms =
+    todoprops_to_ics cr buf todoprops ;
+    alarms_to_ics cr buf alarms
 
   let span_to_string span =
     match Ptime.Span.to_int_s span with
@@ -824,19 +825,19 @@ module Writer = struct
       Printf.sprintf "%s%02d%02d%s" sign hours minutes
         (if seconds = 0 then "" else Printf.sprintf "%02d" seconds)
 
-  let tzprop_to_ics buf = function
-    | `Dtstart (params, date_or_time) -> write_line buf "DTSTART" params (date_or_time_to_ics date_or_time)
-    | `Tzoffset_to (params, span) -> write_line buf "TZOFFSETTO" params (write_string (span_to_string span))
-    | `Tzoffset_from (params, span) -> write_line buf "TZOFFSETFROM" params (write_string (span_to_string span))
-    | `Rrule (params, recurs) -> write_line buf "RRULE" params (recurs_to_ics recurs)
-    | `Comment (params, comment) -> write_line buf "COMMENT" params (write_string comment)
+  let tzprop_to_ics cr buf = function
+    | `Dtstart (params, date_or_time) -> write_line cr buf "DTSTART" params (date_or_time_to_ics date_or_time)
+    | `Tzoffset_to (params, span) -> write_line cr buf "TZOFFSETTO" params (write_string (span_to_string span))
+    | `Tzoffset_from (params, span) -> write_line cr buf "TZOFFSETFROM" params (write_string (span_to_string span))
+    | `Rrule (params, recurs) -> write_line cr buf "RRULE" params (recurs_to_ics recurs)
+    | `Comment (params, comment) -> write_line cr buf "COMMENT" params (write_string comment)
     | `Rdate (params, dates_or_times_or_periods) ->
-      write_line buf "RDATE" params
+      write_line cr buf "RDATE" params
         (dates_or_times_or_periods_to_ics dates_or_times_or_periods)
-    | `Tzname (params, id) -> write_line buf "TZNAME" params (write_string id)
-    | #other_prop as x -> other_prop_to_ics buf x
+    | `Tzname (params, id) -> write_line cr buf "TZNAME" params (write_string id)
+    | #other_prop as x -> other_prop_to_ics cr buf x
 
-  let tzprops_to_ics buf tzprops = List.iter (tzprop_to_ics buf) tzprops
+  let tzprops_to_ics cr buf tzprops = List.iter (tzprop_to_ics cr buf) tzprops
 
   let timezoneprop_to_ics_key = function
     | `Timezone_id _ -> "TZID"
@@ -846,21 +847,21 @@ module Writer = struct
     | `Daylight tzprops -> "DAYLIGHT"
     | #other_prop as x -> other_prop_to_ics_key x
 
-  let timezone_prop_to_ics buf = function
+  let timezone_prop_to_ics cr buf = function
     | `Timezone_id (params, (prefix, name)) ->
       let value = Printf.sprintf "%s%s" (if prefix then "/" else "") name in
-      write_line buf "TZID" params (write_string value)
-    | `Lastmod (params, ts) -> write_line buf "LAST-MODIFIED" params (datetime_to_ics ts)
-    | `Tzurl (params, uri) -> write_line buf "TZURL" params (write_string (Uri.to_string uri))
+      write_line cr buf "TZID" params (write_string value)
+    | `Lastmod (params, ts) -> write_line cr buf "LAST-MODIFIED" params (datetime_to_ics ts)
+    | `Tzurl (params, uri) -> write_line cr buf "TZURL" params (write_string (Uri.to_string uri))
     | `Standard tzprops ->
-      write_line buf "BEGIN" [] (write_string "STANDARD") ;
-      tzprops_to_ics buf tzprops ;
-      write_line buf "END" [] (write_string "STANDARD")
+      write_line cr buf "BEGIN" [] (write_string "STANDARD") ;
+      tzprops_to_ics cr buf tzprops ;
+      write_line cr buf "END" [] (write_string "STANDARD")
     | `Daylight tzprops ->
-      write_line buf "BEGIN" [] (write_string "DAYLIGHT") ;
-      tzprops_to_ics buf tzprops ;
-      write_line buf "END" [] (write_string "DAYLIGHT")
-    | #other_prop as x -> other_prop_to_ics buf x
+      write_line cr buf "BEGIN" [] (write_string "DAYLIGHT") ;
+      tzprops_to_ics cr buf tzprops ;
+      write_line cr buf "END" [] (write_string "DAYLIGHT")
+    | #other_prop as x -> other_prop_to_ics cr buf x
 
   let freebusyprop_to_ics_key = function
     | #generalprop as x -> generalprop_to_ics_key x
@@ -868,40 +869,40 @@ module Writer = struct
     | `Dtend _ -> "DTEND"
     | `Freebusy _ -> "FREEBUSY"
  
-  let freebusy_prop_to_ics buf prop = 
+  let freebusy_prop_to_ics cr buf prop = 
     let key = freebusyprop_to_ics_key prop in
     match prop with
-    | `Freebusy (params, periods) -> write_line buf key params (fun buf -> List.iter (period_to_ics buf) periods)
-    | `Dtend (params, date_or_time) -> write_line buf key params (date_or_time_to_ics date_or_time)
-    | #generalprop as x -> generalprop_to_ics buf x
-    | #other_prop as x -> other_prop_to_ics buf x
+    | `Freebusy (params, periods) -> write_line cr buf key params (fun buf -> List.iter (period_to_ics buf) periods)
+    | `Dtend (params, date_or_time) -> write_line cr buf key params (date_or_time_to_ics date_or_time)
+    | #generalprop as x -> generalprop_to_ics cr buf x
+    | #other_prop as x -> other_prop_to_ics cr buf x
 
-  let timezone_to_ics buf props = List.iter (timezone_prop_to_ics buf) props
+  let timezone_to_ics cr buf props = List.iter (timezone_prop_to_ics cr buf) props
 
-  let freebusy_to_ics buf props = List.iter (freebusy_prop_to_ics buf) props
+  let freebusy_to_ics cr buf props = List.iter (freebusy_prop_to_ics cr buf) props
 
-  let component_to_ics buf comp =
+  let component_to_ics cr buf comp =
     let key = component_to_ics_key comp in
-    write_line buf "BEGIN" [] (write_string key) ;
+    write_line cr buf "BEGIN" [] (write_string key) ;
     (match comp with
-     | `Event (eventprops, alarms) -> event_to_ics buf eventprops alarms
-     | `Timezone tzprops -> timezone_to_ics buf tzprops
-     | `Freebusy fbprops -> freebusy_to_ics buf fbprops
-     | `Todo (todoprops, alarms) -> todo_to_ics buf todoprops alarms) ;
-    write_line buf "END" [] (write_string key)
+     | `Event (eventprops, alarms) -> event_to_ics cr buf eventprops alarms
+     | `Timezone tzprops -> timezone_to_ics cr buf tzprops
+     | `Freebusy fbprops -> freebusy_to_ics cr buf fbprops
+     | `Todo (todoprops, alarms) -> todo_to_ics cr buf todoprops alarms) ;
+    write_line cr buf "END" [] (write_string key)
 
-  let components_to_ics buf comps = List.iter (component_to_ics buf) comps
+  let components_to_ics cr buf comps = List.iter (component_to_ics cr buf) comps
 
-  let calendar_to_ics buf (props, comps) =
-    write_line buf "BEGIN" [] (write_string "VCALENDAR") ;
-    calprops_to_ics buf props ;
-    components_to_ics buf comps ;
-    write_line buf "END" [] (write_string "VCALENDAR")
+  let calendar_to_ics cr buf (props, comps) =
+    write_line cr buf "BEGIN" [] (write_string "VCALENDAR") ;
+    calprops_to_ics cr buf props ;
+    components_to_ics cr buf comps ;
+    write_line cr buf "END" [] (write_string "VCALENDAR")
 end
 
-let to_ics calendar =
+let to_ics ?(cr = true) calendar =
   let buf = Buffer.create 1023 in
-  Writer.calendar_to_ics buf calendar ;
+  Writer.calendar_to_ics cr buf calendar ;
   Buffer.contents buf
 
 open Angstrom

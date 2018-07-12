@@ -257,7 +257,7 @@ val parse_datetime: string -> (Ptime.t * bool, string) result
 val parse : string -> (calendar, string) result
 val pp : calendar Fmt.t
 
-val to_ics : calendar -> string
+val to_ics : ?cr:bool -> calendar -> string
 
 module Writer : sig
   val duration_to_ics : int -> Buffer.t -> unit
