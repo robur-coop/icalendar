@@ -88,7 +88,6 @@ type recur = [
   | `Byweek of int list
   | `Byyearday of int list
   | `Count of int
-  | `Frequency of [ `Daily | `Hourly | `Minutely | `Monthly | `Secondly | `Weekly | `Yearly ]
   | `Interval of int
   | `Until of Ptime.t * bool
   | `Weekday of weekday
@@ -127,6 +126,8 @@ type freebusyprop = [
   | other_prop 
 ] [@@deriving eq, show]
 
+type freq = [ `Daily | `Hourly | `Minutely | `Monthly | `Secondly | `Weekly | `Yearly ] [@@deriving eq, show]
+
 type generalprop = [
   | `Dtstamp of other_param list * (Ptime.t * bool)
   | `Uid of other_param list * string
@@ -145,7 +146,7 @@ type generalprop = [
   | `Url of other_param list * Uri.t
   | `Recur_id of [ other_param | `Tzid of bool * string | valuetypeparam | `Range of [ `Thisandfuture ] ] list *
                  [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Rrule of other_param list * recur list
+  | `Rrule of other_param list * freq * recur list
   | `Duration of other_param list * int
   | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | valuetypeparam | other_param ] list *
                [ `Uri of Uri.t | `Binary of string ]
@@ -224,7 +225,7 @@ type tzprop = [
     [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Tzoffset_to of other_param list * Ptime.Span.t
   | `Tzoffset_from of other_param list * Ptime.Span.t
-  | `Rrule of other_param list * recur list
+  | `Rrule of other_param list * freq * recur list
   | `Comment of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
   | `Rdate of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
               [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
@@ -259,61 +260,89 @@ type component = [
 
 type calendar = calprop list * component list [@@deriving eq, show]
 
+let next start freq = 
+  let (y, m, d), ((hh, mm, ss), offset) = Ptime.to_date_time start in
+  let dt = match freq with
+  | `Daily -> (y, m, d + 1), ((hh, mm, ss), offset)
+  | `Hourly -> (y, m, d), ((hh + 1, mm, ss), offset) 
+  | `Minutely -> (y, m, d), ((hh, mm + 1, ss), offset) 
+  | `Monthly -> (y, m + 1, d), ((hh, mm, ss), offset) 
+  | `Secondly -> (y, m, d), ((hh, mm, ss + 1), offset) 
+  | `Weekly -> (y, m, d + 7), ((hh, mm, ss), offset) 
+  | `Yearly -> (y + 1, m, d), ((hh, mm, ss), offset) 
+  in Ptime.of_date_time dt
+
+(*
+let in_timerange comp range = 
+  let recur_in_timerange freq recur start = 
+    let count = match List.find_opt (function `Count _ -> true | _ -> false) recur with
+    | None -> None
+    | Some (`Count c) -> Some c in
+    true in (*TODO*)
+  match comp with
+  | `Event (prop, _) -> begin 
+    match 
+      List.find_opt (function `Rrule _ -> true | _ -> false) prop, 
+      List.find_opt (function `Dtstart _ -> true | _ -> false) prop
+    with
+    | None, _ | _, None -> false
+    | Some (`Rrule (_, freq, recur)), Some (`Dtstart (_, start)) -> recur_in_timerange freq recur start end
+  | _ -> false 
+*)
+
+let other_prop_to_params : (other_prop -> [< icalparameter] list) = function 
+  | `Iana_prop (_, params, value) -> params
+  | `Xprop (_, params, value) -> params
 
 
-  let other_prop_to_params : (other_prop -> [< icalparameter] list) = function 
-    | `Iana_prop (_, params, value) -> params
-    | `Xprop (_, params, value) -> params
+let generalprop_to_params : (generalprop -> [< icalparameter] list) = function 
+  | `Dtstamp (params, _) -> (params :> icalparameter list)
+  | `Uid (params, _) -> (params :> icalparameter list)
+  | `Dtstart (params, _) -> (params :> icalparameter list)
+  | `Class (params, _) -> (params :> icalparameter list)
+  | `Created (params, _) -> (params :> icalparameter list)
+  | `Description (params, _) -> (params :> icalparameter list)
+  | `Geo (params, _)  -> (params :> icalparameter list)
+  | `Lastmod (params, _) -> (params :> icalparameter list)
+  | `Location (params, _) -> (params :> icalparameter list)
+  | `Organizer (params, _) -> (params :> icalparameter list)
+  | `Priority (params, _) -> (params :> icalparameter list)
+  | `Seq (params, _) -> (params :> icalparameter list)
+  | `Status (params, _) -> (params :> icalparameter list)
+  | `Summary (params, _) -> (params :> icalparameter list)
+  | `Url (params, _) -> (params :> icalparameter list)
+  | `Recur_id (params, _) -> (params :> icalparameter list)
+  | `Rrule (params, _, _) -> (params :> icalparameter list)
+  | `Duration (params, _) -> (params :> icalparameter list)
+  | `Attach (params, _) -> (params :> icalparameter list)
+  | `Attendee (params, _) -> (params :> icalparameter list)
+  | `Categories (params, _) -> (params :> icalparameter list)
+  | `Comment (params, _) -> (params :> icalparameter list)
+  | `Contact (params, _) -> (params :> icalparameter list)
+  | `Exdate (params, _) -> (params :> icalparameter list)
+  | `Rstatus (params, _) -> (params :> icalparameter list)
+  | `Related (params, _) -> (params :> icalparameter list)
+  | `Resource (params, _) -> (params :> icalparameter list)
+  | `Rdate (params, _) -> (params :> icalparameter list)
 
+let eventprop_to_params : eventprop -> icalparameter list = function
+  | #generalprop as x -> generalprop_to_params x
+  | #other_prop as x -> other_prop_to_params x
+  | `Transparency (params, transp) -> (params :> icalparameter list)
+  | `Dtend (params, date_or_time) -> (params :> icalparameter list)
 
-  let generalprop_to_params : (generalprop -> [< icalparameter] list) = function 
-    | `Dtstamp (params, _) -> (params :> icalparameter list)
-    | `Uid (params, _) -> (params :> icalparameter list)
-    | `Dtstart (params, _) -> (params :> icalparameter list)
-    | `Class (params, _) -> (params :> icalparameter list)
-    | `Created (params, _) -> (params :> icalparameter list)
-    | `Description (params, _) -> (params :> icalparameter list)
-    | `Geo (params, _)  -> (params :> icalparameter list)
-    | `Lastmod (params, _) -> (params :> icalparameter list)
-    | `Location (params, _) -> (params :> icalparameter list)
-    | `Organizer (params, _) -> (params :> icalparameter list)
-    | `Priority (params, _) -> (params :> icalparameter list)
-    | `Seq (params, _) -> (params :> icalparameter list)
-    | `Status (params, _) -> (params :> icalparameter list)
-    | `Summary (params, _) -> (params :> icalparameter list)
-    | `Url (params, _) -> (params :> icalparameter list)
-    | `Recur_id (params, _) -> (params :> icalparameter list)
-    | `Rrule (params, _) -> (params :> icalparameter list)
-    | `Duration (params, _) -> (params :> icalparameter list)
-    | `Attach (params, _) -> (params :> icalparameter list)
-    | `Attendee (params, _) -> (params :> icalparameter list)
-    | `Categories (params, _) -> (params :> icalparameter list)
-    | `Comment (params, _) -> (params :> icalparameter list)
-    | `Contact (params, _) -> (params :> icalparameter list)
-    | `Exdate (params, _) -> (params :> icalparameter list)
-    | `Rstatus (params, _) -> (params :> icalparameter list)
-    | `Related (params, _) -> (params :> icalparameter list)
-    | `Resource (params, _) -> (params :> icalparameter list)
-    | `Rdate (params, _) -> (params :> icalparameter list)
+let todoprop_to_params : todoprop -> icalparameter list = function
+  | #generalprop as x -> generalprop_to_params x
+  | #other_prop as x -> other_prop_to_params x
+  | `Completed (params, ts) -> (params :> icalparameter list)
+  | `Percent (params, pct) -> (params :> icalparameter list)
+  | `Due (params, date_or_time) -> (params :> icalparameter list)
 
-  let eventprop_to_params : eventprop -> icalparameter list = function
-    | #generalprop as x -> generalprop_to_params x
-    | #other_prop as x -> other_prop_to_params x
-    | `Transparency (params, transp) -> (params :> icalparameter list)
-    | `Dtend (params, date_or_time) -> (params :> icalparameter list)
-
-  let todoprop_to_params : todoprop -> icalparameter list = function
-    | #generalprop as x -> generalprop_to_params x
-    | #other_prop as x -> other_prop_to_params x
-    | `Completed (params, ts) -> (params :> icalparameter list)
-    | `Percent (params, pct) -> (params :> icalparameter list)
-    | `Due (params, date_or_time) -> (params :> icalparameter list)
-
-  let freebusyprop_to_params = function
-    | #generalprop as x -> generalprop_to_params x
-    | #other_prop as x -> other_prop_to_params x
-    | `Freebusy (params, periods) -> (params :> icalparameter list)
-    | `Dtend (params, date_or_time) -> (params :> icalparameter list)
+let freebusyprop_to_params = function
+  | #generalprop as x -> generalprop_to_params x
+  | #other_prop as x -> other_prop_to_params x
+  | `Freebusy (params, periods) -> (params :> icalparameter list)
+  | `Dtend (params, date_or_time) -> (params :> icalparameter list)
 
 let params_to_tzid (params : icalparameter list) =
   let find_tzid_param acc = function 
@@ -608,36 +637,36 @@ module Writer = struct
     | `Periods xs -> List.iter (period_to_ics buf) xs
 
 
-  let recur_to_ics buf =
+  let recurs_to_ics freq l buf =
     let write_rulepart key value =
       Buffer.add_string buf key ;
       Buffer.add_char buf '=' ;
-      Buffer.add_string buf value
-    and int_list l = String.concat "," @@ List.map string_of_int l in
-    function
-    | `Byminute byminlist -> write_rulepart "BYMINUTE" (int_list byminlist)
-    | `Byday bywdaylist ->
-      let wday (weeknumber, weekday) =
-        (if weeknumber = 0 then "" else string_of_int weeknumber) ^
-          List.assoc weekday weekday_strings
-      in
-      write_rulepart "BYDAY" (String.concat "," @@ List.map wday bywdaylist)
-    | `Byhour byhrlist -> write_rulepart "BYHOUR" (int_list byhrlist)
-    | `Bymonth bymolist -> write_rulepart "BYMONTH" (int_list bymolist)
-    | `Bymonthday bymodaylist -> write_rulepart "BYMONTHDAY" (int_list bymodaylist)
-    | `Bysecond byseclist -> write_rulepart "BYSECOND" (int_list byseclist)
-    | `Bysetposday bysplist -> write_rulepart "BYSETPOS" (int_list bysplist)
-    | `Byweek bywknolist -> write_rulepart "BYWEEKNO" (int_list bywknolist)
-    | `Byyearday byyrdaylist -> write_rulepart "BYYEARDAY" (int_list byyrdaylist)
-    | `Count c -> write_rulepart "COUNT" (string_of_int c)
-    | `Frequency f -> write_rulepart "FREQ" (List.assoc f freq_strings)
-    | `Interval i -> write_rulepart "INTERVAL" (string_of_int i)
-    | `Until enddate -> write_rulepart "UNTIL" (datetime_to_str enddate)
-    | `Weekday weekday -> write_rulepart "WKST" (List.assoc weekday weekday_strings)
-
-  let recurs_to_ics l buf =
-    List.iteri (fun idx recur ->
-        if idx > 0 then Buffer.add_char buf ';' ;
+      Buffer.add_string buf value in
+    let recur_to_ics buf =
+      let int_list l = String.concat "," @@ List.map string_of_int l in
+      function
+      | `Byminute byminlist -> write_rulepart "BYMINUTE" (int_list byminlist)
+      | `Byday bywdaylist ->
+        let wday (weeknumber, weekday) =
+          (if weeknumber = 0 then "" else string_of_int weeknumber) ^
+            List.assoc weekday weekday_strings
+        in
+        write_rulepart "BYDAY" (String.concat "," @@ List.map wday bywdaylist)
+      | `Byhour byhrlist -> write_rulepart "BYHOUR" (int_list byhrlist)
+      | `Bymonth bymolist -> write_rulepart "BYMONTH" (int_list bymolist)
+      | `Bymonthday bymodaylist -> write_rulepart "BYMONTHDAY" (int_list bymodaylist)
+      | `Bysecond byseclist -> write_rulepart "BYSECOND" (int_list byseclist)
+      | `Bysetposday bysplist -> write_rulepart "BYSETPOS" (int_list bysplist)
+      | `Byweek bywknolist -> write_rulepart "BYWEEKNO" (int_list bywknolist)
+      | `Byyearday byyrdaylist -> write_rulepart "BYYEARDAY" (int_list byyrdaylist)
+      | `Count c -> write_rulepart "COUNT" (string_of_int c)
+      | `Interval i -> write_rulepart "INTERVAL" (string_of_int i)
+      | `Until enddate -> write_rulepart "UNTIL" (datetime_to_str enddate)
+      | `Weekday weekday -> write_rulepart "WKST" (List.assoc weekday weekday_strings)
+    in
+    write_rulepart "FREQ" (List.assoc freq freq_strings) ;
+    List.iter (fun recur ->
+        Buffer.add_char buf ';' ;
         recur_to_ics buf recur)
       l
 
@@ -661,7 +690,7 @@ module Writer = struct
     | `Summary summary -> "SUMMARY"
     | `Url (params, uri) -> "URL"
     | `Recur_id (params, date_or_time) -> "RECURRENCE-ID"
-    | `Rrule (params, recurs) -> "RRULE"
+    | `Rrule (params, _, recurs) -> "RRULE"
     | `Duration (params, dur) -> "DURATION"
     | `Attach att -> "ATTACH" 
     | `Attendee att -> "ATTENDEE"
@@ -698,7 +727,7 @@ module Writer = struct
     | `Summary summary -> summary_to_ics cr buf summary
     | `Url (params, uri) -> output params (write_string Uri.(pct_decode (to_string uri)))
     | `Recur_id (params, date_or_time) -> output params (date_or_time_to_ics date_or_time)
-    | `Rrule (params, recurs) -> output params (recurs_to_ics recurs)
+    | `Rrule (params, freq, recurs) -> output params (recurs_to_ics freq recurs)
     | `Duration (params, dur) -> output params (duration_to_ics dur)
     | `Attach att -> attach_to_ics cr buf (Some att)
     | `Attendee att -> attendee_to_ics cr buf att
@@ -829,7 +858,7 @@ module Writer = struct
     | `Dtstart (params, date_or_time) -> write_line cr buf "DTSTART" params (date_or_time_to_ics date_or_time)
     | `Tzoffset_to (params, span) -> write_line cr buf "TZOFFSETTO" params (write_string (span_to_string span))
     | `Tzoffset_from (params, span) -> write_line cr buf "TZOFFSETFROM" params (write_string (span_to_string span))
-    | `Rrule (params, recurs) -> write_line cr buf "RRULE" params (recurs_to_ics recurs)
+    | `Rrule (params, freq, recurs) -> write_line cr buf "RRULE" params (recurs_to_ics freq recurs)
     | `Comment (params, comment) -> write_line cr buf "COMMENT" params (write_string comment)
     | `Rdate (params, dates_or_times_or_periods) ->
       write_line cr buf "RDATE" params
@@ -1070,7 +1099,11 @@ let recur =
    <|> ( string "BYMONTH=" *> (sep_by1 (char ',') monthnum) >>| fun m -> `Bymonth m )
    <|> ( string "BYSETPOS=" *> (sep_by1 (char ',') yeardaynum) >>| fun d -> `Bysetposday d )
    <|> ( string "WKST=" *> weekday >>| fun d -> `Weekday d ) in
-  sep_by1 (char ';') recur_rule_part
+  lift (fun l -> let freqs, rest = List.fold_left (fun (freqs, rest) -> function | `Frequency f -> (f :: freqs), rest | #recur as r -> freqs, r :: rest) ([], []) l in
+  match freqs with
+  | [ f ] -> f, List.rev rest
+  | _ -> raise Parse_error)
+  (sep_by1 (char ';') recur_rule_part)
 
 (* out in the wild *)
 let utcoffset =
@@ -1387,7 +1420,7 @@ let recurid =
        `Recur_id (a, b))
 
 let rrule =
-  propparser "RRULE" other_param recur (fun a b -> `Rrule (a, b))
+  propparser "RRULE" other_param recur (fun a (f, b) -> `Rrule (a, f, b))
 
 let dtend =
   let dtend_param = tzidparam <|> valuetypeparam <|> other_param in

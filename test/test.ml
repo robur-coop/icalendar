@@ -577,7 +577,7 @@ END:VCALENDAR
           `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
         [
           `Event
-            ([ `Rrule ([], [ `Frequency `Daily ; `Until (to_ptime (1997, 12, 24) (00, 00, 00), true)]) ;
+            ([ `Rrule ([], `Daily, [ `Until (to_ptime (1997, 12, 24) (00, 00, 00), true)]) ;
                `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
                `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
                `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
@@ -1851,7 +1851,7 @@ END:VCALENDAR
           `Lastmod ([], (to_ptime (2005, 08, 09) (05, 00, 00), true)) ;
           `Daylight [
             `Dtstart ([], `Datetime (to_ptime (1967, 04, 30) (02, 00, 00), false)) ;
-            `Rrule ([], [ `Frequency `Yearly ;
+            `Rrule ([], `Yearly, [
                           `Bymonth [4] ;
                           `Byday [(-1, `Sunday)] ;
                           `Until (to_ptime (1973, 04, 29) (07, 00, 00), true) ]) ;
@@ -1860,7 +1860,7 @@ END:VCALENDAR
             `Tzname ([], "EDT") ] ;
           `Standard [
             `Dtstart ([], `Datetime (to_ptime (1967, 10, 29) (02, 00, 00), false)) ;
-            `Rrule ([], [ `Frequency `Yearly ;
+            `Rrule ([], `Yearly, [
                           `Bymonth [10] ;
                           `Byday [(-1, `Sunday)] ;
                           `Until (to_ptime (2006, 10, 29) (06, 00, 00), true) ]) ;
@@ -1875,7 +1875,7 @@ END:VCALENDAR
             `Tzname ([], "EDT") ] ;
           `Daylight [
             `Dtstart ([], `Datetime (to_ptime (1976, 04, 25) (02, 00, 00), false)) ;
-            `Rrule ([], [ `Frequency `Yearly ;
+            `Rrule ([], `Yearly, [
                           `Bymonth [4] ;
                           `Byday [(-1, `Sunday)] ;
                           `Until (to_ptime (1986, 04, 27) (07, 00, 00), true) ]) ;
@@ -1884,7 +1884,7 @@ END:VCALENDAR
             `Tzname ([], "EDT") ] ;
           `Daylight [
             `Dtstart ([], `Datetime (to_ptime (1987, 04, 05) (02, 00, 00), false)) ;
-            `Rrule ([], [ `Frequency `Yearly ;
+            `Rrule ([], `Yearly, [
                           `Bymonth [4] ;
                           `Byday [(1, `Sunday)] ;
                           `Until (to_ptime (2006, 04, 02) (07, 00, 00), true) ]) ;
@@ -1893,7 +1893,7 @@ END:VCALENDAR
             `Tzname ([], "EDT") ] ;
           `Daylight [
             `Dtstart ([], `Datetime (to_ptime (2007, 03, 11) (02, 00, 00), false)) ;
-            `Rrule ([], [ `Frequency `Yearly ;
+            `Rrule ([], `Yearly, [
                           `Bymonth [3] ;
                           `Byday [(2, `Sunday)] ]) ;
             `Tzoffset_from ([], Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
@@ -1901,7 +1901,7 @@ END:VCALENDAR
             `Tzname ([], "EDT") ] ;
           `Standard [
             `Dtstart ([], `Datetime (to_ptime (2007, 11, 04) (02, 00, 00), false)) ;
-            `Rrule ([], [ `Frequency `Yearly ;
+            `Rrule ([], `Yearly, [
                           `Bymonth [11] ;
                           `Byday [(1, `Sunday)] ]) ;
             `Tzoffset_from ([], Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
@@ -1942,7 +1942,7 @@ END:VCALENDAR
            `Tzurl ([], Uri.of_string "http://zones.example.com/tz/America-New_York.ics") ;
            `Standard [
              `Dtstart ([], `Datetime (to_ptime (2007, 11, 04) (02, 00, 00), false)) ;
-             `Rrule ([], [ `Frequency `Yearly ;
+             `Rrule ([], `Yearly, [
                            `Bymonth [11] ;
                            `Byday [(1, `Sunday)] ]) ;
              `Tzoffset_from ([], Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
@@ -1950,8 +1950,8 @@ END:VCALENDAR
              `Tzname ([], "EST") ] ;
            `Daylight [
              `Dtstart ([], `Datetime (to_ptime (2007, 03, 11) (02, 00, 00), false)) ;
-             `Rrule ([], [
-                 `Frequency `Yearly ;
+             `Rrule ([],
+                 `Yearly, [
                  `Bymonth [3] ;
                  `Byday [(2, `Sunday)] ]) ;
              `Tzoffset_from ([], Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
@@ -1990,13 +1990,13 @@ END:VCALENDAR
                `Lastmod ([], (to_ptime (1987, 01, 01) (00, 00, 00), true)) ;
                `Standard [
                  `Dtstart ([], `Datetime (to_ptime (1967, 10, 29) (02, 00, 00), false)) ;
-                 `Rrule ([], [ `Frequency `Yearly ; `Byday [(-1, `Sunday)] ; `Bymonth [10]]) ;
+                 `Rrule ([], `Yearly, [ `Byday [(-1, `Sunday)] ; `Bymonth [10]]) ;
                  `Tzoffset_from ([], Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
                  `Tzoffset_to ([], Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
                  `Tzname ([], "EST") ] ;
                `Daylight [
                  `Dtstart ([], `Datetime (to_ptime (1987, 04, 05) (02, 00, 00), false)) ;
-                 `Rrule ([], [ `Frequency `Yearly ; `Byday [(1, `Sunday)] ; `Bymonth [4] ;
+                 `Rrule ([], `Yearly, [ `Byday [(1, `Sunday)] ; `Bymonth [4] ;
                                `Until (to_ptime (1998, 04, 04) (07, 00, 00), true) ]) ;
                  `Tzoffset_from ([], Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
                  `Tzoffset_to ([], Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
@@ -2041,19 +2041,19 @@ END:VCALENDAR
            `Lastmod ([], (to_ptime (1987, 01, 01) (00, 00, 00), true)) ;
            `Standard [
              `Dtstart ([], `Datetime (to_ptime (1967, 10, 29) (02, 00, 00), false)) ;
-             `Rrule ([], [ `Frequency `Yearly ; `Byday [(-1, `Sunday)] ; `Bymonth [10] ]) ;
+             `Rrule ([], `Yearly, [ `Byday [(-1, `Sunday)] ; `Bymonth [10] ]) ;
              `Tzoffset_from ([], Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
              `Tzoffset_to ([], Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
              `Tzname ([], "EST") ] ;
            `Daylight [
              `Dtstart ([], `Datetime (to_ptime (1987, 04, 05) (02, 00, 00), false)) ;
-             `Rrule ([], [ `Frequency `Yearly ; `Byday [(1, `Sunday)] ; `Bymonth [4]; `Until (to_ptime (1998, 04, 04) (07, 00, 00), true) ]) ;
+             `Rrule ([], `Yearly, [ `Byday [(1, `Sunday)] ; `Bymonth [4]; `Until (to_ptime (1998, 04, 04) (07, 00, 00), true) ]) ;
              `Tzoffset_from ([], Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
              `Tzoffset_to ([], Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
              `Tzname ([], "EDT") ] ;
            `Daylight [
              `Dtstart ([], `Datetime (to_ptime (1999, 04, 24) (02, 00, 00), false)) ;
-             `Rrule ([], [ `Frequency `Yearly ; `Byday [(-1, `Sunday)] ; `Bymonth [4] ]) ;
+             `Rrule ([], `Yearly, [ `Byday [(-1, `Sunday)] ; `Bymonth [4] ]) ;
              `Tzoffset_from ([], Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
              `Tzoffset_to ([], Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
              `Tzname ([], "EDT") ] ;

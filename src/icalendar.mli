@@ -1,5 +1,7 @@
 
-type weekday = [ `Friday | `Monday | `Saturday | `Sunday | `Thursday | `Tuesday | `Wednesday ]
+type weekday = [ `Friday | `Monday | `Saturday | `Sunday | `Thursday | `Tuesday | `Wednesday ] [@@deriving eq, show]
+
+type freq = [ `Daily | `Hourly | `Minutely | `Monthly | `Secondly | `Weekly | `Yearly ] [@@deriving eq, show]
 
 type recur = [
   | `Byminute of int list
@@ -12,7 +14,6 @@ type recur = [
   | `Byweek of int list
   | `Byyearday of int list
   | `Count of int
-  | `Frequency of [ `Daily | `Hourly | `Minutely | `Monthly | `Secondly | `Weekly | `Yearly ]
   | `Interval of int
   | `Until of Ptime.t * bool
   | `Weekday of weekday
@@ -106,7 +107,7 @@ type generalprop = [
   | `Url of other_param list * Uri.t
   | `Recur_id of [ other_param | `Tzid of bool * string | valuetypeparam | `Range of [ `Thisandfuture ] ] list *
                  [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Rrule of other_param list * recur list
+  | `Rrule of other_param list * freq * recur list
   | `Duration of other_param list * int
   | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | valuetypeparam | other_param ] list *
                [ `Uri of Uri.t | `Binary of string ]
@@ -187,7 +188,7 @@ type tzprop = [
     [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Tzoffset_to of other_param list * Ptime.Span.t
   | `Tzoffset_from of other_param list * Ptime.Span.t
-  | `Rrule of other_param list * recur list
+  | `Rrule of other_param list * freq * recur list
   | `Comment of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
   | `Rdate of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
               [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
@@ -247,6 +248,9 @@ type component = [
   | `Timezone of timezoneprop list
 ]
 
+(*
+val in_timerange : component -> (Ptime.t * bool) * (Ptime.t * bool) -> bool
+*)
 val component_to_ics_key : component -> string
 
 type calendar = calprop list * component list
