@@ -11,7 +11,6 @@ type recur = [
   | `Bysetposday of int list
   | `Byweek of int list
   | `Byyearday of int list
-  | `Interval of int
   | `Weekday of weekday
 ] [@@deriving eq, show]
 
@@ -22,7 +21,9 @@ type count_or_until = [
   | `Until of Ptime.t * bool
 ] [@@deriving eq, show]
 
-type recurrence = freq * count_or_until option * recur list [@@deriving eq, show]
+type interval = int
+
+type recurrence = freq * count_or_until option * interval option * recur list [@@deriving eq, show]
 
 type other_param =
   [ `Iana_param of string * string list

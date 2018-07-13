@@ -87,7 +87,6 @@ type recur = [
   | `Bysetposday of int list
   | `Byweek of int list
   | `Byyearday of int list
-  | `Interval of int
   | `Weekday of weekday
 ] [@@deriving eq, show]
 
@@ -98,7 +97,9 @@ type count_or_until = [
   | `Until of Ptime.t * bool
 ] [@@deriving eq, show]
 
-type recurrence = freq * count_or_until option * recur list [@@deriving eq, show]
+type interval = int [@@deriving eq, show]
+
+type recurrence = freq * count_or_until option * interval option * recur list [@@deriving eq, show]
 
 type class_ = [ `Public | `Private | `Confidential | `Ianatoken of string | `Xname of string * string ] [@@deriving eq, show]
 
@@ -642,7 +643,7 @@ module Writer = struct
     | `Periods xs -> List.iter (period_to_ics buf) xs
 
 
-  let recurs_to_ics (freq, count_or_until, l) buf =
+  let recurs_to_ics (freq, count_or_until, interval, l) buf =
     let write_rulepart key value =
       Buffer.add_string buf key ;
       Buffer.add_char buf '=' ;
@@ -664,7 +665,6 @@ module Writer = struct
       | `Bysetposday bysplist -> write_rulepart "BYSETPOS" (int_list bysplist)
       | `Byweek bywknolist -> write_rulepart "BYWEEKNO" (int_list bywknolist)
       | `Byyearday byyrdaylist -> write_rulepart "BYYEARDAY" (int_list byyrdaylist)
-      | `Interval i -> write_rulepart "INTERVAL" (string_of_int i)
       | `Weekday weekday -> write_rulepart "WKST" (List.assoc weekday weekday_strings)
     in
     write_rulepart "FREQ" (List.assoc freq freq_strings) ;
@@ -675,6 +675,11 @@ module Writer = struct
         match x with 
         | `Count c -> write_rulepart "COUNT" (string_of_int c)
         | `Until enddate -> write_rulepart "UNTIL" (datetime_to_str enddate) ) ;
+    ( match interval with
+      | None -> ()
+      | Some i -> 
+        Buffer.add_char buf ';' ;
+        write_rulepart "INTERVAL" (string_of_int i) ) ;
     List.iter (fun recur ->
         Buffer.add_char buf ';' ;
         recur_to_ics buf recur)
@@ -1110,15 +1115,23 @@ let recur =
    <|> ( string "BYSETPOS=" *> (sep_by1 (char ',') yeardaynum) >>| fun d -> `Bysetposday d )
    <|> ( string "WKST=" *> weekday >>| fun d -> `Weekday d ) in
   lift (fun l -> 
-    let freqs, count_or_until, rest = 
-      List.fold_left (fun (freqs, count_or_until, rest) -> 
-        function | `Frequency f -> (f :: freqs), count_or_until, rest 
-                 | `Count c -> freqs, `Count c :: count_or_until, rest
-                 | `Until u -> freqs, `Until u :: count_or_until, rest
-                 | #recur as r -> freqs, count_or_until, r :: rest) ([], [], []) l in
-    match freqs, count_or_until with
-    | [ f ], [] -> f, None, List.rev rest
-    | [ f ], [ cou ] -> f, Some cou, List.rev rest
+    let freqs, count_or_until, interval, rest = 
+      List.fold_left (fun (freqs, count_or_until, interval, rest) -> 
+        function | `Frequency f -> (f :: freqs), count_or_until, interval, rest 
+                 | `Count c -> freqs, `Count c :: count_or_until, interval, rest
+                 | `Until u -> freqs, `Until u :: count_or_until, interval, rest
+                 | `Interval i -> freqs, count_or_until, i :: interval, rest
+                 | #recur as r -> freqs, count_or_until, interval, r :: rest) ([], [], [], []) l in
+    let i' = match interval with
+    | [] -> None
+    | [ i ] -> Some i
+    | _ -> raise Parse_error in
+    let c' = match count_or_until with
+    | [] -> None
+    | [ c ] -> Some c
+    | _ -> raise Parse_error in
+    match freqs with
+    | [ f ] -> f, c', i', List.rev rest
     | _ -> raise Parse_error)
   (sep_by1 (char ';') recur_rule_part)
 
