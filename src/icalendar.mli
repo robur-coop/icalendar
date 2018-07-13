@@ -1,8 +1,6 @@
 
 type weekday = [ `Friday | `Monday | `Saturday | `Sunday | `Thursday | `Tuesday | `Wednesday ] [@@deriving eq, show]
 
-type freq = [ `Daily | `Hourly | `Minutely | `Monthly | `Secondly | `Weekly | `Yearly ] [@@deriving eq, show]
-
 type recur = [
   | `Byminute of int list
   | `Byday of (int * weekday) list
@@ -13,11 +11,18 @@ type recur = [
   | `Bysetposday of int list
   | `Byweek of int list
   | `Byyearday of int list
-  | `Count of int
   | `Interval of int
-  | `Until of Ptime.t * bool
   | `Weekday of weekday
 ] [@@deriving eq, show]
+
+type freq = [ `Daily | `Hourly | `Minutely | `Monthly | `Secondly | `Weekly | `Yearly ] [@@deriving eq, show]
+
+type count_or_until = [
+  | `Count of int
+  | `Until of Ptime.t * bool
+] [@@deriving eq, show]
+
+type recurrence = freq * count_or_until option * recur list [@@deriving eq, show]
 
 type other_param =
   [ `Iana_param of string * string list
@@ -107,7 +112,7 @@ type generalprop = [
   | `Url of other_param list * Uri.t
   | `Recur_id of [ other_param | `Tzid of bool * string | valuetypeparam | `Range of [ `Thisandfuture ] ] list *
                  [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Rrule of other_param list * freq * recur list
+  | `Rrule of other_param list * recurrence
   | `Duration of other_param list * int
   | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | valuetypeparam | other_param ] list *
                [ `Uri of Uri.t | `Binary of string ]
@@ -188,7 +193,7 @@ type tzprop = [
     [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Tzoffset_to of other_param list * Ptime.Span.t
   | `Tzoffset_from of other_param list * Ptime.Span.t
-  | `Rrule of other_param list * freq * recur list
+  | `Rrule of other_param list * recurrence
   | `Comment of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
   | `Rdate of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
               [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]

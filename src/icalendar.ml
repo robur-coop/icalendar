@@ -87,11 +87,18 @@ type recur = [
   | `Bysetposday of int list
   | `Byweek of int list
   | `Byyearday of int list
-  | `Count of int
   | `Interval of int
-  | `Until of Ptime.t * bool
   | `Weekday of weekday
 ] [@@deriving eq, show]
+
+type freq = [ `Daily | `Hourly | `Minutely | `Monthly | `Secondly | `Weekly | `Yearly ] [@@deriving eq, show]
+
+type count_or_until = [
+  | `Count of int
+  | `Until of Ptime.t * bool
+] [@@deriving eq, show]
+
+type recurrence = freq * count_or_until option * recur list [@@deriving eq, show]
 
 type class_ = [ `Public | `Private | `Confidential | `Ianatoken of string | `Xname of string * string ] [@@deriving eq, show]
 
@@ -126,8 +133,6 @@ type freebusyprop = [
   | other_prop 
 ] [@@deriving eq, show]
 
-type freq = [ `Daily | `Hourly | `Minutely | `Monthly | `Secondly | `Weekly | `Yearly ] [@@deriving eq, show]
-
 type generalprop = [
   | `Dtstamp of other_param list * (Ptime.t * bool)
   | `Uid of other_param list * string
@@ -146,7 +151,7 @@ type generalprop = [
   | `Url of other_param list * Uri.t
   | `Recur_id of [ other_param | `Tzid of bool * string | valuetypeparam | `Range of [ `Thisandfuture ] ] list *
                  [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Rrule of other_param list * freq * recur list
+  | `Rrule of other_param list * recurrence
   | `Duration of other_param list * int
   | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | valuetypeparam | other_param ] list *
                [ `Uri of Uri.t | `Binary of string ]
@@ -225,7 +230,7 @@ type tzprop = [
     [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Tzoffset_to of other_param list * Ptime.Span.t
   | `Tzoffset_from of other_param list * Ptime.Span.t
-  | `Rrule of other_param list * freq * recur list
+  | `Rrule of other_param list * recurrence
   | `Comment of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
   | `Rdate of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
               [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
@@ -312,7 +317,7 @@ let generalprop_to_params : (generalprop -> [< icalparameter] list) = function
   | `Summary (params, _) -> (params :> icalparameter list)
   | `Url (params, _) -> (params :> icalparameter list)
   | `Recur_id (params, _) -> (params :> icalparameter list)
-  | `Rrule (params, _, _) -> (params :> icalparameter list)
+  | `Rrule (params, _) -> (params :> icalparameter list)
   | `Duration (params, _) -> (params :> icalparameter list)
   | `Attach (params, _) -> (params :> icalparameter list)
   | `Attendee (params, _) -> (params :> icalparameter list)
@@ -637,7 +642,7 @@ module Writer = struct
     | `Periods xs -> List.iter (period_to_ics buf) xs
 
 
-  let recurs_to_ics freq l buf =
+  let recurs_to_ics (freq, count_or_until, l) buf =
     let write_rulepart key value =
       Buffer.add_string buf key ;
       Buffer.add_char buf '=' ;
@@ -659,12 +664,17 @@ module Writer = struct
       | `Bysetposday bysplist -> write_rulepart "BYSETPOS" (int_list bysplist)
       | `Byweek bywknolist -> write_rulepart "BYWEEKNO" (int_list bywknolist)
       | `Byyearday byyrdaylist -> write_rulepart "BYYEARDAY" (int_list byyrdaylist)
-      | `Count c -> write_rulepart "COUNT" (string_of_int c)
       | `Interval i -> write_rulepart "INTERVAL" (string_of_int i)
-      | `Until enddate -> write_rulepart "UNTIL" (datetime_to_str enddate)
       | `Weekday weekday -> write_rulepart "WKST" (List.assoc weekday weekday_strings)
     in
     write_rulepart "FREQ" (List.assoc freq freq_strings) ;
+    ( match count_or_until with
+      | None -> ()
+      | Some x -> 
+        Buffer.add_char buf ';' ;
+        match x with 
+        | `Count c -> write_rulepart "COUNT" (string_of_int c)
+        | `Until enddate -> write_rulepart "UNTIL" (datetime_to_str enddate) ) ;
     List.iter (fun recur ->
         Buffer.add_char buf ';' ;
         recur_to_ics buf recur)
@@ -690,7 +700,7 @@ module Writer = struct
     | `Summary summary -> "SUMMARY"
     | `Url (params, uri) -> "URL"
     | `Recur_id (params, date_or_time) -> "RECURRENCE-ID"
-    | `Rrule (params, _, recurs) -> "RRULE"
+    | `Rrule (params, _) -> "RRULE"
     | `Duration (params, dur) -> "DURATION"
     | `Attach att -> "ATTACH" 
     | `Attendee att -> "ATTENDEE"
@@ -727,7 +737,7 @@ module Writer = struct
     | `Summary summary -> summary_to_ics cr buf summary
     | `Url (params, uri) -> output params (write_string Uri.(pct_decode (to_string uri)))
     | `Recur_id (params, date_or_time) -> output params (date_or_time_to_ics date_or_time)
-    | `Rrule (params, freq, recurs) -> output params (recurs_to_ics freq recurs)
+    | `Rrule (params, recurs) -> output params (recurs_to_ics recurs)
     | `Duration (params, dur) -> output params (duration_to_ics dur)
     | `Attach att -> attach_to_ics cr buf (Some att)
     | `Attendee att -> attendee_to_ics cr buf att
@@ -858,7 +868,7 @@ module Writer = struct
     | `Dtstart (params, date_or_time) -> write_line cr buf "DTSTART" params (date_or_time_to_ics date_or_time)
     | `Tzoffset_to (params, span) -> write_line cr buf "TZOFFSETTO" params (write_string (span_to_string span))
     | `Tzoffset_from (params, span) -> write_line cr buf "TZOFFSETFROM" params (write_string (span_to_string span))
-    | `Rrule (params, freq, recurs) -> write_line cr buf "RRULE" params (recurs_to_ics freq recurs)
+    | `Rrule (params, recurs) -> write_line cr buf "RRULE" params (recurs_to_ics recurs)
     | `Comment (params, comment) -> write_line cr buf "COMMENT" params (write_string comment)
     | `Rdate (params, dates_or_times_or_periods) ->
       write_line cr buf "RDATE" params
@@ -1099,10 +1109,17 @@ let recur =
    <|> ( string "BYMONTH=" *> (sep_by1 (char ',') monthnum) >>| fun m -> `Bymonth m )
    <|> ( string "BYSETPOS=" *> (sep_by1 (char ',') yeardaynum) >>| fun d -> `Bysetposday d )
    <|> ( string "WKST=" *> weekday >>| fun d -> `Weekday d ) in
-  lift (fun l -> let freqs, rest = List.fold_left (fun (freqs, rest) -> function | `Frequency f -> (f :: freqs), rest | #recur as r -> freqs, r :: rest) ([], []) l in
-  match freqs with
-  | [ f ] -> f, List.rev rest
-  | _ -> raise Parse_error)
+  lift (fun l -> 
+    let freqs, count_or_until, rest = 
+      List.fold_left (fun (freqs, count_or_until, rest) -> 
+        function | `Frequency f -> (f :: freqs), count_or_until, rest 
+                 | `Count c -> freqs, `Count c :: count_or_until, rest
+                 | `Until u -> freqs, `Until u :: count_or_until, rest
+                 | #recur as r -> freqs, count_or_until, r :: rest) ([], [], []) l in
+    match freqs, count_or_until with
+    | [ f ], [] -> f, None, List.rev rest
+    | [ f ], [ cou ] -> f, Some cou, List.rev rest
+    | _ -> raise Parse_error)
   (sep_by1 (char ';') recur_rule_part)
 
 (* out in the wild *)
@@ -1420,7 +1437,7 @@ let recurid =
        `Recur_id (a, b))
 
 let rrule =
-  propparser "RRULE" other_param recur (fun a (f, b) -> `Rrule (a, f, b))
+  propparser "RRULE" other_param recur (fun a b -> `Rrule (a, b))
 
 let dtend =
   let dtend_param = tzidparam <|> valuetypeparam <|> other_param in
