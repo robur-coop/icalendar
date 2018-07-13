@@ -475,7 +475,7 @@ module Writer = struct
     let write_char = Buffer.add_char buf in
     write name ;
     List.iteri (fun idx param ->
-        write_char (if idx = 0 then ';' else ',')  ;
+        write_char ';' ;
         write_param buf param)
       params ;
     write_char ':' ;
