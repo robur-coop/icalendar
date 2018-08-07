@@ -2257,6 +2257,7 @@ let tests = [
   "Timezone tests", timezone_tests ;
   "Decode-Encode tests", decode_encode_tests ;
   "Freebusy tests", freebusy_tests ;
+  "Recurrence tests", Test_recur.tests ;
 ]
 
 let () =
