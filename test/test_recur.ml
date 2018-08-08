@@ -12,22 +12,22 @@ let p =
 
 (* from RFC 5545 section 3.8.5.3, but using UTC as timezone *)
 let ex_1 () =
-  let start = (1997, 09, 02)
+  let date = (1997, 09, 02)
   and time = (09, 00, 00)
   and rrule = (`Daily, Some (`Count 10), None, [])
-  and res = [
+  and res_dates = [
     (1997, 09, 02) ; (1997, 09, 03) ; (1997, 09, 04) ; (1997, 09, 05) ;
     (1997, 09, 06) ; (1997, 09, 07) ; (1997, 09, 08) ; (1997, 09, 09) ;
     (1997, 09, 10) ; (1997, 09, 11)
   ]
   in
   Alcotest.(check (list p) "compute occurences example 1"
-              (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (List.map (fun d -> to_ptime d time) res_dates)
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_2 () =
   (* modified end: october instead of december *)
-  let start = (1997, 09, 02)
+  let date = (1997, 09, 02)
   and time = (09, 00, 00)
   and rrule = (`Daily, Some (`Until (to_ptime (1997, 10, 24) (00, 00, 00), true)), None, [])
   and res = [
@@ -48,11 +48,11 @@ let ex_2 () =
   in
   Alcotest.(check (list p) "compute occurences example 2"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_3 () =
   (* "every other day - forever" <- won't terminate atm, introduced a count *)
-  let start = (1997, 09, 02)
+  let date = (1997, 09, 02)
   and time = (09, 00, 00)
   and rrule = (`Daily, Some (`Count 10), Some 2, [])
   and res = [
@@ -63,17 +63,17 @@ let ex_3 () =
   in
   Alcotest.(check (list p) "compute occurences example 3"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule)) ;
+              (Recurrence.all (to_ptime date time) rrule)) ;
   (* same with until *)
   let rrule' =
     (`Daily, Some (`Until (to_ptime (1997, 09, 20) (10, 00, 00), true)), Some 2, [])
   in
   Alcotest.(check (list p) "compute occurences example 3"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule'))
+              (Recurrence.all (to_ptime date time) rrule'))
 
 let ex_4 () =
-  let start = (1997, 09, 02)
+  let date = (1997, 09, 02)
   and time = (09, 00, 00)
   and rrule = (`Daily, Some (`Count 5), Some 10, [])
   and res = [
@@ -83,10 +83,10 @@ let ex_4 () =
   in
   Alcotest.(check (list p) "compute occurences example 4"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_5 () =
-  let start = (1998, 01, 01)
+  let date = (1998, 01, 01)
   and time = (09, 00, 00)
   and rrule = (`Daily, Some (`Until (to_ptime (2000, 01, 31) (14, 00, 00), true)), None, [ `Bymonth [ 1 ]])
   and res = [
@@ -118,7 +118,7 @@ let ex_5 () =
   in
   Alcotest.(check (list p) "compute occurences example 5"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule)) ;
+              (Recurrence.all (to_ptime date time) rrule)) ;
   let all_days = [
     (0, `Sunday) ; (0, `Monday) ; (0, `Tuesday) ; (0, `Wednesday) ;
     (0, `Thursday) ; (0, `Friday) ; (0, `Saturday)
@@ -130,10 +130,10 @@ let ex_5 () =
   in
   Alcotest.(check (list p) "compute occurences example 5"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule'))
+              (Recurrence.all (to_ptime date time) rrule'))
 
 let ex_6 () =
-  let start = (1997, 09, 02)
+  let date = (1997, 09, 02)
   and time = (09, 00, 00)
   and rrule = (`Weekly, Some (`Count 10), None, [])
   and res = [
@@ -144,10 +144,10 @@ let ex_6 () =
   in
   Alcotest.(check (list p) "compute occurences example 6"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_7 () =
-  let start = (1997, 09, 02)
+  let date = (1997, 09, 02)
   and time = (09, 00, 00)
   and rrule = (`Weekly, Some (`Until (to_ptime (1997, 12, 24) (0, 0, 0), true)), None, [])
   and res = [
@@ -160,11 +160,11 @@ let ex_7 () =
   in
   Alcotest.(check (list p) "compute occurences example 7"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_8 () =
   (* every other week - forever <- limited by 10 *)
-  let start = (1997, 09, 02)
+  let date = (1997, 09, 02)
   and time = (09, 00, 00)
   and rrule = (`Weekly, Some (`Count 10), Some 2, [`Weekday `Sunday])
   and res = [
@@ -175,10 +175,10 @@ let ex_8 () =
   in
   Alcotest.(check (list p) "compute occurences example 8"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_9 () =
-  let start = (1997, 09, 02)
+  let date = (1997, 09, 02)
   and time = (09, 00, 00)
   and rrule = (`Weekly, Some (`Until (to_ptime (1997, 10, 07) (00, 00, 00), true)), None, [`Weekday `Sunday ; `Byday [ (0, `Tuesday) ; (0, `Thursday) ]])
   and res = [
@@ -189,14 +189,14 @@ let ex_9 () =
   in
   Alcotest.(check (list p) "compute occurences example 9"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule)) ;
+              (Recurrence.all (to_ptime date time) rrule)) ;
   let rrule' = (`Weekly, Some (`Count 10), None, [`Weekday `Sunday ; `Byday [ (0, `Tuesday) ; (0, `Thursday) ]]) in
   Alcotest.(check (list p) "compute occurences example 9"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule'))
+              (Recurrence.all (to_ptime date time) rrule'))
 
 let ex_10 () =
-  let start = (1997, 09, 01)
+  let date = (1997, 09, 01)
   and time = (09, 00, 00)
   and rrule = (`Weekly, Some (`Until (to_ptime (1997, 12, 24) (00, 00, 00), true)), Some 2, [`Weekday `Sunday ; `Byday [ (0, `Monday) ; (0, `Wednesday) ; (0, `Friday) ]])
   and res = [
@@ -211,10 +211,10 @@ let ex_10 () =
   in
   Alcotest.(check (list p) "compute occurences example 10"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_11 () =
-  let start = (1997, 09, 02)
+  let date = (1997, 09, 02)
   and time = (09, 00, 00)
   and rrule = (`Weekly, Some (`Count 8), Some 2, [`Weekday `Sunday ; `Byday [ (0, `Tuesday) ; (0, `Thursday) ]])
   and res = [
@@ -224,10 +224,10 @@ let ex_11 () =
   in
   Alcotest.(check (list p) "compute occurences example 11"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_12 () =
-  let start = (1997, 09, 05)
+  let date = (1997, 09, 05)
   and time = (09, 00, 00)
   and rrule = (`Monthly, Some (`Count 10), None, [`Byday [ (1, `Friday) ]])
   and res = [
@@ -238,10 +238,10 @@ let ex_12 () =
   in
   Alcotest.(check (list p) "compute occurences example 12"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_13 () =
-  let start = (1997, 09, 05)
+  let date = (1997, 09, 05)
   and time = (09, 00, 00)
   and rrule = (`Monthly, Some (`Until (to_ptime (1997, 12, 24) (0, 0, 0), true)), None, [`Byday [ (1, `Friday) ]])
   and res = [
@@ -250,10 +250,10 @@ let ex_13 () =
   in
   Alcotest.(check (list p) "compute occurences example 13"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_14 () =
-  let start = (1997, 09, 07)
+  let date = (1997, 09, 07)
   and time = (09, 00, 00)
   and rrule = (`Monthly, Some (`Count 10), Some 2, [`Byday [ (1, `Sunday) ; (-1, `Sunday) ]])
   and res = [
@@ -264,10 +264,10 @@ let ex_14 () =
   in
   Alcotest.(check (list p) "compute occurences example 14"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_15 () =
-  let start = (1997, 09, 22)
+  let date = (1997, 09, 22)
   and time = (09, 00, 00)
   and rrule = (`Monthly, Some (`Count 6), None, [`Byday [ (-2, `Monday) ]])
   and res = [
@@ -277,11 +277,11 @@ let ex_15 () =
   in
   Alcotest.(check (list p) "compute occurences example 15"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_16 () =
   (* forever - again limiting with count 6 instead *)
-  let start = (1997, 09, 28)
+  let date = (1997, 09, 28)
   and time = (09, 00, 00)
   and rrule = (`Monthly, Some (`Count 6), None, [`Bymonthday [ -3 ]])
   and res = [
@@ -291,10 +291,10 @@ let ex_16 () =
   in
   Alcotest.(check (list p) "compute occurences example 16"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_17 () =
-  let start = (1997, 09, 02)
+  let date = (1997, 09, 02)
   and time = (09, 00, 00)
   and rrule = (`Monthly, Some (`Count 10), None, [`Bymonthday [ 2 ; 15 ]])
   and res = [
@@ -305,11 +305,11 @@ let ex_17 () =
   in
   Alcotest.(check (list p) "compute occurences example 17"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_18 () =
   (* to include last day of feb, increased count to 11 *)
-  let start = (1997, 09, 30)
+  let date = (1997, 09, 30)
   and time = (09, 00, 00)
   and rrule = (`Monthly, Some (`Count 11), None, [`Bymonthday [ 1 ; -1 ]])
   and res = [
@@ -320,10 +320,10 @@ let ex_18 () =
   in
   Alcotest.(check (list p) "compute occurences example 18"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_19 () =
-  let start = (1997, 09, 10)
+  let date = (1997, 09, 10)
   and time = (09, 00, 00)
   and rrule = (`Monthly, Some (`Count 10), Some 18, [`Bymonthday [ 10 ; 11 ; 12 ; 13 ; 14 ; 15 ]])
   and res = [
@@ -334,11 +334,11 @@ let ex_19 () =
   in
   Alcotest.(check (list p) "compute occurences example 19"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_20 () =
   (* limited to 10 again *)
-  let start = (1997, 09, 02)
+  let date = (1997, 09, 02)
   and time = (09, 00, 00)
   and rrule = (`Monthly, Some (`Count 10), Some 2, [`Byday [ (0, `Tuesday) ]])
   and res = [
@@ -349,10 +349,10 @@ let ex_20 () =
   in
   Alcotest.(check (list p) "compute occurences example 20"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_21 () =
-  let start = (1997, 06, 10)
+  let date = (1997, 06, 10)
   and time = (09, 00, 00)
   and rrule = (`Yearly, Some (`Count 10), None, [`Bymonth [ 6 ; 7 ]])
   and res = [
@@ -363,10 +363,10 @@ let ex_21 () =
   in
   Alcotest.(check (list p) "compute occurences example 21"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_22 () =
-  let start = (1997, 03, 10)
+  let date = (1997, 03, 10)
   and time = (09, 00, 00)
   and rrule = (`Yearly, Some (`Count 10), Some 2, [`Bymonth [ 1 ; 2 ; 3 ]])
   and res = [
@@ -377,10 +377,10 @@ let ex_22 () =
   in
   Alcotest.(check (list p) "compute occurences example 22"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_23 () =
-  let start = (1997, 01, 01)
+  let date = (1997, 01, 01)
   and time = (09, 00, 00)
   and rrule = (`Yearly, Some (`Count 10), Some 3, [`Byyearday [ 1 ; 100 ; 200 ]])
   and res = [
@@ -391,11 +391,11 @@ let ex_23 () =
   in
   Alcotest.(check (list p) "compute occurences example 23"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_24 () =
   (* forever - limiting to count 3 *)
-  let start = (1997, 05, 19)
+  let date = (1997, 05, 19)
   and time = (09, 00, 00)
   and rrule = (`Yearly, Some (`Count 3), None, [`Byday [ (20, `Monday) ]])
   and res = [
@@ -404,11 +404,11 @@ let ex_24 () =
   in
   Alcotest.(check (list p) "compute occurences example 24"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_25 () =
   (* forever - limiting to count 3 *)
-  let start = (1997, 05, 12)
+  let date = (1997, 05, 12)
   and time = (09, 00, 00)
   and rrule = (`Yearly, Some (`Count 3), None, [`Byweek [ 20 ] ; `Byday [ (0, `Monday) ]])
   and res = [
@@ -417,11 +417,11 @@ let ex_25 () =
   in
   Alcotest.(check (list p) "compute occurences example 25"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_26 () =
   (* forever - limiting to count 11 *)
-  let start = (1997, 03, 13)
+  let date = (1997, 03, 13)
   and time = (09, 00, 00)
   and rrule = (`Yearly, Some (`Count 11), None, [`Bymonth [ 3 ] ; `Byday [ (0, `Thursday) ]])
   and res = [
@@ -432,11 +432,11 @@ let ex_26 () =
   in
   Alcotest.(check (list p) "compute occurences example 26"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_27 () =
   (* forever - limiting to count 39 *)
-  let start = (1997, 06, 05)
+  let date = (1997, 06, 05)
   and time = (09, 00, 00)
   and rrule = (`Yearly, Some (`Count 39), None, [`Bymonth [ 6 ; 7 ; 8 ] ; `Byday [ (0, `Thursday) ]])
   and res = [
@@ -454,12 +454,12 @@ let ex_27 () =
   in
   Alcotest.(check (list p) "compute occurences example 27"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_28 () =
   (* forever - limiting to count 5 *)
   (* EXDATE for first thingy, adjusting to first real occurence *)
-  let start = (1998, 02, 13)
+  let date = (1998, 02, 13)
   and time = (09, 00, 00)
   and rrule = (`Monthly, Some (`Count 5), None, [`Bymonthday [ 13 ] ; `Byday [ (0, `Friday) ]])
   and res = [
@@ -469,11 +469,11 @@ let ex_28 () =
   in
   Alcotest.(check (list p) "compute occurences example 28"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_29 () =
   (* forever - limiting to count 10 *)
-  let start = (1997, 09, 13)
+  let date = (1997, 09, 13)
   and time = (09, 00, 00)
   and rrule = (`Monthly, Some (`Count 10), None, [`Bymonthday [ 7 ; 8 ; 9 ; 10 ; 11 ; 12 ; 13 ] ; `Byday [ (0, `Saturday) ]])
   and res = [
@@ -484,11 +484,11 @@ let ex_29 () =
   in
   Alcotest.(check (list p) "compute occurences example 29"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let ex_30 () =
   (* forever - limiting to count 3 *)
-  let start = (1996, 11, 05)
+  let date = (1996, 11, 05)
   and time = (09, 00, 00)
   and rrule = (`Yearly, Some (`Count 3), Some 4, [`Bymonth [ 11 ] ; `Byday [ (0, `Tuesday) ] ; `Bymonthday [ 2 ; 3 ; 4 ; 5 ; 6 ; 7 ; 8 ]])
   and res = [
@@ -497,7 +497,7 @@ let ex_30 () =
   in
   Alcotest.(check (list p) "compute occurences example 30"
               (List.map (fun d -> to_ptime d time) res)
-              (Recurrence.all (to_ptime start time) rrule))
+              (Recurrence.all (to_ptime date time) rrule))
 
 let tests = [
   "example 1", `Quick, ex_1 ;

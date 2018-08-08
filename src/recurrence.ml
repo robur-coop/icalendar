@@ -198,39 +198,36 @@ let yearday_matches (y, m, d) n =
   then count = days_in_year y + succ n
   else false
 
+(* x: 0   => every $wd 
+   x: pos => the xth $wd in month, 
+   x: neg => the xth $wd in month, from end *)
 let weekday_matches (y, m, d) (x, wd) =
   let weekday = weekday (y, m, d) in
   if wd_is_weekday weekday wd
-  then if x = 0
-    then true
-    else
-      let n = succ (pred d / 7) in
-      if n = x
-      then true
-      else if x < 0
-      then
+  then 
+    let n = succ (pred d / 7) in
+    match x with
+    | 0 -> true
+    | x when x > 0 -> n = x
+    | x when x < 0 -> 
         let total = n + (days_in_month y m - d) / 7 in
         n = total + succ x
-      else false
   else false
 
 let yearly_weekday_matches (y, m, d) (x, wd) =
   let weekday = weekday (y, m, d) in
   if wd_is_weekday weekday wd
-  then if x = 0
-    then true
-    else
-      let n =
-        let d = days_since_start_of_year (y, m, d) in
-        succ (d / 7)
-      in
-      if x = n
-      then true
-      else if x < 0
-      then
+  then 
+    let n =
+      let d = days_since_start_of_year (y, m, d) in
+      succ (d / 7)
+    in
+    match x with
+    | 0 -> true
+    | x when x > 0 -> n = x
+    | x when x < 0 -> 
         let total = n + (days_in_year y - n) / 7 in
         n = total + succ x
-      else false
   else false
 
 let opt f default = function
@@ -249,14 +246,23 @@ let next_occurence start freq interval recurs =
   and wkst = find_opt (function `Weekday x -> Some x | _ -> None) recurs
   in
   let wkst = match wkst with None -> `Monday | Some x -> x in
+  (* as freq we implement yearly, monthly, weekly and daily;
+     intervals between occurrences vary based on
+     - leap year and month lengths
+     - different recurrence rules combined with frequency;
+     because of variable intervals, we advance day by day and apply a filter. 
+     If no filter (byday, bymonthday or byyearday) is defined, we build one from the start day.
+     For `Daily or `Weekly freq, we don't need to filter bymonthday. *)
   let bymonthday = match freq, byday, bymonthday, byyearday with
-    | `Yearly, None, None, None -> let (_, _, d) = s_date in Some [ d ]
+    | `Yearly, None, None, None
     | `Monthly, None, None, None -> let (_, _, d) = s_date in Some [ d ]
     | _ -> bymonthday
   in
-  let rec next start = match freq with
+  let rec next date = match freq with
     | `Daily ->
-      let (y, m, d) = add_days interval start in
+      (* generate candidate *)
+      let (y, m, d) = add_days interval date in
+      (* apply filter *)
       let (y, m, d) =
         let take ms =
           if List.mem m ms
@@ -283,9 +289,9 @@ let next_occurence start freq interval recurs =
     | `Weekly ->
       let (y, m, d) =
         match byday with
-        | None -> add_weeks interval start
+        | None -> add_weeks interval date
         | Some _ ->
-          let (y, m, d) = add_days 1 start in
+          let (y, m, d) = add_days 1 date in
           if wd_is_weekday (weekday (y, m, d)) wkst && interval <> 1
           then add_weeks (pred interval) (y, m, d)
           else (y, m, d)
@@ -306,9 +312,9 @@ let next_occurence start freq interval recurs =
       in
       opt take (y, m, d) byday
     | `Monthly ->
-      let (y, m, d) = add_days 1 start in
+      let (y, m, d) = add_days 1 date in
       let (y, m, d) =
-        let (y', m', _) = start in
+        let (y', m', _) = date in
         let m'' = (y - y') * 12 in
         if (m'' + m - m') mod interval = 0
         then (y, m, d)
@@ -337,9 +343,9 @@ let next_occurence start freq interval recurs =
       in
       opt take (y, m, d) byday
     | `Yearly ->
-      let (y, m, d) = add_days 1 start in
+      let (y, m, d) = add_days 1 date in
       let (y, m, d) =
-        let (y', _, _) = start in
+        let (y', _, _) = date in
         if (y - y') mod interval = 0
         then (y, m, d)
         else add_years (pred interval) (y, m, d)
@@ -382,13 +388,15 @@ let next_occurence start freq interval recurs =
         else next (y, m, d)
       in
       opt take (y, m, d) byday
-    | `Hourly | `Minutely | `Secondly -> invalid_arg "work on time"
+    | `Hourly | `Minutely | `Secondly -> invalid_arg "We don't support hourly, minutely or secondly for event frequencies."
   in
   let s_date' = next s_date in
   match Ptime.of_date_time (s_date', s_time) with
   | None -> invalid_arg "bad"
   | Some x -> x
 
+(* TODO what happens if we get requests for infinite lists *)
+(* TODO timezone is not applied yet *)
 let all start (freq, count_or_until, interval, recurs) =
   match count_or_until with
   | Some (`Count n) ->
@@ -398,13 +406,13 @@ let all start (freq, count_or_until, interval, recurs) =
         let s' = next_occurence s freq interval recurs in
         s' :: do_one s' (pred n)
     in
-    start :: do_one start (pred n)
-  | Some (`Until (than, true)) ->
+    start :: do_one start (pred n) (* start must be in rule, according to rfc *)
+  | Some (`Until (t, true)) ->
     let rec do_one s =
       let s' = next_occurence s freq interval recurs in
-      if Ptime.is_later ~than s' (* what if Ptime.equal? need to check *)
+      if Ptime.is_later ~than:t s' (* desired behaviour if Ptime.equal? need to check *)
       then []
       else s' :: do_one s'
     in
     start :: do_one start
-  | _ -> invalid_arg "NYI"
+  | _ -> invalid_arg "Not Yet Imlemented"
