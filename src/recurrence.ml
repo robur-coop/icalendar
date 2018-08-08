@@ -1,5 +1,4 @@
-
-(* some date arithmetic *)
+(* date arithmetic *)
 
 let leap_year y =
   (* defined as dividible by 4, but not dividable by 100, but those by 400 *)
@@ -28,6 +27,8 @@ let days_in_month year = function
 let add_years amount (y, m, d) = (y + amount, m, d)
 
 let sub_years amount (y, m, d) = (y - amount, m, d)
+
+(* TODO encapsulate in data structure? *)
 
 let add_months amount (y, m, d) =
   let rec inc_y (ny, nm, nd) month =
@@ -71,6 +72,7 @@ let sub_days amount (y, m, d) =
 
 let add_weeks amount date = add_days (7 * amount) date
 
+(* find opt on lists *)
 let find_opt f xs =
   match
     List.filter (function None -> false | Some _ -> true)
@@ -80,6 +82,7 @@ let find_opt f xs =
   | [ Some x ] -> Some x
   | _ -> invalid_arg "wrong"
 
+(* TODO remove ` from type *)
 let wd_is_weekday wd wd' = match wd, wd' with
   | `Monday, `Monday | `Tuesday, `Tuesday | `Wednesday, `Wednesday
   | `Thursday, `Thursday | `Friday, `Friday | `Saturday, `Saturday
@@ -93,7 +96,7 @@ let days_since_start_of_year (y, m, d) =
     | 0 -> 0
     | n -> days_in_month y n + md (pred n)
   in
-  md (pred m) + pred d
+  md (pred m) + d
 
 let days_until_end_of_year (y, m, d) =
   let rec md = function
@@ -103,8 +106,8 @@ let days_until_end_of_year (y, m, d) =
   md m
 
 let weekday (y, m, d) =
-  let this_year = days_since_start_of_year (y, m, d) in
-  let since_epoch =
+  let d1_to_date = pred @@ days_since_start_of_year (y, m, d) in
+  let epoch_to_d1 =
     let rec go = function
       | 1969 -> 0
       | x -> days_in_year x + go (pred x)
@@ -112,7 +115,7 @@ let weekday (y, m, d) =
     go (pred y)
   in
   (* 1970/01/01 was a thursday! *)
-  match (since_epoch + this_year) mod 7 with
+  match (epoch_to_d1 + d1_to_date) mod 7 with
   | 0 -> `Thursday
   | 1 -> `Friday
   | 2 -> `Saturday
@@ -131,36 +134,37 @@ let wd = function
   | `Friday -> 5
   | `Saturday -> 6
 
-let w1d1_off year =
+let w1d1_offset year =
   let wd = wd (weekday (year, 01, 01)) in
   (11 - wd) mod 7 - 3
 
-(* needs to be parametrised by wkst! *)
+(* TODO needs to be parametrised by wkst! *)
 (* day 1 of week 1 in a given year *)
 let w1d1 year =
-  let off = w1d1_off year
+  let off = w1d1_offset year
   and date = (year, 01, 01)
   in
   if off < 0
   then sub_days (abs off) date
   else add_days off date
 
+(* returns (year * weeknumber), year can be last year, this year or next year *)
 (* (date - d1w1) / 7 + 1 *)
 let rec week_number (y, m, d) =
-  let days = days_since_start_of_year (y, m, d)
-  and off = w1d1_off y
+  let days = pred @@ days_since_start_of_year (y, m, d)
+  and off = w1d1_offset y
   in
   let ndays = days - off in
   if ndays < 0
   then week_number (pred y, 12, 31)
   else
-    let next_off = w1d1_off (succ y) in
+    let next_off = w1d1_offset (succ y) in
     if next_off < 0 && days_until_end_of_year (y, m, d) + next_off <= 0
     then (succ y, 1)
     else (y, ndays / 7 + 1)
 
-let max_week y =
-  let off = w1d1_off (succ y) in
+let weeks y =
+  let off = w1d1_offset (succ y) in
   let last_day = (y, 12, 31) in
   let last =
     if off >= 0
@@ -169,7 +173,9 @@ let max_week y =
   in
   snd (week_number last)
 
-let mday_matches (y, m, d) n =
+(* for matches: if n is negative, index from end, which is defined as -1 *)
+
+let monthday_matches (y, m, d) n =
   if d = n
   then true
   else if n < 0
@@ -181,11 +187,11 @@ let weekno_matches date wn =
   if week = wn
   then true
   else if wn < 0
-  then week = max_week y + succ wn
+  then week = weeks y + succ wn
   else false
 
 let yearday_matches (y, m, d) n =
-  let count = succ (days_since_start_of_year (y, m, d)) in
+  let count = days_since_start_of_year (y, m, d) in
   if count = n
   then true
   else if n < 0
@@ -215,7 +221,7 @@ let yearly_weekday_matches (y, m, d) (x, wd) =
     then true
     else
       let n =
-        let d = succ (days_since_start_of_year (y, m, d)) in
+        let d = days_since_start_of_year (y, m, d) in
         succ (d / 7)
       in
       if x = n
@@ -261,7 +267,7 @@ let next_occurence start freq interval recurs =
       in
       let (y, m, d) =
         let take ds =
-          if List.exists (mday_matches (y, m, d)) ds
+          if List.exists (monthday_matches (y, m, d)) ds
           then (y, m, d)
           else next (y, m, d)
         in
@@ -318,7 +324,7 @@ let next_occurence start freq interval recurs =
       in
       let (y, m, d) =
         let take md =
-          if List.exists (mday_matches (y, m, d)) md
+          if List.exists (monthday_matches (y, m, d)) md
           then (y, m, d)
           else next (y, m, d)
         in
@@ -364,7 +370,7 @@ let next_occurence start freq interval recurs =
       in
       let (y, m, d) =
         let take md =
-          if List.exists (mday_matches (y, m, d)) md
+          if List.exists (monthday_matches (y, m, d)) md
           then (y, m, d)
           else next (y, m, d)
         in
