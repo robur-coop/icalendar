@@ -503,12 +503,63 @@ let ex_31 () =
   (* forever - limiting to count 3 *)
   let date = (1996, 11, 29)
   and time = (09, 00, 00)
-  and rrule = (`Monthly, Some (`Count 3), None, [`Byday [ (0, `Monday) ; (0, `Tuesday) ; (0, `Wednesday) ; (0, `Thursday) ; (0, `Friday) ] ; `Bysetpos [ -1 ]])
+  and rrule = (`Monthly, Some (`Count 3), None, [`Byday [ (0, `Monday) ; (0, `Tuesday) ; (0, `Wednesday) ; (0, `Thursday) ; (0, `Friday) ] ; `Bysetposday [ -1 ]])
   and res = [
     (1996, 11, 29) ; (1996, 12, 31) ; (1997, 01, 31)
   ]
   in
   Alcotest.(check (list p) "compute occurences example 31: Bysetpos; last workday in month"
+              (List.map (fun d -> to_ptime d time) res)
+              (Recurrence.all (to_ptime date time) rrule))
+
+let ex_32 () =
+  let date = (1997, 09, 04)
+  and time = (09, 00, 00)
+  and rrule = (`Monthly, Some (`Count 3), None, [`Byday [(0, `Tuesday); (0, `Wednesday); (0, `Thursday)] ; `Bysetposday [ 3 ]])
+  and res = [ (1997, 09, 04) ; (1997, 10, 07) ; (1997, 11, 06) ]
+  in
+  Alcotest.(check (list p) "The third instance into the month of one of Tuesday, Wednesday, or Thursday, for the next 3 months"
+              (List.map (fun d -> to_ptime d time) res)
+              (Recurrence.all (to_ptime date time) rrule))
+
+let ex_33 () =
+  let date = (1997, 09, 29)
+  and time = (09, 00, 00)
+  and rrule = (`Monthly, Some (`Count 7), None, [`Byday [(0, `Monday); (0, `Tuesday); (0, `Wednesday); (0, `Thursday); (0, `Friday)] ; `Bysetposday [ -2 ]])
+  and res = [ (1997, 09, 29) ; (1997, 10, 30) ; (1997, 11, 27) ; (1997, 12, 30);
+            (1998, 01, 29) ; (1998, 02, 26) ; (1998, 03, 30) ]
+  in
+  Alcotest.(check (list p) "The second-to-last weekday of the month"
+              (List.map (fun d -> to_ptime d time) res)
+              (Recurrence.all (to_ptime date time) rrule))
+
+let ex_34 () =
+  let date = (1997, 08, 05)
+  and time = (09, 00, 00)
+  and rrule = (`Weekly, Some (`Count 4), Some 2, [`Byday [(0,`Tuesday);(0, `Sunday)]; `Weekday `Monday])
+  and res = [ (1997, 08, 05) ; (1997, 08, 10) ; (1997, 08, 19) ; (1997, 08, 24) ]
+  in
+  Alcotest.(check (list p) "An example where the days generated makes a difference because of WKST"
+              (List.map (fun d -> to_ptime d time) res)
+              (Recurrence.all (to_ptime date time) rrule))
+
+let ex_35 () =
+  let date = (1997, 08, 05)
+  and time = (09, 00, 00)
+  and rrule = (`Weekly, Some (`Count 4), Some 2, [`Byday [(0,`Tuesday);(0, `Sunday)]; `Weekday `Sunday])
+  and res = [ (1997, 08, 05) ; (1997, 08, 17) ; (1997, 08, 19) ; (1997, 08, 31) ]
+  in
+  Alcotest.(check (list p) "An example where the days generated makes a difference because of WKST"
+              (List.map (fun d -> to_ptime d time) res)
+              (Recurrence.all (to_ptime date time) rrule))
+
+let ex_36 () =
+  let date = (2007, 01, 15)
+  and time = (09, 00, 00)
+  and rrule = (`Monthly, Some (`Count 5), None, [`Bymonthday [15;30]])
+  and res = [(2007, 01, 15);(2007,01,30);(2007,02,15);(2007,03,15);(2007,03,30)]
+  in
+  Alcotest.(check (list p) "An example where an invalid date (i.e., February 30) is ignored"
               (List.map (fun d -> to_ptime d time) res)
               (Recurrence.all (to_ptime date time) rrule))
 
@@ -544,4 +595,9 @@ let tests = [
   "example 29", `Quick, ex_29 ;
   "example 30", `Quick, ex_30 ;
   "example 31: Bysetpos; last workday in month", `Quick, ex_31 ;
+  "example 32: Bysetpos; third tuesday, wednesday, or thursday", `Quick, ex_32 ;
+  "example 33: The second-to-last weekday of the month", `Quick, ex_33 ;
+  "example 34: weekstart = monday", `Quick, ex_34 ;
+  "example 35: weekstart = sunday", `Quick, ex_35 ;
+  "example 36: An example where an invalid date (i.e., February 30) is ignored", `Quick, ex_36 ;
 ]
