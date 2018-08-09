@@ -499,6 +499,19 @@ let ex_30 () =
               (List.map (fun d -> to_ptime d time) res)
               (Recurrence.all (to_ptime date time) rrule))
 
+let ex_31 () =
+  (* forever - limiting to count 3 *)
+  let date = (1996, 11, 29)
+  and time = (09, 00, 00)
+  and rrule = (`Monthly, Some (`Count 3), None, [`Byday [ (0, `Monday) ; (0, `Tuesday) ; (0, `Wednesday) ; (0, `Thursday) ; (0, `Friday) ] ; `Bysetpos [ -1 ]])
+  and res = [
+    (1996, 11, 29) ; (1996, 12, 31) ; (1997, 01, 31)
+  ]
+  in
+  Alcotest.(check (list p) "compute occurences example 31: Bysetpos; last workday in month"
+              (List.map (fun d -> to_ptime d time) res)
+              (Recurrence.all (to_ptime date time) rrule))
+
 let tests = [
   "example 1", `Quick, ex_1 ;
   "example 2", `Quick, ex_2 ;
@@ -530,4 +543,5 @@ let tests = [
   "example 28", `Quick, ex_28 ;
   "example 29", `Quick, ex_29 ;
   "example 30", `Quick, ex_30 ;
+  "example 31: Bysetpos; last workday in month", `Quick, ex_31 ;
 ]

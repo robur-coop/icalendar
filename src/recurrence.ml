@@ -234,8 +234,7 @@ let opt f default = function
   | None -> default
   | Some x -> f x
 
-let next_occurence start freq interval recurs =
-  let s_date, s_time = Ptime.to_date_time start in
+let next_occurence s_date freq interval recurs =
   let interval = match interval with None -> 1 | Some x -> x in
   let bymonth = find_opt (function `Bymonth x -> Some x | _ -> None) recurs
   and byweekno = find_opt (function `Byweek x -> Some x | _ -> None) recurs
@@ -390,10 +389,69 @@ let next_occurence start freq interval recurs =
       opt take (y, m, d) byday
     | `Hourly | `Minutely | `Secondly -> invalid_arg "We don't support hourly, minutely or secondly for event frequencies."
   in
-  let s_date' = next s_date in
-  match Ptime.of_date_time (s_date', s_time) with
-  | None -> invalid_arg "bad"
-  | Some x -> x
+  next s_date
+
+let filter_bysetpos bysetpos set =
+  match bysetpos with
+  | None -> set 
+  | Some p -> 
+    let l = List.length set in
+    let positions = List.map (fun i -> if i < 0 then l + i else pred i) p |>
+    List.sort_uniq compare in
+    List.map (List.nth set) positions
+
+let compare_dates (y, m, d) (y', m', d') = let r = match compare y y' with
+  | 0 -> begin match compare m m' with 
+    | 0 -> compare d d' 
+    | x -> x
+    end
+  | x -> x in
+  Printf.printf "%d %d %d, %d %d %d is %d\n" y m d y' m' d' r;
+  r
+
+let after_start start set =
+  List.filter (fun d -> compare_dates d start >= 0) set
+
+(* start can be in middle of interval *)
+let next_recurrence_set start freq interval recurs =
+  Printf.printf "start is %s\n" (Ptime.to_rfc3339 start);
+  let s_date, s_time = Ptime.to_date_time start
+  and bysetpos = find_opt (function `Bysetpostday x -> Some x | _ -> None) recurs
+  and wkst = find_opt (function `Weekday x -> Some x | _ -> None) recurs in
+  let wkst = match wkst with None -> `Monday | Some x -> x in
+  (* start_set = beginning of recurrence set, e.g. start of month for monthly *)
+  let start_set, end_set, start_next_set = 
+    let start_set, advance_by_freq = match freq with
+      | `Daily -> s_date, add_days
+      | `Weekly  -> let rec weekstart d = if wd_is_weekday wkst (weekday d) then d, add_weeks else weekstart (sub_days 1 d) in weekstart s_date
+      | `Monthly -> let (y, m, _) = s_date in (y, m, 1), add_months 
+      | `Yearly  -> let (y, _, _) = s_date in (y, 1, 1), add_years
+    in 
+    let interval' = match interval with None -> 1 | Some x -> x in
+    start_set, advance_by_freq 1 start_set, advance_by_freq interval' start_set
+  in 
+  let in_set x = compare_dates start_set x <= 0 && compare_dates x end_set < 0 in
+  let rec next_elem d =
+    let d' = next_occurence d freq interval recurs in
+    let y, m, d = d' in
+    if in_set d' then d'::next_elem d' else []
+  in
+
+  let set = next_elem start_set in 
+  List.iter (fun (y, m, d) ->
+    Printf.printf "Candidate set %d %d %d\n" y m d
+  ) set; 
+  let set' = filter_bysetpos bysetpos set in
+  let set'' = after_start s_date set' in
+  let to_ptime t = match Ptime.of_date_time (t, s_time) with
+    | None -> assert false (*TODO*)
+    | Some x -> x in 
+  to_ptime start_next_set, List.map to_ptime set''
+
+let rec take n xs = match n, xs with
+  | 0, _ -> [], 0
+  | n, [] -> [], n
+  | n, hd :: tl -> let xs', n' = take (pred n) tl in hd :: xs', n'
 
 (* TODO what happens if we get requests for infinite lists *)
 (* TODO timezone is not applied yet *)
@@ -403,16 +461,18 @@ let all start (freq, count_or_until, interval, recurs) =
     let rec do_one s = function
       | 0 -> []
       | n ->
-        let s' = next_occurence s freq interval recurs in
-        s' :: do_one s' (pred n)
+        let d', s' = next_recurrence_set s freq interval recurs in
+        let l, n' = take n s' in
+        l @ do_one d' n'
     in
-    start :: do_one start (pred n) (* start must be in rule, according to rfc *)
+    do_one start n (* start must be in rule, according to rfc *)
   | Some (`Until (t, true)) ->
     let rec do_one s =
-      let s' = next_occurence s freq interval recurs in
-      if Ptime.is_later ~than:t s' (* desired behaviour if Ptime.equal? need to check *)
-      then []
-      else s' :: do_one s'
+      let d', s' = next_recurrence_set s freq interval recurs in
+      let l = List.filter (Ptime.is_earlier ~than:t) s' in
+      if Ptime.is_earlier ~than:t d' (* desired behaviour if Ptime.equal? need to check *)
+      then l
+      else l @ do_one d'
     in
-    start :: do_one start
+    do_one start
   | _ -> invalid_arg "Not Yet Imlemented"
