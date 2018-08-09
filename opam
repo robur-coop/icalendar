@@ -9,7 +9,6 @@ depends: [
   "re"
   "uri"
   "astring"
-  "nocrypto"
   "rresult"
   "ptime"
   "ppx_deriving" {build}
