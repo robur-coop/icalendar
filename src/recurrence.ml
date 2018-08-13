@@ -335,6 +335,7 @@ let next_recurrence_set start freq interval filters bysetpos wkst =
       | `Weekly  -> let rec weekstart d = if wd_is_weekday wkst (weekday d) then d, add_weeks else weekstart (sub_days 1 d) in weekstart s_date
       | `Monthly -> let (y, m, _) = s_date in (y, m, 1), add_months
       | `Yearly  -> let (y, _, _) = s_date in (y, 1, 1), add_years
+      | _ -> assert false
     in
     let interval' = match interval with None -> 1 | Some x -> x in
     start_set, advance_by_freq 1 start_set, advance_by_freq interval' start_set
@@ -389,6 +390,48 @@ let rec take n xs = match n, xs with
   | 0, _ -> [], 0
   | n, [] -> [], n
   | n, hd :: tl -> let xs', n' = take (pred n) tl in hd :: xs', n'
+
+let next start last_recurrence_start (freq, count_or_until, interval, recurs) =
+  let filters = add_missing_filters recurs freq start
+  and bysetpos = find_opt (function `Bysetposday x -> Some x | _ -> None) recurs
+  and wkst = find_opt (function `Weekday x -> Some x | _ -> None) recurs in
+  let wkst = match wkst with None -> `Monday | Some x -> x in
+
+  match count_or_until with
+  | Some (`Count n) ->
+    let rec do_one s = function
+      | 0 -> None
+      | n ->
+        let d', s' = next_recurrence_set s freq interval filters bysetpos wkst in
+        let l, n' = take n s' in
+        match List.filter (Ptime.is_later ~than:last_recurrence_start) l with
+        | hd :: _ -> Some hd
+        | [] -> do_one d' n'
+    in
+    do_one start n (* start must be in rule, according to rfc *)
+  | Some (`Until (t, true)) ->
+    let rec do_one s =
+      let d', s' = next_recurrence_set s freq interval filters bysetpos wkst in
+      let l = List.filter (Ptime.is_earlier ~than:t) s' in
+      let l' = List.filter (Ptime.is_later ~than:last_recurrence_start) l in
+      match l' with 
+      | hd :: _ -> Some hd
+      | [] ->
+        if Ptime.is_earlier ~than:t d' (* desired behaviour if Ptime.equal? need to check *)
+        then do_one d'
+        else None
+    in
+    do_one last_recurrence_start
+  | _ -> 
+    let rec do_one s =
+      let d', s' = next_recurrence_set s freq interval filters bysetpos wkst in
+      let l = List.filter (Ptime.is_later ~than:last_recurrence_start) s' in
+      match l with 
+      | hd :: _ -> Some hd
+      | [] -> do_one d'
+    in
+    do_one last_recurrence_start
+
 
 (* TODO what happens if we get requests for infinite lists *)
 (* TODO timezone is not applied yet *)

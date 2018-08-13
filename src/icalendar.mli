@@ -277,3 +277,5 @@ module Writer : sig
   val freebusyprop_to_ics_key : freebusyprop -> string
   val timezoneprop_to_ics_key : timezoneprop -> string
 end
+
+val next_recurrence : recurrence -> Ptime.t -> Ptime.t -> Ptime.t option

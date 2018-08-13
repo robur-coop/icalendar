@@ -1821,3 +1821,6 @@ let calobject =
 let parse (str : string) : (calendar, string) result =
   try parse_string calobject (normalize_lines str)
   with Parse_error -> Error "parse error"
+
+let next_recurrence (rrule : recurrence) dtstart last_recurrence_start =
+  Recurrence.next dtstart last_recurrence_start rrule 

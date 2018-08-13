@@ -5,6 +5,6 @@ open Topkg
 
 let () = Pkg.describe "icalendar" @@ fun ctx ->
     Ok [
-      Pkg.mllib "src/icalendar.mllib";
+      Pkg.mllib ~api:["Icalendar"] "src/icalendar.mllib";
       Pkg.test "test/test";
     ]
