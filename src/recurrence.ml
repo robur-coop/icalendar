@@ -326,13 +326,13 @@ let compare_dates (y, m, d) (y', m', d') = match compare y y' with
 let after_start start set =
   List.filter (fun d -> compare_dates d start >= 0) set
 
-type record = {
+type gen_state = {
   mutable next_interval : Ptime.t ;
   mutable set : Ptime.t list ;
   next_recurrence_set : Ptime.t -> Ptime.t * Ptime.t list
 }
 
-let rr_init next_interval freq interval filters bysetpos wkst =
+let init_rr next_interval freq interval filters bysetpos wkst =
   (* needs to be computed completely, because bysetpos may index from back *)
   let next_recurrence_set start =
     let s_date, s_time = Ptime.to_date_time start in
@@ -378,6 +378,35 @@ let rec next_rr g =
     g.set <- tl ;
     hd
 
+type count = {
+  mutable count : int ;
+  f : gen_state ;
+}
+
+let init_count count f = { count ; f }
+
+let next_count g =
+  if g.count = 0
+  then None
+  else begin
+    g.count <- pred g.count ;
+    Some (next_rr g.f)
+  end
+
+type until = {
+  until : Ptime.t ;
+  f : gen_state
+}
+
+let init_until until f = { until ; f }
+
+let next_until g =
+  let candidate = next_rr g.f in
+  (* desired behaviour if Ptime.equal? need to check *)
+  if Ptime.is_earlier ~than:g.until candidate
+  then Some candidate
+  else None
+
 let add_missing_filters recurs freq start =
   let s_date, s_time = Ptime.to_date_time start in
   let bymonth = find_opt (function `Bymonth x -> Some x | _ -> None) recurs
@@ -410,27 +439,28 @@ let next start last_recurrence_start (freq, count_or_until, interval, recurs) =
   and wkst = find_opt (function `Weekday x -> Some x | _ -> None) recurs in
   let wkst = match wkst with None -> `Monday | Some x -> x in
 
-  let gen_event = rr_init start freq interval filters bysetpos wkst in
+  let gen_event = init_rr start freq interval filters bysetpos wkst in
   match count_or_until with
   | Some (`Count n) ->
-    let rec compute_next_event = function
-      | 0 -> None
-      | n ->
-        let event = next_rr gen_event in
+    let gen_count = init_count n gen_event in
+    let rec compute_next_event () =
+      match next_count gen_count with
+      | None -> None
+      | Some event ->
         if Ptime.is_later ~than:last_recurrence_start event
         then Some event
-        else compute_next_event (pred n)
+        else compute_next_event ()
     in
-    compute_next_event n
+    compute_next_event ()
   | Some (`Until (t, true)) ->
+    let gen_until = init_until t gen_event in
     let rec compute_next_event () =
-      let event = next_rr gen_event in
-      (* desired behaviour if Ptime.equal? need to check *)
-      if Ptime.is_earlier ~than:t event
-      then if Ptime.is_later ~than:last_recurrence_start event
+      match next_until gen_until with
+      | None -> None
+      | Some event ->
+        if Ptime.is_later ~than:last_recurrence_start event
         then Some event
         else compute_next_event ()
-      else None
     in
     compute_next_event ()
   | _ ->
@@ -442,34 +472,33 @@ let next start last_recurrence_start (freq, count_or_until, interval, recurs) =
     in
     compute_next_event ()
 
-
-(* TODO what happens if we get requests for infinite lists *)
-(* TODO timezone is not applied yet *)
-let all start (freq, count_or_until, interval, recurs) =
+let first_n n start (freq, count_or_until, interval, recurs) =
   let filters = add_missing_filters recurs freq start
   and bysetpos = find_opt (function `Bysetposday x -> Some x | _ -> None) recurs
   and wkst = find_opt (function `Weekday x -> Some x | _ -> None) recurs in
   let wkst = match wkst with None -> `Monday | Some x -> x in
 
-  let gen_event = rr_init start freq interval filters bysetpos wkst in
-  match count_or_until with
-  | Some (`Count n) ->
-    let rec compute_next_event = function
-      | 0 -> []
-      | n ->
-        let event = next_rr gen_event in
-        event :: compute_next_event (pred n)
-    in
-    compute_next_event n
-  | Some (`Until (t, true)) ->
-    let rec compute_next_event () =
-      let event = next_rr gen_event in
-      (* desired behaviour if Ptime.equal? need to check *)
-      if Ptime.is_earlier ~than:t event
-      then event :: compute_next_event ()
-      else []
-    in
-    compute_next_event ()
-  | _ -> invalid_arg "Not Yet Implemented"
+  let gen_event = init_rr start freq interval filters bysetpos wkst in
+  let next_event = match count_or_until with
+    | Some (`Count n) ->
+      let gen_count = init_count n gen_event in
+      (fun () -> next_count gen_count)
+    | Some (`Until (t, true)) -> (* TODO until (t, _false_)! *)
+      let gen_until = init_until t gen_event in
+      (fun () -> next_until gen_until)
+    | _ -> invalid_arg "Not implemented here"
+  in
+  let rec compute_next_event = function
+    | 0 -> []
+    | n -> match next_event () with
+      | None -> []
+      | Some event -> event :: compute_next_event (pred n)
+  in
+  compute_next_event n
+
+(* TODO what happens if we get requests for infinite lists *)
+(* TODO timezone is not applied yet *)
+let all start (freq, count_or_until, interval, recurs) =
+  first_n 2000 start (freq, count_or_until, interval, recurs)
 
 (* EXDATE and RDATE can manually override recurrence rules *)
