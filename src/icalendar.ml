@@ -1838,25 +1838,42 @@ let occurence_before_timestamp datetime (tzprops : tzprop list) =
   (* dtstart in a vtimezone subcomponent may not contain a tzid property! *)
   let rrule = List.find_opt (function `Rrule _ -> true | _ -> false) tzprops in
   (* TODO handle RDATE in addition to rrule *)
-
   let next_r dtstart'' = match rrule with
     | None -> None
     | Some (`Rrule (_, r)) -> next_recurrence r dtstart' dtstart''
   in
   let rec in_timerange acc = function
     | Some dtstart'' ->
-      Printf.printf "datetime %s dtstart'' %s\n" (Ptime.to_rfc3339 datetime)
-        (Ptime.to_rfc3339 dtstart'') ;
       if Ptime.is_earlier ~than:datetime dtstart''
       then in_timerange (Some dtstart'') (next_r dtstart'')
       else acc
    | None -> acc in
   in_timerange None (Some dtstart')
 
-let calculate_offset (props : tzprop list) datetime =
-  let offset = List.find (function `Tzoffset_to _ -> true | _ -> false) props in
-  match offset with
-  | `Tzoffset_to (_, span) -> Ptime.sub_span datetime span
+let calculate_offset (props : tzprop list) ts datetime =
+  match
+    List.find (function `Tzoffset_to _ -> true | _ -> false) props,
+    List.find (function `Tzoffset_from _ -> true | _ -> false) props
+  with
+  | `Tzoffset_to (_, to_span), `Tzoffset_from (_, from_span) ->
+    let is_negative = Ptime.Span.compare to_span from_span = 1 in
+    let delta = Ptime.Span.sub to_span from_span in
+    let in_lost_span =
+      let than = match Ptime.add_span ts delta with
+        | None -> assert false
+        | Some d -> d
+      in
+      Ptime.is_earlier ~than datetime
+    in
+    let datetime' =
+      if is_negative && in_lost_span then
+        match Ptime.add_span datetime delta with
+        | None -> assert false
+        | Some ts -> ts
+      else
+        datetime
+    in
+    Ptime.sub_span datetime' to_span
   | _ -> assert false
 
 let normalize_timezone datetime (`Tzid (is_unique, tzid)) (timezones : timezoneprop list list) =
@@ -1875,18 +1892,17 @@ let normalize_timezone datetime (`Tzid (is_unique, tzid)) (timezones : timezonep
   in
   let relevant_offsets =
     List.map (function
-        | `Standard props -> opt (`Standard props) (occurence_before_timestamp datetime props)
-        | `Daylight props -> opt (`Daylight props) (occurence_before_timestamp datetime props)
+        | `Standard props -> opt props (occurence_before_timestamp datetime props)
+        | `Daylight props -> opt props (occurence_before_timestamp datetime props)
         | _ -> None)
       timezoneprops
   in
-  let _, props =
+  let ts, props =
     List.fold_left
       (fun (a, props) -> function
          | None -> (a, props)
          | Some (ts, d) ->
            if Ptime.is_later ~than:a ts then (ts, d) else (a, props))
-      (Ptime.min, `Standard []) relevant_offsets
+      (Ptime.min, []) relevant_offsets
   in
-  let ps = match props with `Standard ps -> ps | `Daylight ps -> ps in
-  calculate_offset ps datetime
+  calculate_offset props ts datetime
