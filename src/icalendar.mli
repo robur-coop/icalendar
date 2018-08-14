@@ -279,3 +279,7 @@ module Writer : sig
 end
 
 val next_recurrence : recurrence -> Ptime.t -> Ptime.t -> Ptime.t option
+
+val normalize_timezone : Ptime.t -> [< `Tzid of bool * String.t ] ->
+  timezoneprop list list ->
+  Ptime.t option

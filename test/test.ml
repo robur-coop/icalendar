@@ -2252,12 +2252,70 @@ let freebusy_tests = [
   "publish busy time", `Quick, publish_busy_time ;
 ]
 
+let compare_ptime =
+  let module M = struct
+    type t = Ptime.t
+    let pp = Ptime.pp
+    let equal = Ptime.equal
+  end in (module M: Alcotest.TESTABLE with type t = M.t)
+
+let timezone =
+  [ `Lastmod ([], (to_ptime (2004, 01, 10) (03, 28, 45), true));
+    `Timezone_id ([], (false, "America/New_York"));
+    `Daylight
+      [`Dtstart ([], `Datetime (to_ptime (2007, 03, 11) (02, 00, 00), false));
+       `Rrule
+         ([],
+          (`Yearly, None, None, [`Byday [(2, `Sunday)]; `Bymonth [3]]));
+       `Tzname ([], "EDT");
+       `Tzoffset_from ([], Ptime.Span.of_int_s (- 5*60*60));
+       `Tzoffset_to ([], Ptime.Span.of_int_s (- 4*60*60))];
+    `Standard
+      [`Dtstart ([], `Datetime (to_ptime (2007, 11, 04) (02, 00, 00), false));
+       `Rrule
+         ([],
+          (`Yearly, None, None, [`Byday [(1, `Sunday)]; `Bymonth [11]]));
+       `Tzname ([], "EST");
+       `Tzoffset_from ([], Ptime.Span.of_int_s (- 4*60*60));
+       `Tzoffset_to ([], Ptime.Span.of_int_s (- 5*60*60))]]
+
+let normal_tz_test () =
+  let datetime = to_ptime (2018, 08, 12) (00, 30, 00)
+  and tzid = `Tzid (false, "America/New_York")
+  in
+  let expected = to_ptime (2018, 08, 12) (04, 30, 00) in
+  Alcotest.(check (option compare_ptime) __LOC__ (Some expected)
+              (Icalendar.normalize_timezone datetime tzid [ timezone ]))
+
+let ts_exists_twice () =
+  let datetime = to_ptime (2007, 11, 04) (01, 30, 00)
+  and tzid = `Tzid (false, "America/New_York")
+  in
+  let expected = to_ptime (2007, 11, 04) (05, 30, 00) in
+  Alcotest.(check (option compare_ptime) __LOC__ (Some expected)
+              (Icalendar.normalize_timezone datetime tzid [ timezone ]))
+
+let ts_non_existing () =
+  let datetime = to_ptime (2007, 03, 11) (02, 30, 00)
+  and tzid = `Tzid (false, "America/New_York")
+  in
+  let expected = to_ptime (2007, 03, 11) (07, 30, 00) in
+  Alcotest.(check (option compare_ptime) __LOC__ (Some expected)
+              (Icalendar.normalize_timezone datetime tzid [ timezone ]))
+
+let tz_normalisation_tests = [
+  "normal timezone normalisation", `Quick, normal_tz_test ;
+  "timestamp exists twice (DST -> standard)", `Quick, ts_exists_twice ;
+  "timestamp doesn't exist (standard -> DST)", `Quick, ts_non_existing ;
+]
+
 let tests = [
   "Object tests", object_tests ;
   "Timezone tests", timezone_tests ;
   "Decode-Encode tests", decode_encode_tests ;
   "Freebusy tests", freebusy_tests ;
   "Recurrence tests", Test_recur.tests ;
+  "Timezone normalization tests", tz_normalisation_tests ;
 ]
 
 let () =
