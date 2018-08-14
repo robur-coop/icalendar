@@ -299,9 +299,10 @@ let is_occurence s_date freq (bymonth, byweekno, byyearday, bymonthday, byday) =
       | None -> true
       | Some md -> List.exists (monthday_matches (y, m, d)) md
     in
-    let is_byday = match byday with
-      | None -> true
-      | Some wd -> List.exists (yearly_weekday_matches (y, m, d)) wd
+    let is_byday = match byday, bymonth with
+      | None, _ -> true
+      | Some wd, None -> List.exists (yearly_weekday_matches (y, m, d)) wd
+      | Some wd, Some _ -> List.exists (weekday_matches (y, m, d)) wd
     in
     is_bymonth && is_byweekno && is_byyearday && is_bymonthday && is_byday
   | `Hourly | `Minutely | `Secondly -> invalid_arg "We don't support hourly, minutely or secondly for event frequencies."
