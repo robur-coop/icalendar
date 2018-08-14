@@ -327,6 +327,16 @@ let after_start start set =
   List.filter (fun d -> compare_dates d start >= 0) set
 
 (* start can be in middle of interval *)
+(* returns Ptime.t * Ptime.t list *)
+(* type recurrence_set = Ptime.t list *)
+(* internal state: start *)
+
+type record = {
+  mutable next_interval : Ptime.t ;
+  f : Ptime.t -> Ptime.t * Ptime.t list
+}
+
+(* needs to be computed completely, because bysetpos may index from back *)
 let next_recurrence_set start freq interval filters bysetpos wkst =
   let s_date, s_time = Ptime.to_date_time start in
   (* start_set = beginning of recurrence set, e.g. start of month for monthly *)
@@ -360,6 +370,14 @@ let next_recurrence_set start freq interval filters bysetpos wkst =
     | None -> assert false (*TODO*)
     | Some x -> x in
   to_ptime start_next_set, List.map to_ptime set''
+
+let rr_init next_interval f i fi b w =
+  { next_interval ; f = (fun s -> next_recurrence_set s f i fi b w) }
+
+let next_rr g =
+  let next_interval', rr_set = g.f g.next_interval in
+  g.next_interval <- next_interval' ;
+  rr_set
 
 let add_missing_filters recurs freq start =
   let s_date, s_time = Ptime.to_date_time start in
@@ -443,23 +461,26 @@ let all start (freq, count_or_until, interval, recurs) =
   and wkst = find_opt (function `Weekday x -> Some x | _ -> None) recurs in
   let wkst = match wkst with None -> `Monday | Some x -> x in
 
+  let recurrence_sets = rr_init start freq interval filters bysetpos wkst in
   match count_or_until with
   | Some (`Count n) ->
-    let rec do_one s = function
+    let rec do_one = function
       | 0 -> []
       | n ->
-        let d', s' = next_recurrence_set s freq interval filters bysetpos wkst in
-        let l, n' = take n s' in
-        l @ do_one d' n'
+        let l = next_rr recurrence_sets in
+        let l', n' = take n l in
+        l' @ do_one n'
     in
-    do_one start n (* start must be in rule, according to rfc *)
+    do_one n (* start must be in rule, according to rfc *)
   | Some (`Until (t, true)) ->
-    let rec do_one s =
-      let d', s' = next_recurrence_set s freq interval filters bysetpos wkst in
-      let l = List.filter (Ptime.is_earlier ~than:t) s' in
-      if Ptime.is_earlier ~than:t d' (* desired behaviour if Ptime.equal? need to check *)
-      then l @ do_one d'
-      else l
+    let rec do_one () =
+      let l = next_rr recurrence_sets in
+      let l' = List.filter (Ptime.is_earlier ~than:t) l in
+      if Ptime.is_earlier ~than:t recurrence_sets.next_interval (* desired behaviour if Ptime.equal? need to check *)
+      then l' @ do_one ()
+      else l'
     in
-    do_one start
+    do_one ()
   | _ -> invalid_arg "Not Yet Implemented"
+
+(* EXDATE and RDATE can manually override recurrence rules *)
