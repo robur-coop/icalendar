@@ -326,59 +326,51 @@ let compare_dates (y, m, d) (y', m', d') = match compare y y' with
 let after_start start set =
   List.filter (fun d -> compare_dates d start >= 0) set
 
-(* start can be in middle of interval *)
-(* returns Ptime.t * Ptime.t list *)
-(* type recurrence_set = Ptime.t list *)
-(* internal state: start *)
-
 type record = {
   mutable next_interval : Ptime.t ;
   mutable set : Ptime.t list ;
-  f : Ptime.t -> Ptime.t * Ptime.t list
+  next_recurrence_set : Ptime.t -> Ptime.t * Ptime.t list
 }
 
-(* needs to be computed completely, because bysetpos may index from back *)
-let next_recurrence_set start freq interval filters bysetpos wkst =
-  let s_date, s_time = Ptime.to_date_time start in
-  (* start_set = beginning of recurrence set, e.g. start of month for monthly *)
-  let start_set, end_set, start_next_set =
-    let start_set, advance_by_freq = match freq with
-      | `Daily -> s_date, add_days
-      | `Weekly  -> let rec weekstart d = if wd_is_weekday wkst (weekday d) then d, add_weeks else weekstart (sub_days 1 d) in weekstart s_date
-      | `Monthly -> let (y, m, _) = s_date in (y, m, 1), add_months
-      | `Yearly  -> let (y, _, _) = s_date in (y, 1, 1), add_years
-      | _ -> assert false
+let rr_init next_interval freq interval filters bysetpos wkst =
+  (* needs to be computed completely, because bysetpos may index from back *)
+  let next_recurrence_set start =
+    let s_date, s_time = Ptime.to_date_time start in
+    (* start_set = beginning of recurrence set, e.g. start of month for monthly *)
+    let start_set, end_set, start_next_set =
+      let start_set, advance_by_freq = match freq with
+        | `Daily -> s_date, add_days
+        | `Weekly  -> let rec weekstart d = if wd_is_weekday wkst (weekday d) then d, add_weeks else weekstart (sub_days 1 d) in weekstart s_date
+        | `Monthly -> let (y, m, _) = s_date in (y, m, 1), add_months
+        | `Yearly  -> let (y, _, _) = s_date in (y, 1, 1), add_years
+        | _ -> assert false
+      in
+      let interval' = match interval with None -> 1 | Some x -> x in
+      start_set, advance_by_freq 1 start_set, advance_by_freq interval' start_set
     in
-    let interval' = match interval with None -> 1 | Some x -> x in
-    start_set, advance_by_freq 1 start_set, advance_by_freq interval' start_set
+    let in_set x = compare_dates start_set x <= 0 && compare_dates x end_set < 0 in
+    let rec next_elem d =
+      if in_set d
+      then let d' = add_days 1 d in
+        if is_occurence d freq filters
+        then d :: next_elem d'
+        else next_elem d'
+      else []
+    in
+    let set = next_elem start_set in
+    let set' = filter_bysetpos bysetpos set in
+    let set'' = after_start s_date set' in
+    let to_ptime t = match Ptime.of_date_time (t, s_time) with
+      | None -> assert false (*TODO*)
+      | Some x -> x in
+    to_ptime start_next_set, List.map to_ptime set''
   in
-  let in_set x = compare_dates start_set x <= 0 && compare_dates x end_set < 0 in
-  let rec next_elem d =
-    if in_set d then
-      let d' = add_days 1 d in
-      if is_occurence d freq filters then
-        d :: next_elem d'
-      else
-        next_elem d'
-    else
-      []
-  in
-
-  let set = next_elem start_set in
-  let set' = filter_bysetpos bysetpos set in
-  let set'' = after_start s_date set' in
-  let to_ptime t = match Ptime.of_date_time (t, s_time) with
-    | None -> assert false (*TODO*)
-    | Some x -> x in
-  to_ptime start_next_set, List.map to_ptime set''
-
-let rr_init next_interval f i fi b w =
-  { next_interval ; set = [] ; f = (fun s -> next_recurrence_set s f i fi b w) }
+  { next_interval ; set = [] ; next_recurrence_set }
 
 let rec next_rr g =
   match g.set with
   | [] ->
-    let next_interval', rr_set = g.f g.next_interval in
+    let next_interval', rr_set = g.next_recurrence_set g.next_interval in
     g.next_interval <- next_interval' ;
     g.set <- rr_set ;
     next_rr g
