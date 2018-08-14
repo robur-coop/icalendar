@@ -424,6 +424,7 @@ let next start last_recurrence_start (freq, count_or_until, interval, recurs) =
     do_one last_recurrence_start
   | _ -> 
     let rec do_one s =
+      Printf.printf "start is %s\n" (Ptime.to_rfc3339 s) ;
       let d', s' = next_recurrence_set s freq interval filters bysetpos wkst in
       let l = List.filter (Ptime.is_later ~than:last_recurrence_start) s' in
       match l with 

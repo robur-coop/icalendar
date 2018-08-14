@@ -252,7 +252,7 @@ type component = [
   | `Todo of todoprop list * alarm list
   | `Freebusy of freebusyprop list 
   | `Timezone of timezoneprop list
-]
+] [@@deriving show]
 
 (*
 val in_timerange : component -> (Ptime.t * bool) * (Ptime.t * bool) -> bool
