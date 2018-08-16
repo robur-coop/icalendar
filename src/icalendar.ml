@@ -1822,8 +1822,8 @@ let parse (str : string) : (calendar, string) result =
   try parse_string calobject (normalize_lines str)
   with Parse_error -> Error "parse error"
 
-let next_recurrence (rrule : recurrence) dtstart last_recurrence_start =
-  Recurrence.next dtstart last_recurrence_start rrule 
+let recur_events dtstart (rrule : recurrence) =
+  Recurrence.new_gen dtstart rrule 
 
 let occurence_before_timestamp datetime (tzprops : tzprop list) =
   let dtstart = List.find (function `Dtstart _ -> true | _ -> false) tzprops in
@@ -1837,15 +1837,15 @@ let occurence_before_timestamp datetime (tzprops : tzprop list) =
   in
   (* dtstart in a vtimezone subcomponent may not contain a tzid property! *)
   let rrule = List.find_opt (function `Rrule _ -> true | _ -> false) tzprops in
-  (* TODO handle RDATE in addition to rrule *)
-  let next_r dtstart'' = match rrule with
-    | None -> None
-    | Some (`Rrule (_, r)) -> next_recurrence r dtstart' dtstart''
+  let next_event = match rrule with
+  | None -> (fun () -> None)
+  | Some (`Rrule (_, rrule)) -> recur_events dtstart' rrule
   in
+  (* TODO handle RDATE in addition to rrule *)
   let rec in_timerange acc = function
     | Some dtstart'' ->
       if Ptime.is_earlier ~than:datetime dtstart''
-      then in_timerange (Some dtstart'') (next_r dtstart'')
+      then in_timerange (Some dtstart'') (next_event ())
       else acc
    | None -> acc in
   in_timerange None (Some dtstart')
