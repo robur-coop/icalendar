@@ -33,40 +33,106 @@ type role = [ `Chair | `Nonparticipant | `Optparticipant | `Reqparticipant
 
 type fbtype = [ `Free | `Busy | `Busy_Unavailable | `Busy_Tentative | `Ianatoken of string | `Xname of string * string ] [@@deriving eq, show]
 
-type icalparameter =
-  [ `Altrep of Uri.t
-  | `Cn of string
-  | `Cutype of cutype
-  | `Delegated_from of Uri.t list
-  | `Delegated_to of Uri.t list
-  | `Dir of Uri.t
-  | `Encoding of [ `Base64 ]
-  | `Media_type of string * string
-  | `Fbtype of fbtype
-  | `Language of string
-  | `Member of Uri.t list
-  | `Partstat of partstat
-  | `Range of [ `Thisandfuture ]
-  | `Related of [ `Start | `End ]
-  | `Reltype of relationship
-  | `Role of role
-  | `Rsvp of bool
-  | `Sentby of Uri.t
-  | `Tzid of bool * string
-  | `Valuetype of valuetype
-  | `Iana_param of string * string list
-  | `Xparam of (string * string) * string list 
-  ] [@@deriving eq, show]
+type _ icalparameter =
+  | Altrep : Uri.t icalparameter
+  | Cn : string icalparameter
+  | Cutype : cutype icalparameter
+  | Delegated_from : (Uri.t list) icalparameter
+  | Delegated_to : (Uri.t list) icalparameter
+  | Dir : Uri.t icalparameter
+  | Encoding : [ `Base64 ] icalparameter
+  | Media_type : (string * string) icalparameter
+  | Fbtype : fbtype icalparameter
+  | Language : string icalparameter
+  | Member : (Uri.t list) icalparameter
+  | Partstat : partstat icalparameter
+  | Range : [ `Thisandfuture ] icalparameter
+  | Related : [ `Start | `End ] icalparameter
+  | Reltype : relationship icalparameter
+  | Role : role icalparameter
+  | Rsvp : bool icalparameter
+  | Sentby : Uri.t icalparameter
+  | Tzid : (bool * string) icalparameter
+  | Valuetype : valuetype icalparameter
+  | Iana_param : (string * string list) icalparameter
+  | Xparam : ((string * string) * string list) icalparameter
+
+let rec equal_icalparameter : type a. 
+          a icalparameter -> a icalparameter -> Ppx_deriving_runtime.bool
+  =
+  ((let open! Ppx_deriving_runtime in
+      fun lhs ->
+        fun rhs ->
+          match (lhs, rhs) with
+          | (Altrep, Altrep) -> true
+          | (Cn, Cn) -> true
+          | (Cutype, Cutype) -> true
+          | (Delegated_from, Delegated_from) -> true
+          | (Delegated_to, Delegated_to) -> true
+          | (Dir, Dir) -> true
+          | (Encoding, Encoding) -> true
+          | (Media_type, Media_type) -> true
+          | (Fbtype, Fbtype) -> true
+          | (Language, Language) -> true
+          | (Member, Member) -> true
+          | (Partstat, Partstat) -> true
+          | (Range, Range) -> true
+          | (Related, Related) -> true
+          | (Reltype, Reltype) -> true
+          | (Role, Role) -> true
+          | (Rsvp, Rsvp) -> true
+          | (Sentby, Sentby) -> true
+          | (Tzid, Tzid) -> true
+          | (Valuetype, Valuetype) -> true
+          | (Iana_param, Iana_param) -> true
+          | (Xparam, Xparam) -> true
+          | _ -> false)
+  [@ocaml.warning "-A"])[@@ocaml.warning "-39"]
+let rec (pp_icalparameter :
+          Format.formatter -> _ icalparameter -> Ppx_deriving_runtime.unit)
+  =
+  ((let open! Ppx_deriving_runtime in
+      fun fmt ->
+        function
+        | Altrep -> Format.pp_print_string fmt "Icalendar.Altrep"
+        | Cn -> Format.pp_print_string fmt "Icalendar.Cn"
+        | Cutype -> Format.pp_print_string fmt "Icalendar.Cutype"
+        | Delegated_from ->
+            Format.pp_print_string fmt "Icalendar.Delegated_from"
+        | Delegated_to -> Format.pp_print_string fmt "Icalendar.Delegated_to"
+        | Dir -> Format.pp_print_string fmt "Icalendar.Dir"
+        | Encoding -> Format.pp_print_string fmt "Icalendar.Encoding"
+        | Media_type -> Format.pp_print_string fmt "Icalendar.Media_type"
+        | Fbtype -> Format.pp_print_string fmt "Icalendar.Fbtype"
+        | Language -> Format.pp_print_string fmt "Icalendar.Language"
+        | Member -> Format.pp_print_string fmt "Icalendar.Member"
+        | Partstat -> Format.pp_print_string fmt "Icalendar.Partstat"
+        | Range -> Format.pp_print_string fmt "Icalendar.Range"
+        | Related -> Format.pp_print_string fmt "Icalendar.Related"
+        | Reltype -> Format.pp_print_string fmt "Icalendar.Reltype"
+        | Role -> Format.pp_print_string fmt "Icalendar.Role"
+        | Rsvp -> Format.pp_print_string fmt "Icalendar.Rsvp"
+        | Sentby -> Format.pp_print_string fmt "Icalendar.Sentby"
+        | Tzid -> Format.pp_print_string fmt "Icalendar.Tzid"
+        | Valuetype -> Format.pp_print_string fmt "Icalendar.Valuetype"
+        | Iana_param -> Format.pp_print_string fmt "Icalendar.Iana_param"
+        | Xparam -> Format.pp_print_string fmt "Icalendar.Xparam")
+  [@ocaml.warning "-A"])
+and show_icalparameter : _ icalparameter -> Ppx_deriving_runtime.string =
+  fun x -> Format.asprintf "%a" pp_icalparameter x
+
+type param = P : 'a icalparameter * 'a -> param
+  [@@deriving eq, show]
 
 type other_prop =
-  [ `Iana_prop of string * icalparameter list * string
-  | `Xprop of (string * string) * icalparameter list * string ] [@@deriving eq, show]
+  [ `Iana_prop of string * param list * string
+  | `Xprop of (string * string) * param list * string ] [@@deriving eq, show]
 
 type calprop =
-  [ `Prodid of icalparameter list * string
-  | `Version of icalparameter list * string
-  | `Calscale of icalparameter list * string
-  | `Method of icalparameter list * string
+  [ `Prodid of param list * string
+  | `Version of param list * string
+  | `Calscale of param list * string
+  | `Method of param list * string
   | other_prop
   ] [@@deriving eq, show]
 
@@ -103,99 +169,99 @@ type status = [ `Draft | `Final | `Cancelled |
                 `Tentative | `Confirmed (* | `Cancelled *) ] [@@deriving eq, show]
 
 type freebusyprop = [
-  | `Dtstamp of icalparameter list * (Ptime.t * bool)
-  | `Uid of icalparameter list * string
-  | `Contact of icalparameter list * string
-  | `Dtstart of icalparameter list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Dtend of icalparameter list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Organizer of icalparameter list * Uri.t
-  | `Url of icalparameter list * Uri.t
-  | `Attendee of icalparameter list * Uri.t
-  | `Comment of icalparameter list * string
-  | `Freebusy of icalparameter list * (Ptime.t * Ptime.t * bool) list 
-  | `Rstatus of icalparameter list * ((int * int * int option) * string * string option)
+  | `Dtstamp of param list * (Ptime.t * bool)
+  | `Uid of param list * string
+  | `Contact of param list * string
+  | `Dtstart of param list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Dtend of param list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Organizer of param list * Uri.t
+  | `Url of param list * Uri.t
+  | `Attendee of param list * Uri.t
+  | `Comment of param list * string
+  | `Freebusy of param list * (Ptime.t * Ptime.t * bool) list 
+  | `Rstatus of param list * ((int * int * int option) * string * string option)
   | other_prop 
 ] [@@deriving eq, show]
 
 type generalprop = [
-  | `Dtstamp of icalparameter list * (Ptime.t * bool)
-  | `Uid of icalparameter list * string
-  | `Dtstart of icalparameter list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Class of icalparameter list * class_
-  | `Created of icalparameter list * (Ptime.t * bool)
-  | `Description of icalparameter list * string
-  | `Geo of icalparameter list * (float * float)
-  | `Lastmod of icalparameter list * (Ptime.t * bool)
-  | `Location of icalparameter list * string
-  | `Organizer of icalparameter list * Uri.t
-  | `Priority of icalparameter list * int
-  | `Seq of icalparameter list * int
-  | `Status of icalparameter list * status
-  | `Summary of icalparameter list * string
-  | `Url of icalparameter list * Uri.t
-  | `Recur_id of icalparameter list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Rrule of icalparameter list * recurrence
-  | `Duration of icalparameter list * int
-  | `Attach of icalparameter list * [ `Uri of Uri.t | `Binary of string ]
-  | `Attendee of icalparameter list * Uri.t
-  | `Categories of icalparameter list * string list
-  | `Comment of icalparameter list * string
-  | `Contact of icalparameter list * string
-  | `Exdate of icalparameter list *
+  | `Dtstamp of param list * (Ptime.t * bool)
+  | `Uid of param list * string
+  | `Dtstart of param list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Class of param list * class_
+  | `Created of param list * (Ptime.t * bool)
+  | `Description of param list * string
+  | `Geo of param list * (float * float)
+  | `Lastmod of param list * (Ptime.t * bool)
+  | `Location of param list * string
+  | `Organizer of param list * Uri.t
+  | `Priority of param list * int
+  | `Seq of param list * int
+  | `Status of param list * status
+  | `Summary of param list * string
+  | `Url of param list * Uri.t
+  | `Recur_id of param list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Rrule of param list * recurrence
+  | `Duration of param list * int
+  | `Attach of param list * [ `Uri of Uri.t | `Binary of string ]
+  | `Attendee of param list * Uri.t
+  | `Categories of param list * string list
+  | `Comment of param list * string
+  | `Contact of param list * string
+  | `Exdate of param list *
     [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list ]
-  | `Rstatus of icalparameter list * ((int * int * int option) * string * string option)
-  | `Related of icalparameter list * string
-  | `Resource of icalparameter list * string list
-  | `Rdate of icalparameter list *
+  | `Rstatus of param list * ((int * int * int option) * string * string option)
+  | `Related of param list * string
+  | `Resource of param list * string list
+  | `Rdate of param list *
               [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
 ] [@@deriving eq, show]
 
 type eventprop = [
   | generalprop
-  | `Transparency of icalparameter list * [ `Transparent | `Opaque ]
-  | `Dtend of icalparameter list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Transparency of param list * [ `Transparent | `Opaque ]
+  | `Dtend of param list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | other_prop
 ] [@@deriving eq, show]
 
 type 'a alarm_struct = {
-  trigger : icalparameter list * [ `Duration of int | `Datetime of (Ptime.t * bool) ] ;
-  duration_repeat: ((icalparameter list * int) * (icalparameter list * int )) option ;
+  trigger : param list * [ `Duration of int | `Datetime of (Ptime.t * bool) ] ;
+  duration_repeat: ((param list * int) * (param list * int )) option ;
   other: other_prop list ;
   special: 'a ;
 } [@@deriving eq, show]
 
 type audio_struct = {
-  attach: (icalparameter list * [ `Uri of Uri.t | `Binary of string ]) option ;
+  attach: (param list * [ `Uri of Uri.t | `Binary of string ]) option ;
 } [@@deriving eq, show]
 
 type display_struct = {
-  description : icalparameter list * string ;
+  description : param list * string ;
 } [@@deriving eq, show]
 
 type email_struct = {
-  description : icalparameter list * string ;
-  summary : icalparameter list * string ;
-  attendees : (icalparameter list * Uri.t) list ;
-  attach: (icalparameter list * [ `Uri of Uri.t | `Binary of string ]) option ;
+  description : param list * string ;
+  summary : param list * string ;
+  attendees : (param list * Uri.t) list ;
+  attach: (param list * [ `Uri of Uri.t | `Binary of string ]) option ;
 } [@@deriving eq, show]
 
 type alarm = [ `Audio of audio_struct alarm_struct | `Display of display_struct alarm_struct | `Email of email_struct alarm_struct ] [@@deriving eq, show]
 
 type tzprop = [
-  | `Dtstart of icalparameter list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Tzoffset_to of icalparameter list * Ptime.Span.t
-  | `Tzoffset_from of icalparameter list * Ptime.Span.t
-  | `Rrule of icalparameter list * recurrence
-  | `Comment of icalparameter list * string
-  | `Rdate of icalparameter list * [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
-  | `Tzname of icalparameter list * string
+  | `Dtstart of param list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Tzoffset_to of param list * Ptime.Span.t
+  | `Tzoffset_from of param list * Ptime.Span.t
+  | `Rrule of param list * recurrence
+  | `Comment of param list * string
+  | `Rdate of param list * [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
+  | `Tzname of param list * string
   | other_prop
 ] [@@deriving eq, show]
 
 type timezoneprop = [
-  | `Timezone_id of icalparameter list * (bool * string)
-  | `Lastmod of icalparameter list * (Ptime.t * bool)
-  | `Tzurl of icalparameter list * Uri.t
+  | `Timezone_id of param list * (bool * string)
+  | `Lastmod of param list * (Ptime.t * bool)
+  | `Tzurl of param list * Uri.t
   | `Standard of tzprop list
   | `Daylight of tzprop list
   | other_prop
@@ -203,9 +269,9 @@ type timezoneprop = [
 
 type todoprop = [
   | generalprop
-  | `Completed of icalparameter list * (Ptime.t * bool)
-  | `Percent of icalparameter list * int
-  | `Due of  icalparameter list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Completed of param list * (Ptime.t * bool)
+  | `Percent of param list * int
+  | `Due of  param list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | other_prop
 ] [@@deriving eq, show]
 
