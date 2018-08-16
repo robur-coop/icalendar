@@ -25,17 +25,11 @@ type interval = int
 
 type recurrence = freq * count_or_until option * interval option * recur list [@@deriving eq, show]
 
-type other_param =
-  [ `Iana_param of string * string list
-  | `Xparam of (string * string) * string list ]
-
 type valuetype = [
     `Binary | `Boolean | `Caladdress | `Date | `Datetime | `Duration | `Float
   | `Integer | `Period | `Recur | `Text | `Time | `Uri | `Utcoffset
   | `Xname of (string * string) | `Ianatoken of string
 ]
-
-type valuetypeparam = [ `Valuetype of valuetype ]
 
 type cutype = [ `Group | `Individual | `Resource | `Room | `Unknown
               | `Ianatoken of string | `Xname of string * string ]
@@ -73,21 +67,22 @@ type icalparameter =
   | `Rsvp of bool
   | `Sentby of Uri.t
   | `Tzid of bool * string
-  | valuetypeparam
-  | other_param
-  ]
+  | `Valuetype of valuetype
+  | `Iana_param of string * string list
+  | `Xparam of (string * string) * string list 
+  ] 
 
 type other_prop =
   [ `Iana_prop of string * icalparameter list * string
   | `Xprop of (string * string) * icalparameter list * string ] [@@deriving eq, show]
 
 type calprop =
-  [ `Prodid of other_param list * string
-  | `Version of other_param list * string
-  | `Calscale of other_param list * string
-  | `Method of other_param list * string
+  [ `Prodid of icalparameter list * string
+  | `Version of icalparameter list * string
+  | `Calscale of icalparameter list * string
+  | `Method of icalparameter list * string
   | other_prop
-  ]
+  ] 
 
 type class_ = [ `Public | `Private | `Confidential | `Ianatoken of string | `Xname of string * string ]
 
@@ -96,116 +91,84 @@ type status = [ `Draft | `Final | `Cancelled |
                 `Tentative | `Confirmed (* | `Cancelled *) ]
 
 type generalprop = [
-  | `Dtstamp of other_param list * (Ptime.t * bool)
-  | `Uid of other_param list * string
-  | `Dtstart of [ other_param | valuetypeparam | `Tzid of bool * string ] list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Class of other_param list * class_
-  | `Created of other_param list * (Ptime.t * bool)
-  | `Description of [other_param | `Altrep of Uri.t | `Language of string ] list * string
-  | `Geo of other_param list * (float * float)
-  | `Lastmod of other_param list * (Ptime.t * bool)
-  | `Location of [other_param | `Altrep of Uri.t | `Language of string ] list * string
-  | `Organizer of [other_param | `Cn of string | `Dir of Uri.t | `Sentby of Uri.t | `Language of string] list * Uri.t
-  | `Priority of other_param list * int
-  | `Seq of other_param list * int
-  | `Status of other_param list * status
-  | `Summary of [other_param | `Altrep of Uri.t | `Language of string ] list * string
-  | `Url of other_param list * Uri.t
-  | `Recur_id of [ other_param | `Tzid of bool * string | valuetypeparam | `Range of [ `Thisandfuture ] ] list *
-                 [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Rrule of other_param list * recurrence
-  | `Duration of other_param list * int
-  | `Attach of [`Media_type of string * string | `Encoding of [ `Base64 ] | valuetypeparam | other_param ] list *
-               [ `Uri of Uri.t | `Binary of string ]
-  | `Attendee of [ other_param
-                 | `Cn of string
-                 | `Cutype of cutype
-                 | `Delegated_from of Uri.t list
-                 | `Delegated_to of Uri.t list
-                 | `Dir of Uri.t
-                 | `Language of string
-                 | `Member of Uri.t list
-                 | `Partstat of partstat
-                 | `Role of role
-                 | `Rsvp of bool
-                 | `Sentby of Uri.t ] list * Uri.t
-  | `Categories of [ other_param | `Language of string ] list * string list
-  | `Comment of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
-  | `Contact of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
-  | `Exdate of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
+  | `Dtstamp of icalparameter list * (Ptime.t * bool)
+  | `Uid of icalparameter list * string
+  | `Dtstart of icalparameter list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Class of icalparameter list * class_
+  | `Created of icalparameter list * (Ptime.t * bool)
+  | `Description of icalparameter list * string
+  | `Geo of icalparameter list * (float * float)
+  | `Lastmod of icalparameter list * (Ptime.t * bool)
+  | `Location of icalparameter list * string
+  | `Organizer of icalparameter list * Uri.t
+  | `Priority of icalparameter list * int
+  | `Seq of icalparameter list * int
+  | `Status of icalparameter list * status
+  | `Summary of icalparameter list * string
+  | `Url of icalparameter list * Uri.t
+  | `Recur_id of icalparameter list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Rrule of icalparameter list * recurrence
+  | `Duration of icalparameter list * int
+  | `Attach of icalparameter list * [ `Uri of Uri.t | `Binary of string ]
+  | `Attendee of icalparameter list * Uri.t
+  | `Categories of icalparameter list * string list
+  | `Comment of icalparameter list * string
+  | `Contact of icalparameter list * string
+  | `Exdate of icalparameter list *
     [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list ]
-  | `Rstatus of [ other_param | `Language of string ] list * ((int * int * int option) * string * string option)
-  | `Related of [ other_param | `Reltype of relationship ] list * string
-  | `Resource of [ other_param | `Language of string | `Altrep of Uri.t ] list * string list
-  | `Rdate of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
+  | `Rstatus of icalparameter list * ((int * int * int option) * string * string option)
+  | `Related of icalparameter list * string
+  | `Resource of icalparameter list * string list
+  | `Rdate of icalparameter list *
               [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
-]
+] 
 
 type eventprop = [
   | generalprop
-  | `Transparency of other_param list * [ `Transparent | `Opaque ]
-  | `Dtend of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
-              [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Transparency of icalparameter list * [ `Transparent | `Opaque ]
+  | `Dtend of icalparameter list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | other_prop
-]
+] 
 
 type 'a alarm_struct = {
-  trigger : [ other_param | valuetypeparam | `Related of [ `Start | `End ] ] list *
-    [ `Duration of int | `Datetime of (Ptime.t * bool) ] ;
-  duration_repeat: ((other_param list * int) * (other_param list * int )) option ;
+  trigger : icalparameter list * [ `Duration of int | `Datetime of (Ptime.t * bool) ] ;
+  duration_repeat: ((icalparameter list * int) * (icalparameter list * int )) option ;
   other: other_prop list ;
   special: 'a ;
 }
 
 type audio_struct = {
-  attach: ([`Media_type of string * string | `Encoding of [ `Base64 ] | valuetypeparam | other_param ] list *
-    [ `Uri of Uri.t | `Binary of string ]) option ;
-  (* xprop: list ;
-  iana_prop: list ; *)
+  attach: (icalparameter list * [ `Uri of Uri.t | `Binary of string ]) option ;
 }
 
 type display_struct = {
-  description : [ other_param | `Altrep of Uri.t | `Language of string ] list * string ;
+  description : icalparameter list * string ;
 }
 
 type email_struct = {
-  description : [ other_param | `Altrep of Uri.t | `Language of string ] list * string ;
-  summary : [ other_param | `Altrep of Uri.t | `Language of string ] list * string ;
-  attendees : ([ other_param
-                 | `Cn of string
-                 | `Cutype of cutype
-                 | `Delegated_from of Uri.t list
-                 | `Delegated_to of Uri.t list
-                 | `Dir of Uri.t
-                 | `Language of string
-                 | `Member of Uri.t list
-                 | `Partstat of partstat
-                 | `Role of role
-                 | `Rsvp of bool
-                 | `Sentby of Uri.t ] list * Uri.t) list ;
-  attach: ([`Media_type of string * string | `Encoding of [ `Base64 ] | valuetypeparam | other_param ] list *
-    [ `Uri of Uri.t | `Binary of string ]) option ;
+  description : icalparameter list * string ;
+  summary : icalparameter list * string ;
+  attendees : (icalparameter list * Uri.t) list ;
+  attach: (icalparameter list * [ `Uri of Uri.t | `Binary of string ]) option ;
 }
 
 type alarm = [ `Audio of audio_struct alarm_struct | `Display of display_struct alarm_struct | `Email of email_struct alarm_struct ]
 
 type tzprop = [
-  | `Dtstart of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
-    [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Tzoffset_to of other_param list * Ptime.Span.t
-  | `Tzoffset_from of other_param list * Ptime.Span.t
-  | `Rrule of other_param list * recurrence
-  | `Comment of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
-  | `Rdate of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
-              [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
-  | `Tzname of [ other_param | `Language of string ] list * string
+  | `Dtstart of icalparameter list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Tzoffset_to of icalparameter list * Ptime.Span.t
+  | `Tzoffset_from of icalparameter list * Ptime.Span.t
+  | `Rrule of icalparameter list * recurrence
+  | `Comment of icalparameter list * string
+  | `Rdate of icalparameter list * [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
+  | `Tzname of icalparameter list * string
   | other_prop
 ]
 
 type timezoneprop = [
-  | `Timezone_id of other_param list * (bool * string)
-  | `Lastmod of other_param list * (Ptime.t * bool)
-  | `Tzurl of other_param list * Uri.t
+  | `Timezone_id of icalparameter list * (bool * string)
+  | `Lastmod of icalparameter list * (Ptime.t * bool)
+  | `Tzurl of icalparameter list * Uri.t
   | `Standard of tzprop list
   | `Daylight of tzprop list
   | other_prop
@@ -213,37 +176,24 @@ type timezoneprop = [
 
 type todoprop = [
   | generalprop
-  | `Completed of other_param list * (Ptime.t * bool)
-  | `Percent of other_param list * int
-  | `Due of  [ other_param | valuetypeparam | `Tzid of bool * string ] list *
-             [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Completed of icalparameter list * (Ptime.t * bool)
+  | `Percent of icalparameter list * int
+  | `Due of  icalparameter list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | other_prop
 ]
 
 type freebusyprop = [
-  | `Dtstamp of other_param list * (Ptime.t * bool)
-  | `Uid of other_param list * string
-  | `Contact of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
-  | `Dtstart of [ other_param | valuetypeparam | `Tzid of bool * string ] list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Dtend of [ other_param | valuetypeparam | `Tzid of bool * string ] list *
-              [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Organizer of [other_param | `Cn of string | `Dir of Uri.t | `Sentby of Uri.t | `Language of string] list * Uri.t
-  | `Url of other_param list * Uri.t
-  | `Attendee of [ other_param
-                 | `Cn of string
-                 | `Cutype of cutype
-                 | `Delegated_from of Uri.t list
-                 | `Delegated_to of Uri.t list
-                 | `Dir of Uri.t
-                 | `Language of string
-                 | `Member of Uri.t list
-                 | `Partstat of partstat
-                 | `Role of role
-                 | `Rsvp of bool
-                 | `Sentby of Uri.t ] list * Uri.t
-  | `Comment of [ other_param | `Language of string | `Altrep of Uri.t ] list * string
-  | `Freebusy of [ other_param | `Fbtype of fbtype ] list * (Ptime.t * Ptime.t * bool) list 
-  | `Rstatus of [ other_param | `Language of string ] list * ((int * int * int option) * string * string option)
+  | `Dtstamp of icalparameter list * (Ptime.t * bool)
+  | `Uid of icalparameter list * string
+  | `Contact of icalparameter list * string
+  | `Dtstart of icalparameter list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Dtend of icalparameter list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Organizer of icalparameter list * Uri.t
+  | `Url of icalparameter list * Uri.t
+  | `Attendee of icalparameter list * Uri.t
+  | `Comment of icalparameter list * string
+  | `Freebusy of icalparameter list * (Ptime.t * Ptime.t * bool) list 
+  | `Rstatus of icalparameter list * ((int * int * int option) * string * string option)
   | other_prop 
 ]
 
