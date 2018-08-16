@@ -10,9 +10,19 @@ let p =
     let equal = Ptime.equal
   end in (module M : Alcotest.TESTABLE with type t = M.t)
 
+let first_n n start recurrence =
+  let next_event = Recurrence.new_gen start recurrence in
+  let rec compute_next_event = function
+    | 0 -> []
+    | n -> match next_event () with
+      | None -> []
+      | Some event -> event :: compute_next_event (pred n)
+  in
+  compute_next_event n
+
 let all_events date time recurrence =
   let start = to_ptime date time in
-  Recurrence.first_n 2000 start recurrence
+  first_n 2000 start recurrence
 
 (* from RFC 5545 section 3.8.5.3, but using UTC as timezone *)
 let ex_1 () =

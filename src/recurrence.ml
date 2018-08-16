@@ -453,14 +453,4 @@ let new_gen start recurrence =
     | _ ->
       (fun () -> Some (next_rr gen_event))
 
-let first_n n start recurrence =
-  let next_event = new_gen start recurrence in
-  let rec compute_next_event = function
-    | 0 -> []
-    | n -> match next_event () with
-      | None -> []
-      | Some event -> event :: compute_next_event (pred n)
-  in
-  compute_next_event n
-
 (* EXDATE and RDATE can manually override recurrence rules *)
