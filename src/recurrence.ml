@@ -434,6 +434,7 @@ let add_missing_filters recurs freq start =
   (bymonth, byweekno, byyearday, bymonthday, byday)
 
 (* create correct main generator *)
+(* TODO timezone is not applied yet *)
 let new_gen start recurrence =
   let (freq, count_or_until, interval, recurs) = recurrence in
   let filters = add_missing_filters recurs freq start
@@ -473,9 +474,5 @@ let first_n n start recurrence =
       | Some event -> event :: compute_next_event (pred n)
   in
   compute_next_event n
-
-(* TODO what happens if we get requests for infinite lists *)
-(* TODO timezone is not applied yet *)
-let all start recurrence = first_n 2000 start recurrence
 
 (* EXDATE and RDATE can manually override recurrence rules *)
