@@ -453,18 +453,6 @@ let new_gen start recurrence =
     | _ ->
       (fun () -> Some (next_rr gen_event))
 
-let next start last_recurrence_start recurrence =
-  let next_event = new_gen start recurrence in
-  let rec compute_next_event () =
-    match next_event () with
-    | None -> None
-    | Some event ->
-      if Ptime.is_later ~than:last_recurrence_start event
-      then Some event
-      else compute_next_event ()
-  in
-  compute_next_event ()
-
 let first_n n start recurrence =
   let next_event = new_gen start recurrence in
   let rec compute_next_event = function
