@@ -1856,24 +1856,28 @@ let calculate_offset (props : tzprop list) ts datetime =
     List.find (function `Tzoffset_from _ -> true | _ -> false) props
   with
   | `Tzoffset_to (_, to_span), `Tzoffset_from (_, from_span) ->
-    let is_negative = Ptime.Span.compare to_span from_span = 1 in
-    let delta = Ptime.Span.sub to_span from_span in
-    let in_lost_span =
-      let than = match Ptime.add_span ts delta with
-        | None -> assert false
-        | Some d -> d
+    begin
+      let is_negative = Ptime.Span.compare to_span from_span = 1 in
+      let delta = Ptime.Span.sub to_span from_span in
+      let in_lost_span =
+        let than = match Ptime.add_span ts delta with
+          | None -> assert false
+          | Some d -> d
+        in
+        Ptime.is_earlier ~than datetime
       in
-      Ptime.is_earlier ~than datetime
-    in
-    let datetime' =
-      if is_negative && in_lost_span then
-        match Ptime.add_span datetime delta with
-        | None -> assert false
-        | Some ts -> ts
-      else
-        datetime
-    in
-    Ptime.sub_span datetime' to_span
+      let datetime' =
+        if is_negative && in_lost_span then
+          match Ptime.add_span datetime delta with
+          | None -> assert false
+          | Some ts -> ts
+        else
+          datetime
+      in
+      match Ptime.sub_span datetime' to_span with
+      | None -> assert false
+      | Some timestamp -> timestamp
+    end
   | _ -> assert false
 
 let normalize_timezone datetime (`Tzid (is_unique, tzid)) (timezones : timezoneprop list list) =

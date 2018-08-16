@@ -282,4 +282,4 @@ val recur_events : Ptime.t -> recurrence -> (unit -> Ptime.t option)
 
 val normalize_timezone : Ptime.t -> [< `Tzid of bool * String.t ] ->
   timezoneprop list list ->
-  Ptime.t option
+  Ptime.t 
