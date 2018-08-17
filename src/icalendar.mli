@@ -73,9 +73,9 @@ type _ icalparameter =
 
 val equal_icalparameter : 'a icalparameter -> 'a -> 'b icalparameter -> 'b -> bool
 
-module Param_map : sig include Gmap.S with type 'a key = 'a icalparameter end
+module Params : sig include Gmap.S with type 'a key = 'a icalparameter end
 
-type params = Param_map.t
+type params = Params.t
 
 type other_prop =
   [ `Iana_prop of string * params * string

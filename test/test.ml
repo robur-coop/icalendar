@@ -9,9 +9,9 @@ let result_c = Alcotest.(result compare_calendar string)
 
 open Icalendar
 
-let empty = Param_map.empty
-let singleton k v = Param_map.add k v empty
-let list_to_map xs = List.fold_right Param_map.addb xs empty
+let empty = Params.empty
+let singleton k v = Params.add k v empty
+let list_to_map xs = List.fold_right Params.addb xs empty
 
 let test_line () =
   let line =
@@ -657,7 +657,7 @@ END:VCALENDAR
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
         [
           `Event
-            ([ `Attach (Param_map.add Media_type ("text", "plain") (Param_map.add Encoding `Base64 (singleton Valuetype `Binary)), `Binary "TG9yZW\
+            ([ `Attach (list_to_map [ B (Media_type, ("text", "plain")) ; B (Encoding, `Base64) ; B (Valuetype, `Binary)], `Binary "TG9yZW\
 0gaXBzdW0gZG9sb3Igc2l0IGFtZXQsIGNvbnNlY3RldHVyIGFkaXBpc2ljaW\
 5nIGVsaXQsIHNlZCBkbyBlaXVzbW9kIHRlbXBvciBpbmNpZGlkdW50IHV0IG\
 xhYm9yZSBldCBkb2xvcmUgbWFnbmEgYWxpcXVhLiBVdCBlbmltIGFkIG1pbm\

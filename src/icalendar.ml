@@ -307,13 +307,13 @@ module K = struct
   let pp = pp_icalparameter
 end
 
-module Param_map = Gmap.Make(K)
+module Params = Gmap.Make(K)
 
-type params = Param_map.t
+type params = Params.t
 let equal_params m m' =
-  let eq (Param_map.B (k, v)) (Param_map.B (k', v')) = equal_icalparameter k v k' v' in
-  Param_map.equal eq m m'
-let pp_params ppf m = Param_map.pp ppf m
+  let eq (Params.B (k, v)) (Params.B (k', v')) = equal_icalparameter k v k' v' in
+  Params.equal eq m m'
+let pp_params ppf m = Params.pp ppf m
 
 type other_prop =
   [ `Iana_prop of string * params * string
@@ -541,7 +541,7 @@ let freebusyprop_to_params = function
   | `Dtend (params, _) -> params
 
 let params_to_tzid (params : params list) =
-  let find_tzid_param acc m = match Param_map.find Tzid m with
+  let find_tzid_param acc m = match Params.find Tzid m with
      | Some (_, tzid) -> Astring.String.Set.add tzid acc
      | None -> acc in
   List.fold_left find_tzid_param Astring.String.Set.empty params
@@ -699,8 +699,8 @@ module Writer = struct
     let write = Buffer.add_string buf in
     let write_char = Buffer.add_char buf in
     write name ;
-    Param_map.iter (fun param ->
-        let Param_map.B (paramk, paramv) = param in
+    Params.iter (fun param ->
+        let Params.B (paramk, paramv) = param in
         write_char ';' ;
         write_param buf paramk paramv)
       params ;
@@ -1008,7 +1008,7 @@ module Writer = struct
 
   let alarm_to_ics cr buf alarm =
     (* TODO: output alarm.other field *)
-    write_line cr buf "BEGIN" Param_map.empty (write_string "VALARM") ;
+    write_line cr buf "BEGIN" Params.empty (write_string "VALARM") ;
     let write_trigger buf trig =
       let params, print = match trig with
         | (params, `Duration d) ->
@@ -1020,24 +1020,24 @@ module Writer = struct
     in
     (match alarm with
      | `Audio (audio : audio_struct alarm_struct) ->
-       write_line cr buf "ACTION" Param_map.empty (write_string "AUDIO") ;
+       write_line cr buf "ACTION" Params.empty (write_string "AUDIO") ;
        write_trigger buf audio.trigger ;
        duration_repeat_to_ics cr buf audio.duration_repeat ;
        attach_to_ics cr buf audio.special.attach
      | `Display (display : display_struct alarm_struct) ->
-       write_line cr buf "ACTION" Param_map.empty (write_string "DISPLAY") ;
+       write_line cr buf "ACTION" Params.empty (write_string "DISPLAY") ;
        write_trigger buf display.trigger ;
        duration_repeat_to_ics cr buf display.duration_repeat ;
        description_to_ics cr buf display.special.description
      | `Email email ->
-       write_line cr buf "ACTION" Param_map.empty (write_string "EMAIL") ;
+       write_line cr buf "ACTION" Params.empty (write_string "EMAIL") ;
        write_trigger buf email.trigger ;
        duration_repeat_to_ics cr buf email.duration_repeat ;
        attach_to_ics cr buf email.special.attach ;
        description_to_ics cr buf email.special.description ;
        summary_to_ics cr buf email.special.summary ;
        attendees_to_ics cr buf email.special.attendees ) ;
-    write_line cr buf "END" Param_map.empty (write_string "VALARM")
+    write_line cr buf "END" Params.empty (write_string "VALARM")
 
   let alarms_to_ics cr buf alarms = List.iter (alarm_to_ics cr buf) alarms
 
@@ -1089,13 +1089,13 @@ module Writer = struct
     | `Lastmod (params, ts) -> write_line cr buf "LAST-MODIFIED" params (datetime_to_ics ts)
     | `Tzurl (params, uri) -> write_line cr buf "TZURL" params (write_string (Uri.to_string uri))
     | `Standard tzprops ->
-      write_line cr buf "BEGIN" Param_map.empty (write_string "STANDARD") ;
+      write_line cr buf "BEGIN" Params.empty (write_string "STANDARD") ;
       tzprops_to_ics cr buf tzprops ;
-      write_line cr buf "END" Param_map.empty (write_string "STANDARD")
+      write_line cr buf "END" Params.empty (write_string "STANDARD")
     | `Daylight tzprops ->
-      write_line cr buf "BEGIN" Param_map.empty (write_string "DAYLIGHT") ;
+      write_line cr buf "BEGIN" Params.empty (write_string "DAYLIGHT") ;
       tzprops_to_ics cr buf tzprops ;
-      write_line cr buf "END" Param_map.empty (write_string "DAYLIGHT")
+      write_line cr buf "END" Params.empty (write_string "DAYLIGHT")
     | #other_prop as x -> other_prop_to_ics cr buf x
 
   let freebusyprop_to_ics_key = function
@@ -1118,21 +1118,21 @@ module Writer = struct
 
   let component_to_ics cr buf comp =
     let key = component_to_ics_key comp in
-    write_line cr buf "BEGIN" Param_map.empty (write_string key) ;
+    write_line cr buf "BEGIN" Params.empty (write_string key) ;
     (match comp with
      | `Event (eventprops, alarms) -> event_to_ics cr buf eventprops alarms
      | `Timezone tzprops -> timezone_to_ics cr buf tzprops
      | `Freebusy fbprops -> freebusy_to_ics cr buf fbprops
      | `Todo (todoprops, alarms) -> todo_to_ics cr buf todoprops alarms) ;
-    write_line cr buf "END" Param_map.empty (write_string key)
+    write_line cr buf "END" Params.empty (write_string key)
 
   let components_to_ics cr buf comps = List.iter (component_to_ics cr buf) comps
 
   let calendar_to_ics cr buf (props, comps) =
-    write_line cr buf "BEGIN" Param_map.empty (write_string "VCALENDAR") ;
+    write_line cr buf "BEGIN" Params.empty (write_string "VCALENDAR") ;
     calprops_to_ics cr buf props ;
     components_to_ics cr buf comps ;
-    write_line cr buf "END" Param_map.empty (write_string "VCALENDAR")
+    write_line cr buf "END" Params.empty (write_string "VCALENDAR")
 end
 
 let to_ics ?(cr = true) calendar =
@@ -1360,7 +1360,7 @@ let media_type_name =
 let media_type =
   lift2 pair (media_type_name <* char '/') media_type_name
 
-let param k v = Param_map.B (k, v)
+let param k v = Params.B (k, v)
 
 (* Parameters (PARAM1_KEY=PARAM1_VALUE) *)
 let iana_param = lift2 (fun k v -> param Iana_param (k, v))
@@ -1469,7 +1469,7 @@ let icalparameter =
   <|> valuetypeparam
   <|> other_param
 
-let list_to_map params = List.fold_right Param_map.addb params Param_map.empty
+let list_to_map params = List.fold_right Params.addb params Params.empty
 
 (* Properties *)
 let propparser id pparser vparser lift =
@@ -1516,7 +1516,7 @@ let uid =
   propparser "UID" other_param text (fun a b -> `Uid (a, b))
 
 let valuetype_or_default params default =
-  match Param_map.find Valuetype params with
+  match Params.find Valuetype params with
   | None -> default
   | Some v -> v
 
@@ -1673,7 +1673,7 @@ let attach =
   propparser "ATTACH" attach_param attach_value
     (fun a b ->
        check_binary_uri `Uri a b ;
-       let encoding = Param_map.find Encoding a in
+       let encoding = Params.find Encoding a in
        match encoding, b with
        | None, `Uri _ -> `Attach (a, b)
        | Some `Base64, `Binary _ -> `Attach (a, b)
