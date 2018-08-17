@@ -724,13 +724,13 @@ END:VCALENDAR
     `Attendee (singleton Member [Uri.of_string "mailto:DEV-GROUP@example.com"], Uri.of_string "mailto:joecool@example.com") ;
     `Attendee (singleton Role `Reqparticipant, Uri.of_string "mailto:hcabot@example.com") ;
     `Attendee (singleton Delegated_from [Uri.of_string "mailto:immud@example.com"], Uri.of_string "mailto:ildoit@example.com") ;
-    `Attendee (list_to_map [B (Role, `Reqparticipant) ; B (Partstat, `Tentative) ; B (Cn, "Henry Cabot")], Uri.of_string "mailto:hcabot@example.com") ;
-    `Attendee (list_to_map [B (Role, `Reqparticipant) ; B (Delegated_from, [Uri.of_string "mailto:bob@example.com"]) ; B (Partstat, `Accepted) ; B (Cn, "Jane Doe")], Uri.of_string "mailto:jdoe@example.com") ;
+    `Attendee (list_to_map [B (Role, `Reqparticipant) ; B (Partstat, `Tentative) ; B (Cn, `String "Henry Cabot")], Uri.of_string "mailto:hcabot@example.com") ;
+    `Attendee (list_to_map [B (Role, `Reqparticipant) ; B (Delegated_from, [Uri.of_string "mailto:bob@example.com"]) ; B (Partstat, `Accepted) ; B (Cn, `String "Jane Doe")], Uri.of_string "mailto:jdoe@example.com") ;
     (*`Attendee ([`Cn "John Smith" ; `Dir (Uri.of_string "ldap://example.com:6666/o=ABC%20Industries,c=US???(cn=Jim%20Dolittle)")], Uri.of_string "mailto:jimdo@example.com") ;*)
-    `Attendee (list_to_map [B (Cn, "John Smith") ; B (Dir, (Uri.of_string "ldap://example.com:6666"))], Uri.of_string "mailto:jimdo@example.com") ;
-    `Attendee (list_to_map [B (Role, `Reqparticipant) ; B (Partstat, `Tentative) ; B (Delegated_from, [Uri.of_string "mailto:iamboss@example.com"]) ; B (Cn, "Henry Cabot")], Uri.of_string "mailto:hcabot@example.com") ;
-    `Attendee (list_to_map [B (Role, `Nonparticipant) ; B (Partstat, `Delegated) ; B (Delegated_to, [Uri.of_string "mailto:hcabot@example.com"]) ; B (Cn, "The Big Cheese")], Uri.of_string "mailto:iamboss@example.com") ;
-    `Attendee (list_to_map [B (Role, `Reqparticipant) ; B (Partstat, `Accepted) ; B (Cn, "Jane Doe")], Uri.of_string "mailto:jdoe@example.com") ;
+    `Attendee (list_to_map [B (Cn, `String "John Smith") ; B (Dir, (Uri.of_string "ldap://example.com:6666"))], Uri.of_string "mailto:jimdo@example.com") ;
+    `Attendee (list_to_map [B (Role, `Reqparticipant) ; B (Partstat, `Tentative) ; B (Delegated_from, [Uri.of_string "mailto:iamboss@example.com"]) ; B (Cn, `String "Henry Cabot")], Uri.of_string "mailto:hcabot@example.com") ;
+    `Attendee (list_to_map [B (Role, `Nonparticipant) ; B (Partstat, `Delegated) ; B (Delegated_to, [Uri.of_string "mailto:hcabot@example.com"]) ; B (Cn, `String "The Big Cheese")], Uri.of_string "mailto:iamboss@example.com") ;
+    `Attendee (list_to_map [B (Role, `Reqparticipant) ; B (Partstat, `Accepted) ; B (Cn, `String "Jane Doe")], Uri.of_string "mailto:jdoe@example.com") ;
   ] in
   List.iter2 (fun i e -> let f = Icalendar.parse i in
   Alcotest.check result_c __LOC__ e f) inputs expecteds

@@ -47,9 +47,11 @@ type relationship =
 
 type fbtype = [ `Free | `Busy | `Busy_Unavailable | `Busy_Tentative | `Ianatoken of string | `Xname of string * string ] [@@deriving eq, show]
 
+type param_value = [ `Quoted of string | `String of string ]
+
 type _ icalparameter =
   | Altrep : Uri.t icalparameter
-  | Cn : string icalparameter
+  | Cn : param_value icalparameter
   | Cutype : cutype icalparameter
   | Delegated_from : (Uri.t list) icalparameter
   | Delegated_to : (Uri.t list) icalparameter
@@ -68,8 +70,8 @@ type _ icalparameter =
   | Sentby : Uri.t icalparameter
   | Tzid : (bool * string) icalparameter
   | Valuetype : valuetype icalparameter
-  | Iana_param : (string * string list) icalparameter
-  | Xparam : ((string * string) * string list) icalparameter
+  | Iana_param : (string * param_value list) icalparameter
+  | Xparam : ((string * string) * param_value list) icalparameter
 
 val equal_icalparameter : 'a icalparameter -> 'a -> 'b icalparameter -> 'b -> bool
 

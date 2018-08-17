@@ -33,9 +33,11 @@ type role = [ `Chair | `Nonparticipant | `Optparticipant | `Reqparticipant
 
 type fbtype = [ `Free | `Busy | `Busy_Unavailable | `Busy_Tentative | `Ianatoken of string | `Xname of string * string ] [@@deriving eq, show]
 
+type param_value = [ `Quoted of string | `String of string ] [@@deriving eq, show]
+
 type _ icalparameter =
   | Altrep : Uri.t icalparameter
-  | Cn : string icalparameter
+  | Cn : param_value icalparameter
   | Cutype : cutype icalparameter
   | Delegated_from : (Uri.t list) icalparameter
   | Delegated_to : (Uri.t list) icalparameter
@@ -54,8 +56,8 @@ type _ icalparameter =
   | Sentby : Uri.t icalparameter
   | Tzid : (bool * string) icalparameter
   | Valuetype : valuetype icalparameter
-  | Iana_param : (string * string list) icalparameter
-  | Xparam : ((string * string) * string list) icalparameter
+  | Iana_param : (string * param_value list) icalparameter
+  | Xparam : ((string * string) * param_value list) icalparameter
 
 (*
 let rec (equal_icalparameter
@@ -100,7 +102,7 @@ let rec equal_icalparameter : type a b.
         fun rhs_c rhs_v ->
           match (lhs_c, rhs_c) with
           | (Altrep, Altrep) -> Uri.equal lhs_v rhs_v
-          | (Cn, Cn) -> String.equal lhs_v rhs_v
+          | (Cn, Cn) -> equal_param_value lhs_v rhs_v
           | (Cutype, Cutype) -> equal_cutype lhs_v rhs_v
           | (Delegated_from, Delegated_from) -> List.for_all2 Uri.equal lhs_v rhs_v
           | (Delegated_to, Delegated_to) -> List.for_all2 Uri.equal lhs_v rhs_v
@@ -119,9 +121,10 @@ let rec equal_icalparameter : type a b.
           | (Sentby, Sentby) -> Uri.equal lhs_v rhs_v
           | (Tzid, Tzid) -> fst lhs_v = fst rhs_v && String.equal (snd lhs_v) (snd rhs_v)
           | (Valuetype, Valuetype) -> equal_valuetype lhs_v rhs_v
-          | (Iana_param, Iana_param) -> String.equal (fst lhs_v) (fst rhs_v) && List.for_all2 String.equal (snd lhs_v) (snd rhs_v)
+          | (Iana_param, Iana_param) ->
+            String.equal (fst lhs_v) (fst rhs_v) && List.for_all2 equal_param_value (snd lhs_v) (snd rhs_v)
           | (Xparam, Xparam) -> String.equal (fst (fst lhs_v)) (fst (fst rhs_v)) && String.equal (snd (fst lhs_v)) (snd (fst rhs_v)) &&
-                                List.for_all2 String.equal (snd lhs_v) (snd rhs_v)
+                                List.for_all2 equal_param_value (snd lhs_v) (snd rhs_v)
           | _ -> false    )
   [@ocaml.warning "-A"])[@@ocaml.warning "-39"]
 
@@ -223,7 +226,7 @@ let rec pp_icalparameter : type a.
       fun fmt k v ->
         match k with
         | Altrep -> Format.fprintf fmt "Altrep %a" Uri.pp v
-        | Cn -> Format.fprintf fmt "Cn %s" v
+        | Cn -> Format.fprintf fmt "Cn %a" pp_param_value v
         | Cutype -> Format.fprintf fmt "Cutype %a" pp_cutype v
         | Delegated_from -> Format.fprintf fmt "Delegated_from %a" Fmt.(list Uri.pp) v
         | Delegated_to -> Format.fprintf fmt "Delegated_to %a" Fmt.(list Uri.pp) v
@@ -242,8 +245,8 @@ let rec pp_icalparameter : type a.
         | Sentby -> Format.fprintf fmt "Sentby %a" Uri.pp v
         | Tzid -> Format.fprintf fmt "Tzid (%b, %s)" (fst v) (snd v)
         | Valuetype -> Format.fprintf fmt "Valuetype %a" pp_valuetype v
-        | Iana_param -> Format.fprintf fmt "Iana_param (%s, %a)" (fst v) Fmt.(list string) (snd v)
-        | Xparam -> Format.fprintf fmt "Xparam ((%s, %s), %a)" (fst (fst v)) (snd (fst v)) Fmt.(list string) (snd v))
+        | Iana_param -> Format.fprintf fmt "Iana_param (%s, %a)" (fst v) Fmt.(list pp_param_value) (snd v)
+        | Xparam -> Format.fprintf fmt "Xparam ((%s, %s), %a)" (fst (fst v)) (snd (fst v)) Fmt.(list pp_param_value) (snd v))
   [@ocaml.warning "-A"])
 (*and show_icalparameter : type a. a icalparameter -> a -> Ppx_deriving_runtime.string =
   fun k v -> Format.asprintf "%a" pp_icalparameter k v *)
@@ -660,6 +663,10 @@ let transp_strings = [
 module Writer = struct
   let print_x vendor token = Printf.sprintf "X-%s%s%s" vendor (if String.length vendor = 0 then "" else "-") token
 
+  let write_param_value = function
+    | `String s -> s
+    | `Quoted s -> "\"" ^ s ^ "\""
+
   let write_param : type a . Buffer.t -> a icalparameter -> a -> unit = fun buf k v ->
     let write_kv k v =
       Buffer.add_string buf k ;
@@ -670,13 +677,13 @@ module Writer = struct
     in
     let quoted_uri uri = quoted (Uri.to_string uri) in
     match k, v with
-    | Iana_param, (token, values) -> write_kv token (String.concat "," values)
-    | Xparam, ((vendor, name), values) -> write_kv (print_x vendor name) (String.concat "," values)
+    | Iana_param, (token, values) -> write_kv token (String.concat "," (List.map write_param_value values))
+    | Xparam, ((vendor, name), values) -> write_kv (print_x vendor name) (String.concat "," (List.map write_param_value values))
     | Valuetype, v -> write_kv "VALUE" (List.assoc v valuetype_strings)
     | Tzid, (prefix, str) -> write_kv "TZID" (Printf.sprintf "%s%s" (if prefix then "/" else "") str)
     | Altrep, uri -> write_kv "ALTREP" (quoted_uri uri)
     | Language, lan -> write_kv "LANGUAGE" lan
-    | Cn, str -> write_kv "CN" str
+    | Cn, str -> write_kv "CN" (write_param_value str)
     | Dir, uri -> write_kv "DIR" (quoted_uri uri)
     | Sentby, uri -> write_kv "SENT-BY" (quoted_uri uri)
     | Range, `Thisandfuture -> write_kv "RANGE" "THISANDFUTURE"
@@ -1171,12 +1178,14 @@ let param_name = name
 let is_control = function '\x00' .. '\x08' | '\x0a' .. '\x1f' | '\x7f' -> true | _ -> false
 let is_qsafe_char = function x when is_control x -> false | '"' -> false | _ -> true
 
-let quoted_string = char '"' *> take_while1 is_qsafe_char <* char '"'
+let quoted_string =
+  lift (fun x -> `Quoted x)
+    (char '"' *> take_while1 is_qsafe_char <* char '"')
 
 let is_safe_char = function x when is_control x -> false | '"' | ';' | ':' | ',' -> false | _ -> true
 let param_text = take_while1 is_safe_char
 
-let param_value = param_text <|> quoted_string (* in contrast to rfc we require at least 1 char for param_value *)
+let param_value = (param_text >>| fun s -> `String s) <|> quoted_string (* in contrast to rfc we require at least 1 char for param_value *)
 
 let value_list = sep_by1 (char ',') param_value
 
