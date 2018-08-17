@@ -1,26 +1,24 @@
 opam-version: "1.2"
 depends: [
-  "fmt"
-  "ocamlfind" {build}
-  "ocamlbuild" {build}
+  "jbuilder" {build}
   "alcotest" {test}
-  "topkg" {build}
+  "fmt"
   "angstrom"
   "re"
   "uri"
   "astring"
   "rresult"
   "ptime"
-  "ppx_deriving" {build}
+  "ppx_deriving"
+  "gmap"
 ]
 
 build: [
-  [ "ocaml" "pkg/pkg.ml" "build" "--pinned" "%{pinned}%" "--tests" "false" ]
+  ["jbuilder" "subst" "-p" name] {pinned}
+  ["jbuilder" "build" "-p" name "-j" jobs]
 ]
-build-test: [
-  [ "ocaml" "pkg/pkg.ml" "build" "--pinned" "%{pinned}%" "--tests" "true" ]
-  [ "ocaml" "pkg/pkg.ml" "test" ]
-]
+build-test: ["jbuilder" "runtest" "-p" name "-j" jobs]
+
 maintainer: [
   "Stefanie Schirmer @linse"
 ]
