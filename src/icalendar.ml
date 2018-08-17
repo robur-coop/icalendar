@@ -163,8 +163,8 @@ and show_icalparameter : _ icalparameter -> Ppx_deriving_runtime.string =
 
 type param = P : 'a icalparameter * 'a -> param
 
-let equal_param  _ _ = false
-  let pp_param _ _ = assert false
+let equal_param  (P (k, v)) (P (k', v')) = equal_icalparameter k v k' v'
+let pp_param ppf _ = Format.pp_print_string ppf "parameter"
 
 type other_prop =
   [ `Iana_prop of string * param list * string

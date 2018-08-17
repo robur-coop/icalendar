@@ -10,6 +10,8 @@ let p =
     let equal = Ptime.equal
   end in (module M : Alcotest.TESTABLE with type t = M.t)
 
+module Recurrence = Icalendar__Recurrence
+
 let first_n n start recurrence =
   let next_event = Recurrence.new_gen start recurrence in
   let rec compute_next_event = function

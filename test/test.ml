@@ -7,6 +7,8 @@ let compare_calendar =
 
 let result_c = Alcotest.(result compare_calendar string)
 
+open Icalendar
+
 let test_line () =
   let line =
     {_|BEGIN:VCALENDAR
@@ -96,7 +98,7 @@ END:VCALENDAR
           `Event
             ([ `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
                `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart ([`Tzid (false, "America/New_York")], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+               `Dtstart ([ P (Tzid, (false, "America/New_York"))], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
                `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
                `Summary ([], "Bastille Day Party")
              ], [])
@@ -191,7 +193,7 @@ END:VCALENDAR
           `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
         [
           `Event
-            ([ `Description ([`Altrep (Uri.of_string "CID:part3.msg970930T083000SILVER@example.com")], "Meeting to provide technical review for \"Phoenix\" design.\nHappy Face Conference Room. Phoenix design team MUST attend this meeting.\nRSVP to team leader.") ;
+            ([ `Description ([ P (Altrep, (Uri.of_string "CID:part3.msg970930T083000SILVER@example.com"))], "Meeting to provide technical review for \"Phoenix\" design.\nHappy Face Conference Room. Phoenix design team MUST attend this meeting.\nRSVP to team leader.") ;
                `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
                `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
                `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
@@ -288,7 +290,7 @@ END:VCALENDAR
           `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
         [
           `Event
-            ([ `Location ([`Altrep (Uri.of_string "http://xyzcorp.com/conf-rooms/f123.vcf")], "Conference Room - F123, Bldg. 002") ;
+            ([ `Location ([ P (Altrep, (Uri.of_string "http://xyzcorp.com/conf-rooms/f123.vcf"))], "Conference Room - F123, Bldg. 002") ;
                `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
                `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
                `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
@@ -321,7 +323,7 @@ END:VCALENDAR
           `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
         [
           `Event
-            ([ `Organizer([`Sentby (Uri.of_string "mailto:sray@example.com")], Uri.of_string "mailto:jsmith@example.com") ;
+            ([ `Organizer([P (Sentby, (Uri.of_string "mailto:sray@example.com"))], Uri.of_string "mailto:jsmith@example.com") ;
                `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
                `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
                `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
@@ -545,7 +547,7 @@ END:VCALENDAR
           `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
         [
           `Event
-            ([ `Recur_id ([ `Range `Thisandfuture ], `Datetime (to_ptime (1996, 01, 20) (12,00,00), true)) ;
+            ([ `Recur_id ([ P (Range, `Thisandfuture) ], `Datetime (to_ptime (1996, 01, 20) (12,00,00), true)) ;
                `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
                `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
                `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
@@ -651,7 +653,7 @@ END:VCALENDAR
           `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
         [
           `Event
-            ([ `Attach ([`Media_type ("text", "plain") ; `Encoding `Base64 ; `Valuetype `Binary], `Binary "TG9yZW\
+            ([ `Attach ([P (Media_type, ("text", "plain")) ; P (Encoding, `Base64) ; P (Valuetype, `Binary)], `Binary "TG9yZW\
 0gaXBzdW0gZG9sb3Igc2l0IGFtZXQsIGNvbnNlY3RldHVyIGFkaXBpc2ljaW\
 5nIGVsaXQsIHNlZCBkbyBlaXVzbW9kIHRlbXBvciBpbmNpZGlkdW50IHV0IG\
 xhYm9yZSBldCBkb2xvcmUgbWFnbmEgYWxpcXVhLiBVdCBlbmltIGFkIG1pbm\
@@ -715,16 +717,16 @@ END:VCALENDAR
     {_|;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;CN=Jane Doe:mailto:jdoe@example.com|_} ;
   ]
   and expecteds = List.map expected [
-    `Attendee ([`Member [Uri.of_string "mailto:DEV-GROUP@example.com"]], Uri.of_string "mailto:joecool@example.com") ;
-    `Attendee ([`Role `Reqparticipant  ], Uri.of_string "mailto:hcabot@example.com") ;
-    `Attendee ([`Delegated_from [Uri.of_string "mailto:immud@example.com"]], Uri.of_string "mailto:ildoit@example.com") ;
-    `Attendee ([`Role `Reqparticipant ; `Partstat `Tentative ; `Cn "Henry Cabot"], Uri.of_string "mailto:hcabot@example.com") ;
-    `Attendee ([`Role `Reqparticipant ; `Delegated_from [Uri.of_string "mailto:bob@example.com"] ; `Partstat `Accepted ; `Cn "Jane Doe"], Uri.of_string "mailto:jdoe@example.com") ;
+    `Attendee ([P (Member, [Uri.of_string "mailto:DEV-GROUP@example.com"])], Uri.of_string "mailto:joecool@example.com") ;
+    `Attendee ([P (Role, `Reqparticipant)  ], Uri.of_string "mailto:hcabot@example.com") ;
+    `Attendee ([P (Delegated_from, [Uri.of_string "mailto:immud@example.com"])], Uri.of_string "mailto:ildoit@example.com") ;
+    `Attendee ([P (Role, `Reqparticipant) ; P (Partstat, `Tentative) ; P (Cn, "Henry Cabot")], Uri.of_string "mailto:hcabot@example.com") ;
+    `Attendee ([P (Role, `Reqparticipant) ; P (Delegated_from, [Uri.of_string "mailto:bob@example.com"]) ; P (Partstat, `Accepted) ; P (Cn, "Jane Doe")], Uri.of_string "mailto:jdoe@example.com") ;
     (*`Attendee ([`Cn "John Smith" ; `Dir (Uri.of_string "ldap://example.com:6666/o=ABC%20Industries,c=US???(cn=Jim%20Dolittle)")], Uri.of_string "mailto:jimdo@example.com") ;*)
-    `Attendee ([`Cn "John Smith" ; `Dir (Uri.of_string "ldap://example.com:6666")], Uri.of_string "mailto:jimdo@example.com") ;
-    `Attendee ([`Role `Reqparticipant ; `Partstat `Tentative ; `Delegated_from [Uri.of_string "mailto:iamboss@example.com"] ;`Cn "Henry Cabot"], Uri.of_string "mailto:hcabot@example.com") ;
-    `Attendee ([`Role `Nonparticipant ; `Partstat `Delegated ; `Delegated_to [Uri.of_string "mailto:hcabot@example.com"] ; `Cn "The Big Cheese"], Uri.of_string "mailto:iamboss@example.com") ;
-    `Attendee ([`Role `Reqparticipant ; `Partstat `Accepted ; `Cn "Jane Doe"], Uri.of_string "mailto:jdoe@example.com") ;
+    `Attendee ([P (Cn, "John Smith") ; P (Dir, (Uri.of_string "ldap://example.com:6666"))], Uri.of_string "mailto:jimdo@example.com") ;
+    `Attendee ([P (Role, `Reqparticipant) ; P (Partstat, `Tentative) ; P (Delegated_from, [Uri.of_string "mailto:iamboss@example.com"]) ; P (Cn, "Henry Cabot")], Uri.of_string "mailto:hcabot@example.com") ;
+    `Attendee ([P (Role, `Nonparticipant) ; P (Partstat, `Delegated) ; P (Delegated_to, [Uri.of_string "mailto:hcabot@example.com"]) ; P (Cn, "The Big Cheese")], Uri.of_string "mailto:iamboss@example.com") ;
+    `Attendee ([P (Role, `Reqparticipant) ; P (Partstat, `Accepted) ; P (Cn, "Jane Doe")], Uri.of_string "mailto:jdoe@example.com") ;
   ] in
   List.iter2 (fun i e -> let f = Icalendar.parse i in
   Alcotest.check result_c __LOC__ e f) inputs expecteds
@@ -817,7 +819,7 @@ END:VCALENDAR
           `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
         [
           `Event
-            ([ `Contact ([ `Altrep (Uri.of_string "CID:part3.msg970930T083000SILVER@example.com") ], "Jim Dolittle, ABC Industries, +1-919-555-1234") ;
+            ([ `Contact ([ P (Altrep, (Uri.of_string "CID:part3.msg970930T083000SILVER@example.com")) ], "Jim Dolittle, ABC Industries, +1-919-555-1234") ;
                `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
                `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
                `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
@@ -1028,7 +1030,7 @@ END:VCALENDAR
           `Prodid ([], "-//hacksw/handcal//NONSGML v1.0//EN") ],
         [
           `Event
-            ([ `Resource ([ `Language "fr" ], [ "Nettoyeur haute pression" ]) ;
+            ([ `Resource ([ P (Language, "fr") ], [ "Nettoyeur haute pression" ]) ;
                `Uid ([], "19970610T172345Z-AF23B2@example.com") ;
                `Dtstamp ([], (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
                `Dtstart ([], `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
@@ -1077,12 +1079,12 @@ END:VCALENDAR
     ]
   and expecteds = List.map expected [
       `Rdate ([], `Datetimes [ to_ptime (1997, 07, 14) (12, 30, 00), true ]) ;
-      `Rdate ([ `Tzid (false, "America/New_York") ], `Datetimes [ to_ptime (1997, 07, 14) (08, 30, 00), false ]) ;
-      `Rdate ([ `Valuetype `Period ], `Periods [
+      `Rdate ([ P (Tzid, (false, "America/New_York")) ], `Datetimes [ to_ptime (1997, 07, 14) (08, 30, 00), false ]) ;
+      `Rdate ([ P (Valuetype, `Period) ], `Periods [
           (to_ptime (1996, 04, 03) (02, 00, 00), to_ptime (1996, 04, 03) (04, 00, 00), true) ;
           (to_ptime (1996, 04, 04) (01, 00, 00), to_ptime (1996, 04, 04) (04, 00, 00), true)
         ]) ;
-      `Rdate ([ `Valuetype `Date ], `Dates [ (1997, 01, 01) ; (1997, 01, 20) ; (1997, 02, 17) ;
+      `Rdate ([ P (Valuetype, `Date) ], `Dates [ (1997, 01, 01) ; (1997, 01, 20) ; (1997, 02, 17) ;
                                              (1997, 04, 21) ; (1997, 05, 26) ; (1997, 07, 04) ;
                                              (1997, 09, 01) ; (1997, 10, 14) ; (1997, 11, 28) ;
                                              (1997, 11, 29) ; (1997, 12, 25) ])
@@ -1145,7 +1147,7 @@ END:VCALENDAR
                `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
                `Summary ([], "Bastille Day Party")
              ],
-             [ `Audio { Icalendar.trigger = ([`Valuetype `Datetime], `Datetime (to_ptime (1997, 03, 17) (13, 30, 00), true)) ; duration_repeat = None ; other = [] ; special = {Icalendar.attach = None } } ])
+             [ `Audio { Icalendar.trigger = ([P (Valuetype, `Datetime)], `Datetime (to_ptime (1997, 03, 17) (13, 30, 00), true)) ; duration_repeat = None ; other = [] ; special = {Icalendar.attach = None } } ])
         ])
   in
   let f = Icalendar.parse input in
@@ -1190,8 +1192,8 @@ END:VCALENDAR
     ]
   and expecteds = List.map expected [
       ([], `Duration (- (15 * 60))) ;
-      ([ `Related `End ], `Duration (5 * 60)) ;
-      ([ `Valuetype `Datetime ], `Datetime (to_ptime (1998, 01, 01) (05, 00, 00), true))
+      ([ P (Related, `End) ], `Duration (5 * 60)) ;
+      ([ P (Valuetype, `Datetime) ], `Datetime (to_ptime (1998, 01, 01) (05, 00, 00), true))
     ]
   in
   List.iter2 (fun i e ->
@@ -1325,7 +1327,7 @@ END:VCALENDAR
                         duration_repeat = None;
                         other = [] ;
                         special = { Icalendar.attach = Some
-               ([`Media_type ("text", "plain") ; `Encoding `Base64 ; `Valuetype `Binary], `Binary "TG9yZW\
+               ([P (Media_type, ("text", "plain")) ; P (Encoding, `Base64) ; P (Valuetype, `Binary)], `Binary "TG9yZW\
 0gaXBzdW0gZG9sb3Igc2l0IGFtZXQsIGNvbnNlY3RldHVyIGFkaXBpc2ljaW\
 5nIGVsaXQsIHNlZCBkbyBlaXVzbW9kIHRlbXBvciBpbmNpZGlkdW50IHV0IG\
 xhYm9yZSBldCBkb2xvcmUgbWFnbmEgYWxpcXVhLiBVdCBlbmltIGFkIG1pbm\
@@ -1379,7 +1381,7 @@ END:VCALENDAR
                `Display { Icalendar.trigger = ([], `Duration (-1800)) ;
                           duration_repeat = None ;
                           other = [] ;
-                          special = { Icalendar.description = ([`Altrep (Uri.of_string "CID:part3.msg970930T083000SILVER@example.com")], "Meeting to provide technical review for \"Phoenix\" design.\nHappy Face Conference Room. Phoenix design team MUST attend this meeting.\nRSVP to team leader.") } }
+                          special = { Icalendar.description = ([P (Altrep, (Uri.of_string "CID:part3.msg970930T083000SILVER@example.com"))], "Meeting to provide technical review for \"Phoenix\" design.\nHappy Face Conference Room. Phoenix design team MUST attend this meeting.\nRSVP to team leader.") } }
              ])
         ])
   in
@@ -1513,10 +1515,10 @@ END:VCALENDAR
                `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
                `Summary ([], "Bastille Day Party")
              ], [
-               `Audio { Icalendar.trigger = ([`Valuetype `Datetime], `Datetime (to_ptime (1997,03,17) (13,30,00), true)) ;
+               `Audio { Icalendar.trigger = ([P (Valuetype, `Datetime)], `Datetime (to_ptime (1997,03,17) (13,30,00), true)) ;
                         duration_repeat = Some (([], 15 * 60), ([], 4)) ;
                         other = [] ;
-                        special = { Icalendar.attach = Some ([`Media_type ("audio", "basic")], `Uri(Uri.of_string "ftp://example.com/pub/sounds/bell-01.aud"));
+                        special = { Icalendar.attach = Some ([P (Media_type, ("audio", "basic"))], `Uri(Uri.of_string "ftp://example.com/pub/sounds/bell-01.aud"));
                                   }
                       }
              ])
@@ -1561,10 +1563,10 @@ END:VCALENDAR
                `Dtend ([], `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
                `Summary ([], "Bastille Day Party")
              ], [
-               `Email { Icalendar.trigger = ([`Related `End], `Duration (-2*24*60*60)) ;
+               `Email { Icalendar.trigger = ([P (Related, `End)], `Duration (-2*24*60*60)) ;
                         duration_repeat = None ;
                         other = [] ;
-                        special = { Icalendar.attach = Some ([`Media_type ("application", "msword")], `Uri(Uri.of_string "http://example.com/templates/agenda.doc")) ; attendees = [([], Uri.of_string "mailto:john_doe@example.com")]; 
+                        special = { Icalendar.attach = Some ([P (Media_type, ("application", "msword"))], `Uri(Uri.of_string "http://example.com/templates/agenda.doc")) ; attendees = [([], Uri.of_string "mailto:john_doe@example.com")]; 
                                     summary = ([], "*** REMINDER: SEND AGENDA FOR WEEKLY STAFF MEETING ***");
                                     description = ([], "A draft agenda needs to be sent out to the attendees to the weekly managers meeting (MGR-LIST). Attached is a pointer the document template for the agenda file.")
                                   }
@@ -1613,12 +1615,12 @@ END:VCALENDAR
           `Event
             ([ `Uid ([], "put-8@example.com") ;
                `Duration ([], 1*24*60*60) ;
-               `Dtstart ([`Valuetype `Date], `Date (2018, 04, 27)) ;
+               `Dtstart ([P (Valuetype, `Date)], `Date (2018, 04, 27)) ;
                `Dtstamp ([], (to_ptime (2005, 12, 22) (20, 59,53), true) ) ;
                `Summary ([], "event 8")
              ], [
-               `Display { Icalendar.trigger = ([`Related `Start], `Duration (- 5 * 60)) ; duration_repeat = None ; other = [] ; special = { Icalendar.description = ([], "Test") } } ;
-               `Display { Icalendar.trigger = ([`Related `Start], `Duration (- 10 * 60)) ; duration_repeat = None ; other = [] ; special = { Icalendar.description = ([], "Test") } } ;
+               `Display { Icalendar.trigger = ([P (Related, `Start)], `Duration (- 5 * 60)) ; duration_repeat = None ; other = [] ; special = { Icalendar.description = ([], "Test") } } ;
+               `Display { Icalendar.trigger = ([P (Related, `Start)], `Duration (- 10 * 60)) ; duration_repeat = None ; other = [] ; special = { Icalendar.description = ([], "Test") } } ;
              ])
         ])
   in
@@ -1679,12 +1681,12 @@ END:VCALENDAR
      Ok ([ `Version ([], "2.0") ; `Prodid ([], "-//PYVOBJECT//NONSGML Version 1//EN") ],
          [ `Event ([
                `Uid ([], "put-3X-@example.com") ;
-               `Dtstart ([`Valuetype `Date], `Date (2018, 04, 27)) ;
+               `Dtstart ([P (Valuetype, `Date)], `Date (2018, 04, 27)) ;
                `Duration ([], 1 * 24 * 60 * 60) ;
                `Dtstamp ([], (to_ptime (2005, 12, 22) (20, 59, 53), true)) ;
                `Summary ([], "event 1") ;
                `Xprop (("", "APPLE-STRUCTURED-LOCATION"),
-                       [ `Valuetype `Uri ],
+                       [ P (Valuetype, `Uri) ],
                        "geo:123.123,123.123") ;
                `Xprop (("", "Test"), [], "Just some text\\, <- here.") ;
                `Xprop (("", "Test"), [], "geo:123.123,123.123")
