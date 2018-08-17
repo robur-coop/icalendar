@@ -595,10 +595,10 @@ let cutype_strings = [
   ]
 
 let fbtype_strings = [
-    (`Free, "FREE") ;
-    (`Busy, "BUSY") ;
     (`Busy_Unavailable, "BUSY-UNAVAILABLE") ;
     (`Busy_Tentative, "BUSY-TENTATIVE") ;
+    (`Free, "FREE") ;
+    (`Busy, "BUSY") ;
   ]
 
 let partstat_strings = [
@@ -1143,7 +1143,8 @@ let to_ics ?(cr = true) calendar =
 open Angstrom
 exception Parse_error
 
-let string_parsers m = List.map (fun (t, str) -> string str >>| fun _ -> t) m
+let string_parsers m =
+  List.map (fun (t, str) -> string str >>| fun _ -> t) m
 
 (* pre-processing of the input: remove "\n " *)
 let normalize_lines s =
