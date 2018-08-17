@@ -57,8 +57,9 @@ type _ icalparameter =
   | Iana_param : (string * string list) icalparameter
   | Xparam : ((string * string) * string list) icalparameter
 
-let rec equal_icalparameter : type a. 
-          a icalparameter -> a icalparameter -> Ppx_deriving_runtime.bool
+(*
+let rec (equal_icalparameter
+          _ icalparameter -> _ icalparameter -> Ppx_deriving_runtime.bool)
   =
   ((let open! Ppx_deriving_runtime in
       fun lhs ->
@@ -88,6 +89,45 @@ let rec equal_icalparameter : type a.
           | (Xparam, Xparam) -> true
           | _ -> false)
   [@ocaml.warning "-A"])[@@ocaml.warning "-39"]
+*)
+
+let rec equal_icalparameter : type a b.
+          a icalparameter -> a -> b icalparameter -> b -> Ppx_deriving_runtime.bool
+  =
+  (* type system ensures that the values fit the constructors *)
+  ((let open! Ppx_deriving_runtime in
+      fun lhs_c lhs_v ->
+        fun rhs_c rhs_v ->
+          match (lhs_c, rhs_c) with
+          | (Altrep, Altrep) -> Uri.equal lhs_v rhs_v
+          | (Cn, Cn) -> String.equal lhs_v rhs_v
+          | (Cutype, Cutype) -> equal_cutype lhs_v rhs_v
+          | (Delegated_from, Delegated_from) -> List.for_all2 Uri.equal lhs_v rhs_v
+          | (Delegated_to, Delegated_to) -> List.for_all2 Uri.equal lhs_v rhs_v
+          | (Dir, Dir) -> Uri.equal lhs_v rhs_v
+          | (Encoding, Encoding) -> lhs_v = rhs_v
+          | (Media_type, Media_type) -> String.equal (fst lhs_v) (fst rhs_v) && String.equal (snd lhs_v) (snd rhs_v)
+          | (Fbtype, Fbtype) -> equal_fbtype lhs_v rhs_v
+          | (Language, Language) -> String.equal lhs_v rhs_v
+          | (Member, Member) -> List.for_all2 Uri.equal lhs_v rhs_v
+          | (Partstat, Partstat) -> equal_partstat lhs_v rhs_v
+          | (Range, Range) -> lhs_v = rhs_v
+          | (Related, Related) -> lhs_v = rhs_v
+          | (Reltype, Reltype) -> equal_relationship lhs_v rhs_v
+          | (Role, Role) -> equal_role lhs_v rhs_v
+          | (Rsvp, Rsvp) -> lhs_v = rhs_v
+          | (Sentby, Sentby) -> Uri.equal lhs_v rhs_v
+          | (Tzid, Tzid) -> fst lhs_v = fst rhs_v && String.equal (snd lhs_v) (snd rhs_v)
+          | (Valuetype, Valuetype) -> equal_valuetype lhs_v rhs_v
+          | (Iana_param, Iana_param) -> String.equal (fst lhs_v) (fst rhs_v) && List.for_all2 String.equal (snd lhs_v) (snd rhs_v)
+          | (Xparam, Xparam) -> String.equal (fst (fst lhs_v)) (fst (fst rhs_v)) && String.equal (snd (fst lhs_v)) (snd (fst rhs_v)) &&
+                                List.for_all2 String.equal (snd lhs_v) (snd rhs_v)
+          | _ -> false    )
+  [@ocaml.warning "-A"])[@@ocaml.warning "-39"]
+
+(* equal_icalparameter Altrep (http://foo.com) Xparam ("foo", "bar") *)
+
+
 let rec (pp_icalparameter :
           Format.formatter -> _ icalparameter -> Ppx_deriving_runtime.unit)
   =
