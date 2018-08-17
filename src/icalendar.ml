@@ -125,10 +125,65 @@ let rec equal_icalparameter : type a b.
           | _ -> false    )
   [@ocaml.warning "-A"])[@@ocaml.warning "-39"]
 
-(* equal_icalparameter Altrep (http://foo.com) Xparam ("foo", "bar") *)
+(* let rec (compare_icalparameter :
+          _ icalparameter -> _ icalparameter -> Ppx_deriving_runtime.int)
+  =
+  ((let open! Ppx_deriving_runtime in
+      fun lhs ->
+        fun rhs ->
+          match (lhs, rhs) with
+          | (Altrep, Altrep) -> 0
+          | (Cn, Cn) -> 0
+          | (Cutype, Cutype) -> 0
+          | (Delegated_from, Delegated_from) -> 0
+          | (Delegated_to, Delegated_to) -> 0
+          | (Dir, Dir) -> 0
+          | (Encoding, Encoding) -> 0
+          | (Media_type, Media_type) -> 0
+          | (Fbtype, Fbtype) -> 0
+          | (Language, Language) -> 0
+          | (Member, Member) -> 0
+          | (Partstat, Partstat) -> 0
+          | (Range, Range) -> 0
+          | (Related, Related) -> 0
+          | (Reltype, Reltype) -> 0
+          | (Role, Role) -> 0
+          | (Rsvp, Rsvp) -> 0
+          | (Sentby, Sentby) -> 0
+          | (Tzid, Tzid) -> 0
+          | (Valuetype, Valuetype) -> 0
+          | (Iana_param, Iana_param) -> 0
+          | (Xparam, Xparam) -> 0
+          | _ ->
+              let to_int =
+                function
+                | Altrep -> 0
+                | Cn -> 1
+                | Cutype -> 2
+                | Delegated_from -> 3
+                | Delegated_to -> 4
+                | Dir -> 5
+                | Encoding -> 6
+                | Media_type -> 7
+                | Fbtype -> 8
+                | Language -> 9
+                | Member -> 10
+                | Partstat -> 11
+                | Range -> 12
+                | Related -> 13
+                | Reltype -> 14
+                | Role -> 15
+                | Rsvp -> 16
+                | Sentby -> 17
+                | Tzid -> 18
+                | Valuetype -> 19
+                | Iana_param -> 20
+                | Xparam -> 21 in
+              Pervasives.compare (to_int lhs) (to_int rhs))
+  [@ocaml.warning "-A"])[@@ocaml.warning "-39"]
+*)
 
-
-let rec (pp_icalparameter :
+(* let rec (pp_icalparameter :
           Format.formatter -> _ icalparameter -> Ppx_deriving_runtime.unit)
   =
   ((let open! Ppx_deriving_runtime in
@@ -159,12 +214,109 @@ let rec (pp_icalparameter :
         | Xparam -> Format.pp_print_string fmt "Icalendar.Xparam")
   [@ocaml.warning "-A"])
 and show_icalparameter : _ icalparameter -> Ppx_deriving_runtime.string =
-  fun x -> Format.asprintf "%a" pp_icalparameter x
+   fun x -> Format.asprintf "%a" pp_icalparameter x *)
 
+let rec pp_icalparameter : type a.
+          Format.formatter -> a icalparameter -> a -> Ppx_deriving_runtime.unit
+  =
+  ((let open! Ppx_deriving_runtime in
+      fun fmt k v ->
+        match k with
+        | Altrep -> Format.fprintf fmt "Altrep %a" Uri.pp v
+        | Cn -> Format.fprintf fmt "Cn %s" v
+        | Cutype -> Format.fprintf fmt "Cutype %a" pp_cutype v
+        | Delegated_from -> Format.fprintf fmt "Delegated_from %a" Fmt.(list Uri.pp) v
+        | Delegated_to -> Format.fprintf fmt "Delegated_to %a" Fmt.(list Uri.pp) v
+        | Dir -> Format.fprintf fmt "Dir %a" Uri.pp v
+        | Encoding -> Format.fprintf fmt "Encoding base64"
+        | Media_type -> Format.fprintf fmt "Media_type (%s/%s)" (fst v) (snd v)
+        | Fbtype -> Format.fprintf fmt "Fbtype %a" pp_fbtype v
+        | Language -> Format.fprintf fmt "Language %s" v
+        | Member -> Format.fprintf fmt "Member %a" Fmt.(list Uri.pp) v
+        | Partstat -> Format.fprintf fmt "Partstat %a" pp_partstat v
+        | Range -> Format.fprintf fmt "Range thisandfuture"
+        | Related -> Format.fprintf fmt "Related %s" (match v with `Start -> "start" | `End -> "end")
+        | Reltype -> Format.fprintf fmt "Reltype %a" pp_relationship v
+        | Role -> Format.fprintf fmt "Role %a" pp_role v
+        | Rsvp -> Format.fprintf fmt "Rsvp %b" v
+        | Sentby -> Format.fprintf fmt "Sentby %a" Uri.pp v
+        | Tzid -> Format.fprintf fmt "Tzid (%b, %s)" (fst v) (snd v)
+        | Valuetype -> Format.fprintf fmt "Valuetype %a" pp_valuetype v
+        | Iana_param -> Format.fprintf fmt "Iana_param (%s, %a)" (fst v) Fmt.(list string) (snd v)
+        | Xparam -> Format.fprintf fmt "Xparam ((%s, %s), %a)" (fst (fst v)) (snd (fst v)) Fmt.(list string) (snd v))
+  [@ocaml.warning "-A"])
+(*and show_icalparameter : type a. a icalparameter -> a -> Ppx_deriving_runtime.string =
+  fun k v -> Format.asprintf "%a" pp_icalparameter k v *)
+
+(*
+module K = struct
+  type 'a t = 'a icalparameter
+
+  let compare : type a b. a t -> b t -> (a, b) Gmap.Order.t = fun lhs rhs ->
+    let open Gmap.Order in
+          match (lhs, rhs) with
+          | (Altrep, Altrep) -> Eq
+          | (Cn, Cn) -> Eq
+          | (Cutype, Cutype) -> Eq
+          | (Delegated_from, Delegated_from) -> Eq
+          | (Delegated_to, Delegated_to) -> Eq
+          | (Dir, Dir) -> Eq
+          | (Encoding, Encoding) -> Eq
+          | (Media_type, Media_type) -> Eq
+          | (Fbtype, Fbtype) -> Eq
+          | (Language, Language) -> Eq
+          | (Member, Member) -> Eq
+          | (Partstat, Partstat) -> Eq
+          | (Range, Range) -> Eq
+          | (Related, Related) -> Eq
+          | (Reltype, Reltype) -> Eq
+          | (Role, Role) -> Eq
+          | (Rsvp, Rsvp) -> Eq
+          | (Sentby, Sentby) -> Eq
+          | (Tzid, Tzid) -> Eq
+          | (Valuetype, Valuetype) -> Eq
+          | (Iana_param, Iana_param) -> Eq
+          | (Xparam, Xparam) -> Eq
+          | _ ->
+              let to_int =
+                function
+                | Altrep -> 0
+                | Cn -> 1
+                | Cutype -> 2
+                | Delegated_from -> 3
+                | Delegated_to -> 4
+                | Dir -> 5
+                | Encoding -> 6
+                | Media_type -> 7
+                | Fbtype -> 8
+                | Language -> 9
+                | Member -> 10
+                | Partstat -> 11
+                | Range -> 12
+                | Related -> 13
+                | Reltype -> 14
+                | Role -> 15
+                | Rsvp -> 16
+                | Sentby -> 17
+                | Tzid -> 18
+                | Valuetype -> 19
+                | Iana_param -> 20
+                | Xparam -> 21 in
+              if Pervasives.compare (to_int lhs) (to_int rhs) < 0
+              then Lt else Gt
+
+end
+
+
+module Param_map = Gmap.Make(K)
+
+type params = Param_map.t
+*)
+  
 type param = P : 'a icalparameter * 'a -> param
 
 let equal_param  (P (k, v)) (P (k', v')) = equal_icalparameter k v k' v'
-let pp_param ppf _ = Format.pp_print_string ppf "parameter"
+let pp_param ppf (P (k, v)) = pp_icalparameter ppf k v
 
 type other_prop =
   [ `Iana_prop of string * param list * string
@@ -1362,31 +1514,26 @@ let dtstamp =
 let uid =
   propparser "UID" other_param text (fun a b -> `Uid (a, b))
 
+let valuetype_or_default params default =
+  try List.find (function P (Valuetype, _) -> true | _ -> false) params
+  with Not_found -> P (Valuetype, default)
+
 let check_date_datetime default a b =
-  let valuetype =
-    try List.find (function P (Valuetype, _) -> true | _ -> false) a
-    with Not_found -> P (Valuetype, default)
-  in
+  let valuetype = valuetype_or_default a default in
   match valuetype, b with
   | P (Valuetype, `Datetime), `Datetime _ -> ()
   | P (Valuetype, `Date), `Date _ -> ()
   | _ -> raise Parse_error
 
 let check_datetime_duration default a b =
-  let valuetype =
-    try List.find (function P (Valuetype, _) -> true | _ -> false) a
-    with Not_found -> P (Valuetype, default)
-  in
+  let valuetype = valuetype_or_default a default in
   match valuetype, b with
   | P (Valuetype, `Datetime), `Datetime _ -> ()
   | P (Valuetype, `Duration), `Duration _ -> ()
   | _ -> raise Parse_error
 
 let check_date_datetime_period default a b =
-  let valuetype =
-    try List.find (function P (Valuetype, _) -> true | _ -> false) a
-    with Not_found -> P (Valuetype, default)
-  in
+  let valuetype = valuetype_or_default a default in
   match valuetype, b with
   | P (Valuetype, `Datetime), `Datetime _ -> ()
   | P (Valuetype, `Date), `Date _ -> ()
@@ -1394,10 +1541,7 @@ let check_date_datetime_period default a b =
   | _ -> raise Parse_error
 
 let check_binary_uri default a b =
-  let valuetype =
-    try List.find (function P (Valuetype, _) -> true | _ -> false) a
-    with Not_found -> P (Valuetype, default)
-  in
+  let valuetype = valuetype_or_default a default in
   match valuetype, b with
   | P (Valuetype, `Binary), `Binary _ -> ()
   | P (Valuetype, `Uri), `Uri _ -> ()

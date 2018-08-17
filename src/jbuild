@@ -4,4 +4,4 @@
  ((name        icalendar)
   (public_name icalendar)
   (preprocess (pps (ppx_deriving.std)))
-  (libraries (re fmt angstrom uri astring rresult ptime))))
+  (libraries (re fmt angstrom uri astring rresult ptime gmap))))
