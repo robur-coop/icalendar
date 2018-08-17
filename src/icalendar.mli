@@ -71,6 +71,8 @@ type _ icalparameter =
   | Iana_param : (string * string list) icalparameter
   | Xparam : ((string * string) * string list) icalparameter
 
+val equal_icalparameter : 'a icalparameter -> 'a -> 'b icalparameter -> 'b -> bool
+
 type param = P : 'a icalparameter * 'a -> param
 
 type other_prop =

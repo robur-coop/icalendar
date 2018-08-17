@@ -162,7 +162,9 @@ and show_icalparameter : _ icalparameter -> Ppx_deriving_runtime.string =
   fun x -> Format.asprintf "%a" pp_icalparameter x
 
 type param = P : 'a icalparameter * 'a -> param
-  [@@deriving eq, show]
+
+let equal_param  _ _ = false
+  let pp_param _ _ = assert false
 
 type other_prop =
   [ `Iana_prop of string * param list * string
@@ -389,9 +391,9 @@ let freebusyprop_to_params = function
   | `Freebusy (params, _)
   | `Dtend (params, _) -> params
 
-let params_to_tzid (params : icalparameter list) =
-  let find_tzid_param acc = function 
-     | `Tzid (_, tzid) -> Astring.String.Set.add tzid acc
+let params_to_tzid (params : param list) =
+  let find_tzid_param acc = function
+     | P (Tzid, (_, tzid)) -> Astring.String.Set.add tzid acc
      | _ -> acc in
   List.fold_left find_tzid_param Astring.String.Set.empty params
 
@@ -519,28 +521,28 @@ module Writer = struct
     in
     let quoted_uri uri = quoted (Uri.to_string uri) in
     function
-    | `Iana_param (token, values) -> write_kv token (String.concat "," values)
-    | `Xparam ((vendor, name), values) -> write_kv (print_x vendor name) (String.concat "," values)
-    | `Valuetype v -> write_kv "VALUE" (List.assoc v valuetype_strings)
-    | `Tzid (prefix, str) -> write_kv "TZID" (Printf.sprintf "%s%s" (if prefix then "/" else "") str)
-    | `Altrep uri -> write_kv "ALTREP" (quoted_uri uri)
-    | `Language lan -> write_kv "LANGUAGE" lan
-    | `Cn str -> write_kv "CN" str
-    | `Dir uri -> write_kv "DIR" (quoted_uri uri)
-    | `Sentby uri -> write_kv "SENT-BY" (quoted_uri uri)
-    | `Range `Thisandfuture -> write_kv "RANGE" "THISANDFUTURE"
-    | `Media_type (pre, post) -> write_kv "FMTTYPE" (Printf.sprintf "%s/%s" pre post)
-    | `Fbtype fbtype -> write_kv "FBTYPE" (List.assoc fbtype fbtype_strings)
-    | `Encoding `Base64 -> write_kv "ENCODING" "BASE64"
-    | `Cutype cu -> write_kv "CUTYPE" (List.assoc cu cutype_strings)
-    | `Delegated_from uris -> write_kv "DELEGATED-FROM" (String.concat "," (List.map quoted_uri uris))
-    | `Delegated_to uris -> write_kv "DELEGATED-TO" (String.concat "," (List.map quoted_uri uris))
-    | `Member uris -> write_kv "MEMBER" (String.concat "," (List.map quoted_uri uris))
-    | `Partstat ps -> write_kv "PARTSTAT" (List.assoc ps partstat_strings)
-    | `Role role -> write_kv "ROLE" (List.assoc role role_strings)
-    | `Rsvp rsvp -> write_kv "RSVP" (if rsvp then "TRUE" else "FALSE")
-    | `Reltype rel -> write_kv "RELTYPE" (List.assoc rel relation_strings)
-    | `Related r ->
+    | P (Iana_param, (token, values)) -> write_kv token (String.concat "," values)
+    | P (Xparam, ((vendor, name), values)) -> write_kv (print_x vendor name) (String.concat "," values)
+    | P (Valuetype, v) -> write_kv "VALUE" (List.assoc v valuetype_strings)
+    | P (Tzid, (prefix, str)) -> write_kv "TZID" (Printf.sprintf "%s%s" (if prefix then "/" else "") str)
+    | P (Altrep, uri) -> write_kv "ALTREP" (quoted_uri uri)
+    | P (Language, lan) -> write_kv "LANGUAGE" lan
+    | P (Cn, str) -> write_kv "CN" str
+    | P (Dir, uri) -> write_kv "DIR" (quoted_uri uri)
+    | P (Sentby, uri) -> write_kv "SENT-BY" (quoted_uri uri)
+    | P (Range, `Thisandfuture) -> write_kv "RANGE" "THISANDFUTURE"
+    | P (Media_type, (pre, post)) -> write_kv "FMTTYPE" (Printf.sprintf "%s/%s" pre post)
+    | P (Fbtype, fbtype) -> write_kv "FBTYPE" (List.assoc fbtype fbtype_strings)
+    | P (Encoding, `Base64) -> write_kv "ENCODING" "BASE64"
+    | P (Cutype, cu) -> write_kv "CUTYPE" (List.assoc cu cutype_strings)
+    | P (Delegated_from, uris) -> write_kv "DELEGATED-FROM" (String.concat "," (List.map quoted_uri uris))
+    | P (Delegated_to, uris) -> write_kv "DELEGATED-TO" (String.concat "," (List.map quoted_uri uris))
+    | P (Member, uris) -> write_kv "MEMBER" (String.concat "," (List.map quoted_uri uris))
+    | P (Partstat, ps) -> write_kv "PARTSTAT" (List.assoc ps partstat_strings)
+    | P (Role, role) -> write_kv "ROLE" (List.assoc role role_strings)
+    | P (Rsvp, rsvp) -> write_kv "RSVP" (if rsvp then "TRUE" else "FALSE")
+    | P (Reltype, rel) -> write_kv "RELTYPE" (List.assoc rel relation_strings)
+    | P (Related, r) ->
       let r = match r with `Start -> "START" | `End -> "END" in
       write_kv "RELATED" r
 
@@ -1210,52 +1212,54 @@ let media_type =
 
 
 (* Parameters (PARAM1_KEY=PARAM1_VALUE) *)
-let iana_param = lift2 (fun k v -> `Iana_param (k, v))
+let iana_param = lift2 (fun k v -> P (Iana_param, (k, v)))
     (iana_token <* (char '=')) value_list
 
 
-let x_param = lift2 (fun k v -> `Xparam (k, v))
+let x_param = lift2 (fun k v -> P (Xparam, (k, v)))
     (x_name <* char '=') value_list
 
 let other_param = iana_param <|> x_param
 
 let tzidparam =
- lift2 (fun a b -> `Tzid (a = '/', b))
+ lift2 (fun a b -> P (Tzid, (a = '/', b)))
  (string "TZID=" *> option ' ' (char '/')) param_text
 
 let valuetypeparam =
-  lift (fun x -> `Valuetype x)
+  lift (fun x -> P (Valuetype, x))
     (string "VALUE=" *>
      (choice (string_parsers valuetype_strings)
       <|> (x_name >>| fun x -> `Xname x)
       <|> (iana_token >>| fun x -> `Ianatoken x)))
 
 (* TODO use uri parser here *)
-let altrepparam = (string "ALTREP=") *> quoted_caladdress >>| fun uri -> `Altrep uri
+let altrepparam = (string "ALTREP=") *> quoted_caladdress >>| fun uri -> P (Altrep, uri)
 
 (* TODO use language tag rfc5646 parser *)
-let languageparam = (string "LANGUAGE=") *> param_text >>| fun l -> `Language l
+let languageparam = (string "LANGUAGE=") *> param_text >>| fun l -> P (Language, l)
 
-let cnparam = string "CN=" *> param_value >>| fun cn -> `Cn cn
-let dirparam = string "DIR=" *> quoted_caladdress >>| fun s -> `Dir s
-let sentbyparam = string "SENT-BY=" *> quoted_caladdress >>| fun s -> `Sentby s
+let cnparam = string "CN=" *> param_value >>| fun cn -> P (Cn, cn)
+let dirparam = string "DIR=" *> quoted_caladdress >>| fun s -> P (Dir, s)
+let sentbyparam = string "SENT-BY=" *> quoted_caladdress >>| fun s -> P (Sentby, s)
 
 (* Default is INDIVIDUAL *)
-let cutypeparam = lift (fun x -> `Cutype x) ((string "CUTYPE=") *>
+let cutypeparam =
+  lift (fun x -> P (Cutype, x)) ((string "CUTYPE=") *>
        (choice (string_parsers cutype_strings)
    <|> (iana_token >>| fun x -> `Ianatoken x)
    <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
 
-let fbtypeparam = lift (fun x -> `Fbtype x) ((string "FBTYPE=") *>
+let fbtypeparam =
+  lift (fun x -> P (Fbtype, x)) ((string "FBTYPE=") *>
        (choice (string_parsers fbtype_strings)
    <|> (iana_token >>| fun x -> `Ianatoken x)
    <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
 
-let memberparam = lift (fun x -> `Member x)
+let memberparam = lift (fun x -> P (Member, x))
   ((string "MEMBER=") *> sep_by1 (char ',') quoted_caladdress)
 
 (* Default is REQ-PARTICIPANT *)
-let roleparam = lift (fun x -> `Role x) ((string "ROLE=") *>
+let roleparam = lift (fun x -> P (Role, x)) ((string "ROLE=") *>
        (choice (string_parsers role_strings)
    <|> (iana_token >>| fun x -> `Ianatoken x)
    <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
@@ -1268,30 +1272,30 @@ let partstatparam =
    <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))
   in
   let statvalue = statvalue <|> other in
-  lift (fun x -> `Partstat x) ((string "PARTSTAT=") *> statvalue)
+  lift (fun x -> P (Partstat, x)) ((string "PARTSTAT=") *> statvalue)
 
-let rsvpparam = lift (fun r -> `Rsvp r) (string "RSVP=" *> ((string "TRUE" >>| fun _ -> true) <|> (string "FALSE" >>| fun _ -> false )))
+let rsvpparam = lift (fun r -> P (Rsvp, r)) (string "RSVP=" *> ((string "TRUE" >>| fun _ -> true) <|> (string "FALSE" >>| fun _ -> false )))
 
-let deltoparam = lift (fun x -> `Delegated_to x)
+let deltoparam = lift (fun x -> P (Delegated_to, x))
   ((string "DELEGATED-TO=") *> sep_by1 (char ',') quoted_caladdress)
 
-let delfromparam = lift (fun x -> `Delegated_from x)
+let delfromparam = lift (fun x -> P (Delegated_from, x))
   ((string "DELEGATED-FROM=") *> sep_by1 (char ',') quoted_caladdress)
 
 let reltypeparam =
-  lift (fun x -> `Reltype x)
+  lift (fun x -> P (Reltype, x))
    (string "RELTYPE=" *>
      (choice (string_parsers relation_strings)
    <|> (iana_token >>| fun x -> `Ianatoken x)
    <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
 
 let fmttypeparam =
-  string "FMTTYPE=" *> media_type >>| fun m -> `Media_type m
+  string "FMTTYPE=" *> media_type >>| fun m -> P (Media_type, m)
 
 let encodingparam =
-  string "ENCODING=BASE64" >>| fun _ -> `Encoding `Base64
+  string "ENCODING=BASE64" >>| fun _ -> P (Encoding, `Base64)
 
-let rangeparam = string "RANGE=THISANDFUTURE" >>| fun _ -> `Range `Thisandfuture
+let rangeparam = string "RANGE=THISANDFUTURE" >>| fun _ -> P (Range, `Thisandfuture)
 
 let icalparameter =
       altrepparam
@@ -1360,43 +1364,43 @@ let uid =
 
 let check_date_datetime default a b =
   let valuetype =
-    try List.find (function `Valuetype _ -> true | _ -> false) a
-    with Not_found -> `Valuetype default
+    try List.find (function P (Valuetype, _) -> true | _ -> false) a
+    with Not_found -> P (Valuetype, default)
   in
   match valuetype, b with
-  | `Valuetype `Datetime, `Datetime _ -> ()
-  | `Valuetype `Date, `Date _ -> ()
+  | P (Valuetype, `Datetime), `Datetime _ -> ()
+  | P (Valuetype, `Date), `Date _ -> ()
   | _ -> raise Parse_error
 
 let check_datetime_duration default a b =
   let valuetype =
-    try List.find (function `Valuetype _ -> true | _ -> false) a
-    with Not_found -> `Valuetype default
+    try List.find (function P (Valuetype, _) -> true | _ -> false) a
+    with Not_found -> P (Valuetype, default)
   in
   match valuetype, b with
-  | `Valuetype `Datetime, `Datetime _ -> ()
-  | `Valuetype `Duration, `Duration _ -> ()
+  | P (Valuetype, `Datetime), `Datetime _ -> ()
+  | P (Valuetype, `Duration), `Duration _ -> ()
   | _ -> raise Parse_error
 
 let check_date_datetime_period default a b =
   let valuetype =
-    try List.find (function `Valuetype _ -> true | _ -> false) a
-    with Not_found -> `Valuetype default
+    try List.find (function P (Valuetype, _) -> true | _ -> false) a
+    with Not_found -> P (Valuetype, default)
   in
   match valuetype, b with
-  | `Valuetype `Datetime, `Datetime _ -> ()
-  | `Valuetype `Date, `Date _ -> ()
-  | `Valuetype `Period, `Period _ -> ()
+  | P (Valuetype, `Datetime), `Datetime _ -> ()
+  | P (Valuetype, `Date), `Date _ -> ()
+  | P (Valuetype, `Period), `Period _ -> ()
   | _ -> raise Parse_error
 
 let check_binary_uri default a b =
   let valuetype =
-    try List.find (function `Valuetype _ -> true | _ -> false) a
-    with Not_found -> `Valuetype default
+    try List.find (function P (Valuetype, _) -> true | _ -> false) a
+    with Not_found -> P (Valuetype, default)
   in
   match valuetype, b with
-  | `Valuetype `Binary, `Binary _ -> ()
-  | `Valuetype `Uri, `Uri _ -> ()
+  | P (Valuetype, `Binary), `Binary _ -> ()
+  | P (Valuetype, `Uri), `Uri _ -> ()
   | _ -> raise Parse_error
 
 let time_or_date =
@@ -1523,10 +1527,10 @@ let attach =
   propparser "ATTACH" attach_param attach_value
     (fun a b ->
        check_binary_uri `Uri a b ;
-       let encoding = try Some (List.find (function `Encoding _ -> true | _ -> false) a) with Not_found -> None in
+       let encoding = try Some (List.find (function P (Encoding, _) -> true | _ -> false) a) with Not_found -> None in
        match encoding, b with
        | None, `Uri _ -> `Attach (a, b)
-       | Some (`Encoding `Base64), `Binary _ -> `Attach (a, b)
+       | Some (P (Encoding, `Base64)), `Binary _ -> `Attach (a, b)
        | _ -> raise Parse_error)
 
 let attendee =
@@ -1666,7 +1670,7 @@ let action =
 
 let trigger =
   let trigrelparam =
-    lift (fun x -> `Related x)
+    lift (fun x -> P (Related, x))
       (string "RELATED=" *>
        ((string "START" >>| fun _ -> `Start) <|>
         (string "END" >>| fun _ -> `End)))
