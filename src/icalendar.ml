@@ -248,7 +248,6 @@ let rec pp_icalparameter : type a.
 (*and show_icalparameter : type a. a icalparameter -> a -> Ppx_deriving_runtime.string =
   fun k v -> Format.asprintf "%a" pp_icalparameter k v *)
 
-(*
 module K = struct
   type 'a t = 'a icalparameter
 
@@ -278,7 +277,7 @@ module K = struct
           | (Iana_param, Iana_param) -> Eq
           | (Xparam, Xparam) -> Eq
           | _ ->
-              let to_int =
+              let to_int : type a. a icalparameter -> int =
                 function
                 | Altrep -> 0
                 | Cn -> 1
@@ -305,28 +304,26 @@ module K = struct
               if Pervasives.compare (to_int lhs) (to_int rhs) < 0
               then Lt else Gt
 
+  let pp = pp_icalparameter
 end
-
 
 module Param_map = Gmap.Make(K)
 
 type params = Param_map.t
-*)
-  
-type param = P : 'a icalparameter * 'a -> param
-
-let equal_param  (P (k, v)) (P (k', v')) = equal_icalparameter k v k' v'
-let pp_param ppf (P (k, v)) = pp_icalparameter ppf k v
+let equal_params m m' =
+  let eq (Param_map.B (k, v)) (Param_map.B (k', v')) = equal_icalparameter k v k' v' in
+  Param_map.equal eq m m'
+let pp_params ppf m = Param_map.pp ppf m
 
 type other_prop =
-  [ `Iana_prop of string * param list * string
-  | `Xprop of (string * string) * param list * string ] [@@deriving eq, show]
+  [ `Iana_prop of string * params * string
+  | `Xprop of (string * string) * params * string ] [@@deriving eq, show]
 
 type calprop =
-  [ `Prodid of param list * string
-  | `Version of param list * string
-  | `Calscale of param list * string
-  | `Method of param list * string
+  [ `Prodid of params * string
+  | `Version of params * string
+  | `Calscale of params * string
+  | `Method of params * string
   | other_prop
   ] [@@deriving eq, show]
 
@@ -363,99 +360,99 @@ type status = [ `Draft | `Final | `Cancelled |
                 `Tentative | `Confirmed (* | `Cancelled *) ] [@@deriving eq, show]
 
 type freebusyprop = [
-  | `Dtstamp of param list * (Ptime.t * bool)
-  | `Uid of param list * string
-  | `Contact of param list * string
-  | `Dtstart of param list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Dtend of param list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Organizer of param list * Uri.t
-  | `Url of param list * Uri.t
-  | `Attendee of param list * Uri.t
-  | `Comment of param list * string
-  | `Freebusy of param list * (Ptime.t * Ptime.t * bool) list 
-  | `Rstatus of param list * ((int * int * int option) * string * string option)
+  | `Dtstamp of params * (Ptime.t * bool)
+  | `Uid of params * string
+  | `Contact of params * string
+  | `Dtstart of params * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Dtend of params * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Organizer of params * Uri.t
+  | `Url of params * Uri.t
+  | `Attendee of params * Uri.t
+  | `Comment of params * string
+  | `Freebusy of params * (Ptime.t * Ptime.t * bool) list 
+  | `Rstatus of params * ((int * int * int option) * string * string option)
   | other_prop 
 ] [@@deriving eq, show]
 
 type generalprop = [
-  | `Dtstamp of param list * (Ptime.t * bool)
-  | `Uid of param list * string
-  | `Dtstart of param list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Class of param list * class_
-  | `Created of param list * (Ptime.t * bool)
-  | `Description of param list * string
-  | `Geo of param list * (float * float)
-  | `Lastmod of param list * (Ptime.t * bool)
-  | `Location of param list * string
-  | `Organizer of param list * Uri.t
-  | `Priority of param list * int
-  | `Seq of param list * int
-  | `Status of param list * status
-  | `Summary of param list * string
-  | `Url of param list * Uri.t
-  | `Recur_id of param list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Rrule of param list * recurrence
-  | `Duration of param list * int
-  | `Attach of param list * [ `Uri of Uri.t | `Binary of string ]
-  | `Attendee of param list * Uri.t
-  | `Categories of param list * string list
-  | `Comment of param list * string
-  | `Contact of param list * string
-  | `Exdate of param list *
+  | `Dtstamp of params * (Ptime.t * bool)
+  | `Uid of params * string
+  | `Dtstart of params * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Class of params * class_
+  | `Created of params * (Ptime.t * bool)
+  | `Description of params * string
+  | `Geo of params * (float * float)
+  | `Lastmod of params * (Ptime.t * bool)
+  | `Location of params * string
+  | `Organizer of params * Uri.t
+  | `Priority of params * int
+  | `Seq of params * int
+  | `Status of params * status
+  | `Summary of params * string
+  | `Url of params * Uri.t
+  | `Recur_id of params * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Rrule of params * recurrence
+  | `Duration of params * int
+  | `Attach of params * [ `Uri of Uri.t | `Binary of string ]
+  | `Attendee of params * Uri.t
+  | `Categories of params * string list
+  | `Comment of params * string
+  | `Contact of params * string
+  | `Exdate of params *
     [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list ]
-  | `Rstatus of param list * ((int * int * int option) * string * string option)
-  | `Related of param list * string
-  | `Resource of param list * string list
-  | `Rdate of param list *
+  | `Rstatus of params * ((int * int * int option) * string * string option)
+  | `Related of params * string
+  | `Resource of params * string list
+  | `Rdate of params *
               [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
 ] [@@deriving eq, show]
 
 type eventprop = [
   | generalprop
-  | `Transparency of param list * [ `Transparent | `Opaque ]
-  | `Dtend of param list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Transparency of params * [ `Transparent | `Opaque ]
+  | `Dtend of params * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | other_prop
 ] [@@deriving eq, show]
 
 type 'a alarm_struct = {
-  trigger : param list * [ `Duration of int | `Datetime of (Ptime.t * bool) ] ;
-  duration_repeat: ((param list * int) * (param list * int )) option ;
+  trigger : params * [ `Duration of int | `Datetime of (Ptime.t * bool) ] ;
+  duration_repeat: ((params * int) * (params * int )) option ;
   other: other_prop list ;
   special: 'a ;
 } [@@deriving eq, show]
 
 type audio_struct = {
-  attach: (param list * [ `Uri of Uri.t | `Binary of string ]) option ;
+  attach: (params * [ `Uri of Uri.t | `Binary of string ]) option ;
 } [@@deriving eq, show]
 
 type display_struct = {
-  description : param list * string ;
+  description : params * string ;
 } [@@deriving eq, show]
 
 type email_struct = {
-  description : param list * string ;
-  summary : param list * string ;
-  attendees : (param list * Uri.t) list ;
-  attach: (param list * [ `Uri of Uri.t | `Binary of string ]) option ;
+  description : params * string ;
+  summary : params * string ;
+  attendees : (params * Uri.t) list ;
+  attach: (params * [ `Uri of Uri.t | `Binary of string ]) option ;
 } [@@deriving eq, show]
 
 type alarm = [ `Audio of audio_struct alarm_struct | `Display of display_struct alarm_struct | `Email of email_struct alarm_struct ] [@@deriving eq, show]
 
 type tzprop = [
-  | `Dtstart of param list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Tzoffset_to of param list * Ptime.Span.t
-  | `Tzoffset_from of param list * Ptime.Span.t
-  | `Rrule of param list * recurrence
-  | `Comment of param list * string
-  | `Rdate of param list * [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
-  | `Tzname of param list * string
+  | `Dtstart of params * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Tzoffset_to of params * Ptime.Span.t
+  | `Tzoffset_from of params * Ptime.Span.t
+  | `Rrule of params * recurrence
+  | `Comment of params * string
+  | `Rdate of params * [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
+  | `Tzname of params * string
   | other_prop
 ] [@@deriving eq, show]
 
 type timezoneprop = [
-  | `Timezone_id of param list * (bool * string)
-  | `Lastmod of param list * (Ptime.t * bool)
-  | `Tzurl of param list * Uri.t
+  | `Timezone_id of params * (bool * string)
+  | `Lastmod of params * (Ptime.t * bool)
+  | `Tzurl of params * Uri.t
   | `Standard of tzprop list
   | `Daylight of tzprop list
   | other_prop
@@ -463,9 +460,9 @@ type timezoneprop = [
 
 type todoprop = [
   | generalprop
-  | `Completed of param list * (Ptime.t * bool)
-  | `Percent of param list * int
-  | `Due of  param list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Completed of params * (Ptime.t * bool)
+  | `Percent of params * int
+  | `Due of  params * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | other_prop
 ] [@@deriving eq, show]
 
@@ -543,10 +540,10 @@ let freebusyprop_to_params = function
   | `Freebusy (params, _)
   | `Dtend (params, _) -> params
 
-let params_to_tzid (params : param list) =
-  let find_tzid_param acc = function
-     | P (Tzid, (_, tzid)) -> Astring.String.Set.add tzid acc
-     | _ -> acc in
+let params_to_tzid (params : params list) =
+  let find_tzid_param acc m = match Param_map.find Tzid m with
+     | Some (_, tzid) -> Astring.String.Set.add tzid acc
+     | None -> acc in
   List.fold_left find_tzid_param Astring.String.Set.empty params
 
 let collect_tzids (comp: component) = 
@@ -556,7 +553,7 @@ let collect_tzids (comp: component) =
   | `Freebusy props -> List.map freebusyprop_to_params props
   | `Timezone _ -> []
   in
-  params_to_tzid (List.flatten params)
+  params_to_tzid params
 
 let component_to_ics_key = function
   | `Event _ -> "VEVENT"
@@ -663,7 +660,7 @@ let transp_strings = [
 module Writer = struct
   let print_x vendor token = Printf.sprintf "X-%s%s%s" vendor (if String.length vendor = 0 then "" else "-") token
 
-  let write_param buf =
+  let write_param : type a . Buffer.t -> a icalparameter -> a -> unit = fun buf k v ->
     let write_kv k v =
       Buffer.add_string buf k ;
       Buffer.add_char buf '=' ;
@@ -672,29 +669,29 @@ module Writer = struct
       Printf.sprintf "%S" str
     in
     let quoted_uri uri = quoted (Uri.to_string uri) in
-    function
-    | P (Iana_param, (token, values)) -> write_kv token (String.concat "," values)
-    | P (Xparam, ((vendor, name), values)) -> write_kv (print_x vendor name) (String.concat "," values)
-    | P (Valuetype, v) -> write_kv "VALUE" (List.assoc v valuetype_strings)
-    | P (Tzid, (prefix, str)) -> write_kv "TZID" (Printf.sprintf "%s%s" (if prefix then "/" else "") str)
-    | P (Altrep, uri) -> write_kv "ALTREP" (quoted_uri uri)
-    | P (Language, lan) -> write_kv "LANGUAGE" lan
-    | P (Cn, str) -> write_kv "CN" str
-    | P (Dir, uri) -> write_kv "DIR" (quoted_uri uri)
-    | P (Sentby, uri) -> write_kv "SENT-BY" (quoted_uri uri)
-    | P (Range, `Thisandfuture) -> write_kv "RANGE" "THISANDFUTURE"
-    | P (Media_type, (pre, post)) -> write_kv "FMTTYPE" (Printf.sprintf "%s/%s" pre post)
-    | P (Fbtype, fbtype) -> write_kv "FBTYPE" (List.assoc fbtype fbtype_strings)
-    | P (Encoding, `Base64) -> write_kv "ENCODING" "BASE64"
-    | P (Cutype, cu) -> write_kv "CUTYPE" (List.assoc cu cutype_strings)
-    | P (Delegated_from, uris) -> write_kv "DELEGATED-FROM" (String.concat "," (List.map quoted_uri uris))
-    | P (Delegated_to, uris) -> write_kv "DELEGATED-TO" (String.concat "," (List.map quoted_uri uris))
-    | P (Member, uris) -> write_kv "MEMBER" (String.concat "," (List.map quoted_uri uris))
-    | P (Partstat, ps) -> write_kv "PARTSTAT" (List.assoc ps partstat_strings)
-    | P (Role, role) -> write_kv "ROLE" (List.assoc role role_strings)
-    | P (Rsvp, rsvp) -> write_kv "RSVP" (if rsvp then "TRUE" else "FALSE")
-    | P (Reltype, rel) -> write_kv "RELTYPE" (List.assoc rel relation_strings)
-    | P (Related, r) ->
+    match k, v with
+    | Iana_param, (token, values) -> write_kv token (String.concat "," values)
+    | Xparam, ((vendor, name), values) -> write_kv (print_x vendor name) (String.concat "," values)
+    | Valuetype, v -> write_kv "VALUE" (List.assoc v valuetype_strings)
+    | Tzid, (prefix, str) -> write_kv "TZID" (Printf.sprintf "%s%s" (if prefix then "/" else "") str)
+    | Altrep, uri -> write_kv "ALTREP" (quoted_uri uri)
+    | Language, lan -> write_kv "LANGUAGE" lan
+    | Cn, str -> write_kv "CN" str
+    | Dir, uri -> write_kv "DIR" (quoted_uri uri)
+    | Sentby, uri -> write_kv "SENT-BY" (quoted_uri uri)
+    | Range, `Thisandfuture -> write_kv "RANGE" "THISANDFUTURE"
+    | Media_type, (pre, post) -> write_kv "FMTTYPE" (Printf.sprintf "%s/%s" pre post)
+    | Fbtype, fbtype -> write_kv "FBTYPE" (List.assoc fbtype fbtype_strings)
+    | Encoding, `Base64 -> write_kv "ENCODING" "BASE64"
+    | Cutype, cu -> write_kv "CUTYPE" (List.assoc cu cutype_strings)
+    | Delegated_from, uris -> write_kv "DELEGATED-FROM" (String.concat "," (List.map quoted_uri uris))
+    | Delegated_to, uris -> write_kv "DELEGATED-TO" (String.concat "," (List.map quoted_uri uris))
+    | Member, uris -> write_kv "MEMBER" (String.concat "," (List.map quoted_uri uris))
+    | Partstat, ps -> write_kv "PARTSTAT" (List.assoc ps partstat_strings)
+    | Role, role -> write_kv "ROLE" (List.assoc role role_strings)
+    | Rsvp, rsvp -> write_kv "RSVP" (if rsvp then "TRUE" else "FALSE")
+    | Reltype, rel -> write_kv "RELTYPE" (List.assoc rel relation_strings)
+    | Related, r ->
       let r = match r with `Start -> "START" | `End -> "END" in
       write_kv "RELATED" r
 
@@ -702,9 +699,10 @@ module Writer = struct
     let write = Buffer.add_string buf in
     let write_char = Buffer.add_char buf in
     write name ;
-    List.iteri (fun idx param ->
+    Param_map.iter (fun param ->
+        let Param_map.B (paramk, paramv) = param in
         write_char ';' ;
-        write_param buf param)
+        write_param buf paramk paramv)
       params ;
     write_char ':' ;
     write_value buf ;
@@ -1010,7 +1008,7 @@ module Writer = struct
 
   let alarm_to_ics cr buf alarm =
     (* TODO: output alarm.other field *)
-    write_line cr buf "BEGIN" [] (write_string "VALARM") ;
+    write_line cr buf "BEGIN" Param_map.empty (write_string "VALARM") ;
     let write_trigger buf trig =
       let params, print = match trig with
         | (params, `Duration d) ->
@@ -1022,24 +1020,24 @@ module Writer = struct
     in
     (match alarm with
      | `Audio (audio : audio_struct alarm_struct) ->
-       write_line cr buf "ACTION" [] (write_string "AUDIO") ;
+       write_line cr buf "ACTION" Param_map.empty (write_string "AUDIO") ;
        write_trigger buf audio.trigger ;
        duration_repeat_to_ics cr buf audio.duration_repeat ;
        attach_to_ics cr buf audio.special.attach
      | `Display (display : display_struct alarm_struct) ->
-       write_line cr buf "ACTION" [] (write_string "DISPLAY") ;
+       write_line cr buf "ACTION" Param_map.empty (write_string "DISPLAY") ;
        write_trigger buf display.trigger ;
        duration_repeat_to_ics cr buf display.duration_repeat ;
        description_to_ics cr buf display.special.description
      | `Email email ->
-       write_line cr buf "ACTION" [] (write_string "EMAIL") ;
+       write_line cr buf "ACTION" Param_map.empty (write_string "EMAIL") ;
        write_trigger buf email.trigger ;
        duration_repeat_to_ics cr buf email.duration_repeat ;
        attach_to_ics cr buf email.special.attach ;
        description_to_ics cr buf email.special.description ;
        summary_to_ics cr buf email.special.summary ;
        attendees_to_ics cr buf email.special.attendees ) ;
-    write_line cr buf "END" [] (write_string "VALARM")
+    write_line cr buf "END" Param_map.empty (write_string "VALARM")
 
   let alarms_to_ics cr buf alarms = List.iter (alarm_to_ics cr buf) alarms
 
@@ -1091,13 +1089,13 @@ module Writer = struct
     | `Lastmod (params, ts) -> write_line cr buf "LAST-MODIFIED" params (datetime_to_ics ts)
     | `Tzurl (params, uri) -> write_line cr buf "TZURL" params (write_string (Uri.to_string uri))
     | `Standard tzprops ->
-      write_line cr buf "BEGIN" [] (write_string "STANDARD") ;
+      write_line cr buf "BEGIN" Param_map.empty (write_string "STANDARD") ;
       tzprops_to_ics cr buf tzprops ;
-      write_line cr buf "END" [] (write_string "STANDARD")
+      write_line cr buf "END" Param_map.empty (write_string "STANDARD")
     | `Daylight tzprops ->
-      write_line cr buf "BEGIN" [] (write_string "DAYLIGHT") ;
+      write_line cr buf "BEGIN" Param_map.empty (write_string "DAYLIGHT") ;
       tzprops_to_ics cr buf tzprops ;
-      write_line cr buf "END" [] (write_string "DAYLIGHT")
+      write_line cr buf "END" Param_map.empty (write_string "DAYLIGHT")
     | #other_prop as x -> other_prop_to_ics cr buf x
 
   let freebusyprop_to_ics_key = function
@@ -1120,21 +1118,21 @@ module Writer = struct
 
   let component_to_ics cr buf comp =
     let key = component_to_ics_key comp in
-    write_line cr buf "BEGIN" [] (write_string key) ;
+    write_line cr buf "BEGIN" Param_map.empty (write_string key) ;
     (match comp with
      | `Event (eventprops, alarms) -> event_to_ics cr buf eventprops alarms
      | `Timezone tzprops -> timezone_to_ics cr buf tzprops
      | `Freebusy fbprops -> freebusy_to_ics cr buf fbprops
      | `Todo (todoprops, alarms) -> todo_to_ics cr buf todoprops alarms) ;
-    write_line cr buf "END" [] (write_string key)
+    write_line cr buf "END" Param_map.empty (write_string key)
 
   let components_to_ics cr buf comps = List.iter (component_to_ics cr buf) comps
 
   let calendar_to_ics cr buf (props, comps) =
-    write_line cr buf "BEGIN" [] (write_string "VCALENDAR") ;
+    write_line cr buf "BEGIN" Param_map.empty (write_string "VCALENDAR") ;
     calprops_to_ics cr buf props ;
     components_to_ics cr buf comps ;
-    write_line cr buf "END" [] (write_string "VCALENDAR")
+    write_line cr buf "END" Param_map.empty (write_string "VCALENDAR")
 end
 
 let to_ics ?(cr = true) calendar =
@@ -1362,56 +1360,57 @@ let media_type_name =
 let media_type =
   lift2 pair (media_type_name <* char '/') media_type_name
 
+let param k v = Param_map.B (k, v)
 
 (* Parameters (PARAM1_KEY=PARAM1_VALUE) *)
-let iana_param = lift2 (fun k v -> P (Iana_param, (k, v)))
+let iana_param = lift2 (fun k v -> param Iana_param (k, v))
     (iana_token <* (char '=')) value_list
 
 
-let x_param = lift2 (fun k v -> P (Xparam, (k, v)))
+let x_param = lift2 (fun k v -> param Xparam (k, v))
     (x_name <* char '=') value_list
 
 let other_param = iana_param <|> x_param
 
 let tzidparam =
- lift2 (fun a b -> P (Tzid, (a = '/', b)))
+ lift2 (fun a b -> param Tzid (a = '/', b))
  (string "TZID=" *> option ' ' (char '/')) param_text
 
 let valuetypeparam =
-  lift (fun x -> P (Valuetype, x))
+  lift (fun x -> param Valuetype x)
     (string "VALUE=" *>
      (choice (string_parsers valuetype_strings)
       <|> (x_name >>| fun x -> `Xname x)
       <|> (iana_token >>| fun x -> `Ianatoken x)))
 
 (* TODO use uri parser here *)
-let altrepparam = (string "ALTREP=") *> quoted_caladdress >>| fun uri -> P (Altrep, uri)
+let altrepparam = (string "ALTREP=") *> quoted_caladdress >>| fun uri -> param Altrep uri
 
 (* TODO use language tag rfc5646 parser *)
-let languageparam = (string "LANGUAGE=") *> param_text >>| fun l -> P (Language, l)
+let languageparam = (string "LANGUAGE=") *> param_text >>| fun l -> param Language l
 
-let cnparam = string "CN=" *> param_value >>| fun cn -> P (Cn, cn)
-let dirparam = string "DIR=" *> quoted_caladdress >>| fun s -> P (Dir, s)
-let sentbyparam = string "SENT-BY=" *> quoted_caladdress >>| fun s -> P (Sentby, s)
+let cnparam = string "CN=" *> param_value >>| fun cn -> param Cn cn
+let dirparam = string "DIR=" *> quoted_caladdress >>| fun s -> param Dir s
+let sentbyparam = string "SENT-BY=" *> quoted_caladdress >>| fun s -> param Sentby s
 
 (* Default is INDIVIDUAL *)
 let cutypeparam =
-  lift (fun x -> P (Cutype, x)) ((string "CUTYPE=") *>
+  lift (fun x -> param Cutype x) ((string "CUTYPE=") *>
        (choice (string_parsers cutype_strings)
    <|> (iana_token >>| fun x -> `Ianatoken x)
    <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
 
 let fbtypeparam =
-  lift (fun x -> P (Fbtype, x)) ((string "FBTYPE=") *>
+  lift (fun x -> param Fbtype x) ((string "FBTYPE=") *>
        (choice (string_parsers fbtype_strings)
    <|> (iana_token >>| fun x -> `Ianatoken x)
    <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
 
-let memberparam = lift (fun x -> P (Member, x))
+let memberparam = lift (fun x -> param Member x)
   ((string "MEMBER=") *> sep_by1 (char ',') quoted_caladdress)
 
 (* Default is REQ-PARTICIPANT *)
-let roleparam = lift (fun x -> P (Role, x)) ((string "ROLE=") *>
+let roleparam = lift (fun x -> param Role x) ((string "ROLE=") *>
        (choice (string_parsers role_strings)
    <|> (iana_token >>| fun x -> `Ianatoken x)
    <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
@@ -1424,30 +1423,30 @@ let partstatparam =
    <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))
   in
   let statvalue = statvalue <|> other in
-  lift (fun x -> P (Partstat, x)) ((string "PARTSTAT=") *> statvalue)
+  lift (fun x -> param Partstat x) ((string "PARTSTAT=") *> statvalue)
 
-let rsvpparam = lift (fun r -> P (Rsvp, r)) (string "RSVP=" *> ((string "TRUE" >>| fun _ -> true) <|> (string "FALSE" >>| fun _ -> false )))
+let rsvpparam = lift (fun r -> param Rsvp r) (string "RSVP=" *> ((string "TRUE" >>| fun _ -> true) <|> (string "FALSE" >>| fun _ -> false )))
 
-let deltoparam = lift (fun x -> P (Delegated_to, x))
+let deltoparam = lift (fun x -> param Delegated_to x)
   ((string "DELEGATED-TO=") *> sep_by1 (char ',') quoted_caladdress)
 
-let delfromparam = lift (fun x -> P (Delegated_from, x))
+let delfromparam = lift (fun x -> param Delegated_from x)
   ((string "DELEGATED-FROM=") *> sep_by1 (char ',') quoted_caladdress)
 
 let reltypeparam =
-  lift (fun x -> P (Reltype, x))
+  lift (fun x -> param Reltype x)
    (string "RELTYPE=" *>
      (choice (string_parsers relation_strings)
    <|> (iana_token >>| fun x -> `Ianatoken x)
    <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))))
 
 let fmttypeparam =
-  string "FMTTYPE=" *> media_type >>| fun m -> P (Media_type, m)
+  string "FMTTYPE=" *> media_type >>| fun m -> param Media_type m
 
 let encodingparam =
-  string "ENCODING=BASE64" >>| fun _ -> P (Encoding, `Base64)
+  string "ENCODING=BASE64" >>| fun _ -> param Encoding `Base64
 
-let rangeparam = string "RANGE=THISANDFUTURE" >>| fun _ -> P (Range, `Thisandfuture)
+let rangeparam = string "RANGE=THISANDFUTURE" >>| fun _ -> param Range `Thisandfuture
 
 let icalparameter =
       altrepparam
@@ -1470,15 +1469,17 @@ let icalparameter =
   <|> valuetypeparam
   <|> other_param
 
+let list_to_map params = List.fold_right Param_map.addb params Param_map.empty
+
 (* Properties *)
 let propparser id pparser vparser lift =
-  let params = many (char ';' *> pparser) in
+  let params = many (char ';' *> pparser) >>| list_to_map in
   lift2 lift
     (string id *> params <* char ':')
     (vparser <* end_of_line)
 
 let otherprop =
-  let params = many (char ';' *> icalparameter) in
+  let params = many (char ';' *> icalparameter) >>| list_to_map in
   let buildprop t p v = match t with
     | `Iana i -> `Iana_prop (i, p, v)
     | `Xname x -> `Xprop (x, p, v) in
@@ -1515,36 +1516,37 @@ let uid =
   propparser "UID" other_param text (fun a b -> `Uid (a, b))
 
 let valuetype_or_default params default =
-  try List.find (function P (Valuetype, _) -> true | _ -> false) params
-  with Not_found -> P (Valuetype, default)
+  match Param_map.find Valuetype params with
+  | None -> default
+  | Some v -> v
 
 let check_date_datetime default a b =
   let valuetype = valuetype_or_default a default in
   match valuetype, b with
-  | P (Valuetype, `Datetime), `Datetime _ -> ()
-  | P (Valuetype, `Date), `Date _ -> ()
+  | `Datetime, `Datetime _ -> ()
+  | `Date, `Date _ -> ()
   | _ -> raise Parse_error
 
 let check_datetime_duration default a b =
   let valuetype = valuetype_or_default a default in
   match valuetype, b with
-  | P (Valuetype, `Datetime), `Datetime _ -> ()
-  | P (Valuetype, `Duration), `Duration _ -> ()
+  | `Datetime, `Datetime _ -> ()
+  | `Duration, `Duration _ -> ()
   | _ -> raise Parse_error
 
 let check_date_datetime_period default a b =
   let valuetype = valuetype_or_default a default in
   match valuetype, b with
-  | P (Valuetype, `Datetime), `Datetime _ -> ()
-  | P (Valuetype, `Date), `Date _ -> ()
-  | P (Valuetype, `Period), `Period _ -> ()
+  | `Datetime, `Datetime _ -> ()
+  | `Date, `Date _ -> ()
+  | `Period, `Period _ -> ()
   | _ -> raise Parse_error
 
 let check_binary_uri default a b =
   let valuetype = valuetype_or_default a default in
   match valuetype, b with
-  | P (Valuetype, `Binary), `Binary _ -> ()
-  | P (Valuetype, `Uri), `Uri _ -> ()
+  | `Binary, `Binary _ -> ()
+  | `Uri, `Uri _ -> ()
   | _ -> raise Parse_error
 
 let time_or_date =
@@ -1671,10 +1673,10 @@ let attach =
   propparser "ATTACH" attach_param attach_value
     (fun a b ->
        check_binary_uri `Uri a b ;
-       let encoding = try Some (List.find (function P (Encoding, _) -> true | _ -> false) a) with Not_found -> None in
+       let encoding = Param_map.find Encoding a in
        match encoding, b with
        | None, `Uri _ -> `Attach (a, b)
-       | Some (P (Encoding, `Base64)), `Binary _ -> `Attach (a, b)
+       | Some `Base64, `Binary _ -> `Attach (a, b)
        | _ -> raise Parse_error)
 
 let attendee =
@@ -1814,7 +1816,7 @@ let action =
 
 let trigger =
   let trigrelparam =
-    lift (fun x -> P (Related, x))
+    lift (fun x -> param Related x)
       (string "RELATED=" *>
        ((string "START" >>| fun _ -> `Start) <|>
         (string "END" >>| fun _ -> `End)))
@@ -1995,7 +1997,7 @@ let freebusyc =
   string "BEGIN:VFREEBUSY" *> end_of_line *>
   (many freebusyprop >>| fun props -> `Freebusy props)
   <* string "END:VFREEBUSY" <* end_of_line
-  
+
 let component = many1 (eventc <|> todoc (* <|> journalc *) <|> freebusyc <|> timezonec)
 
 let icalbody = lift2 pair calprops component
@@ -2067,7 +2069,7 @@ let calculate_offset (props : tzprop list) ts datetime =
     end
   | _ -> assert false
 
-let normalize_timezone datetime (`Tzid (is_unique, tzid)) (timezones : timezoneprop list list) =
+let normalize_timezone datetime (is_unique, tzid) (timezones : timezoneprop list list) =
   (* TODO optimize timezone data structure *)
   let timezoneprops =
     List.find (fun tzprops ->

@@ -73,17 +73,19 @@ type _ icalparameter =
 
 val equal_icalparameter : 'a icalparameter -> 'a -> 'b icalparameter -> 'b -> bool
 
-type param = P : 'a icalparameter * 'a -> param
+module Param_map : sig include Gmap.S with type 'a key = 'a icalparameter end
+
+type params = Param_map.t
 
 type other_prop =
-  [ `Iana_prop of string * param list * string
-  | `Xprop of (string * string) * param list * string ] [@@deriving eq, show]
+  [ `Iana_prop of string * params * string
+  | `Xprop of (string * string) * params * string ] [@@deriving eq, show]
 
 type calprop =
-  [ `Prodid of param list * string
-  | `Version of param list * string
-  | `Calscale of param list * string
-  | `Method of param list * string
+  [ `Prodid of params * string
+  | `Version of params * string
+  | `Calscale of params * string
+  | `Method of params * string
   | other_prop
   ] 
 
@@ -94,84 +96,84 @@ type status = [ `Draft | `Final | `Cancelled |
                 `Tentative | `Confirmed (* | `Cancelled *) ]
 
 type generalprop = [
-  | `Dtstamp of param list * (Ptime.t * bool)
-  | `Uid of param list * string
-  | `Dtstart of param list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Class of param list * class_
-  | `Created of param list * (Ptime.t * bool)
-  | `Description of param list * string
-  | `Geo of param list * (float * float)
-  | `Lastmod of param list * (Ptime.t * bool)
-  | `Location of param list * string
-  | `Organizer of param list * Uri.t
-  | `Priority of param list * int
-  | `Seq of param list * int
-  | `Status of param list * status
-  | `Summary of param list * string
-  | `Url of param list * Uri.t
-  | `Recur_id of param list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Rrule of param list * recurrence
-  | `Duration of param list * int
-  | `Attach of param list * [ `Uri of Uri.t | `Binary of string ]
-  | `Attendee of param list * Uri.t
-  | `Categories of param list * string list
-  | `Comment of param list * string
-  | `Contact of param list * string
-  | `Exdate of param list *
+  | `Dtstamp of params * (Ptime.t * bool)
+  | `Uid of params * string
+  | `Dtstart of params * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Class of params * class_
+  | `Created of params * (Ptime.t * bool)
+  | `Description of params * string
+  | `Geo of params * (float * float)
+  | `Lastmod of params * (Ptime.t * bool)
+  | `Location of params * string
+  | `Organizer of params * Uri.t
+  | `Priority of params * int
+  | `Seq of params * int
+  | `Status of params * status
+  | `Summary of params * string
+  | `Url of params * Uri.t
+  | `Recur_id of params * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Rrule of params * recurrence
+  | `Duration of params * int
+  | `Attach of params * [ `Uri of Uri.t | `Binary of string ]
+  | `Attendee of params * Uri.t
+  | `Categories of params * string list
+  | `Comment of params * string
+  | `Contact of params * string
+  | `Exdate of params *
     [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list ]
-  | `Rstatus of param list * ((int * int * int option) * string * string option)
-  | `Related of param list * string
-  | `Resource of param list * string list
-  | `Rdate of param list *
+  | `Rstatus of params * ((int * int * int option) * string * string option)
+  | `Related of params * string
+  | `Resource of params * string list
+  | `Rdate of params *
               [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
 ] 
 
 type eventprop = [
   | generalprop
-  | `Transparency of param list * [ `Transparent | `Opaque ]
-  | `Dtend of param list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Transparency of params * [ `Transparent | `Opaque ]
+  | `Dtend of params * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | other_prop
 ] 
 
 type 'a alarm_struct = {
-  trigger : param list * [ `Duration of int | `Datetime of (Ptime.t * bool) ] ;
-  duration_repeat: ((param list * int) * (param list * int )) option ;
+  trigger : params * [ `Duration of int | `Datetime of (Ptime.t * bool) ] ;
+  duration_repeat: ((params * int) * (params * int )) option ;
   other: other_prop list ;
   special: 'a ;
 }
 
 type audio_struct = {
-  attach: (param list * [ `Uri of Uri.t | `Binary of string ]) option ;
+  attach: (params * [ `Uri of Uri.t | `Binary of string ]) option ;
 }
 
 type display_struct = {
-  description : param list * string ;
+  description : params * string ;
 }
 
 type email_struct = {
-  description : param list * string ;
-  summary : param list * string ;
-  attendees : (param list * Uri.t) list ;
-  attach: (param list * [ `Uri of Uri.t | `Binary of string ]) option ;
+  description : params * string ;
+  summary : params * string ;
+  attendees : (params * Uri.t) list ;
+  attach: (params * [ `Uri of Uri.t | `Binary of string ]) option ;
 }
 
 type alarm = [ `Audio of audio_struct alarm_struct | `Display of display_struct alarm_struct | `Email of email_struct alarm_struct ]
 
 type tzprop = [
-  | `Dtstart of param list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Tzoffset_to of param list * Ptime.Span.t
-  | `Tzoffset_from of param list * Ptime.Span.t
-  | `Rrule of param list * recurrence
-  | `Comment of param list * string
-  | `Rdate of param list * [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
-  | `Tzname of param list * string
+  | `Dtstart of params * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Tzoffset_to of params * Ptime.Span.t
+  | `Tzoffset_from of params * Ptime.Span.t
+  | `Rrule of params * recurrence
+  | `Comment of params * string
+  | `Rdate of params * [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
+  | `Tzname of params * string
   | other_prop
 ]
 
 type timezoneprop = [
-  | `Timezone_id of param list * (bool * string)
-  | `Lastmod of param list * (Ptime.t * bool)
-  | `Tzurl of param list * Uri.t
+  | `Timezone_id of params * (bool * string)
+  | `Lastmod of params * (Ptime.t * bool)
+  | `Tzurl of params * Uri.t
   | `Standard of tzprop list
   | `Daylight of tzprop list
   | other_prop
@@ -179,24 +181,24 @@ type timezoneprop = [
 
 type todoprop = [
   | generalprop
-  | `Completed of param list * (Ptime.t * bool)
-  | `Percent of param list * int
-  | `Due of  param list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Completed of params * (Ptime.t * bool)
+  | `Percent of params * int
+  | `Due of  params * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | other_prop
 ]
 
 type freebusyprop = [
-  | `Dtstamp of param list * (Ptime.t * bool)
-  | `Uid of param list * string
-  | `Contact of param list * string
-  | `Dtstart of param list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Dtend of param list * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Organizer of param list * Uri.t
-  | `Url of param list * Uri.t
-  | `Attendee of param list * Uri.t
-  | `Comment of param list * string
-  | `Freebusy of param list * (Ptime.t * Ptime.t * bool) list 
-  | `Rstatus of param list * ((int * int * int option) * string * string option)
+  | `Dtstamp of params * (Ptime.t * bool)
+  | `Uid of params * string
+  | `Contact of params * string
+  | `Dtstart of params * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Dtend of params * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Organizer of params * Uri.t
+  | `Url of params * Uri.t
+  | `Attendee of params * Uri.t
+  | `Comment of params * string
+  | `Freebusy of params * (Ptime.t * Ptime.t * bool) list 
+  | `Rstatus of params * ((int * int * int option) * string * string option)
   | other_prop 
 ]
 
@@ -233,6 +235,6 @@ end
 
 val recur_events : Ptime.t -> recurrence -> (unit -> Ptime.t option)
 
-val normalize_timezone : Ptime.t -> [< `Tzid of bool * String.t ] ->
+val normalize_timezone : Ptime.t -> bool * String.t ->
   timezoneprop list list ->
   Ptime.t 
