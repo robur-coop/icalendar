@@ -115,7 +115,7 @@ type generalprop = [
   | `Url of params * Uri.t
   | `Recur_id of params * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Rrule of params * recurrence
-  | `Duration of params * int
+  | `Duration of params * Ptime.Span.t
   | `Attach of params * [ `Uri of Uri.t | `Binary of string ]
   | `Attendee of params * Uri.t
   | `Categories of params * string list
@@ -138,8 +138,8 @@ type eventprop = [
 ] 
 
 type 'a alarm_struct = {
-  trigger : params * [ `Duration of int | `Datetime of (Ptime.t * bool) ] ;
-  duration_repeat: ((params * int) * (params * int )) option ;
+  trigger : params * [ `Duration of Ptime.Span.t | `Datetime of (Ptime.t * bool) ] ;
+  duration_repeat: ((params * Ptime.Span.t) * (params * int )) option ;
   other: other_prop list ;
   special: 'a ;
 }
@@ -227,7 +227,7 @@ val pp : calendar Fmt.t
 val to_ics : ?cr:bool -> calendar -> string
 
 module Writer : sig
-  val duration_to_ics : int -> Buffer.t -> unit
+  val duration_to_ics : Ptime.Span.t -> Buffer.t -> unit
   val calprop_to_ics_key : calprop -> string
   val eventprop_to_ics_key : eventprop -> string
   val todoprop_to_ics_key : todoprop -> string

@@ -395,7 +395,7 @@ type generalprop = [
   | `Url of params * Uri.t
   | `Recur_id of params * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
   | `Rrule of params * recurrence
-  | `Duration of params * int
+  | `Duration of params * Ptime.Span.t
   | `Attach of params * [ `Uri of Uri.t | `Binary of string ]
   | `Attendee of params * Uri.t
   | `Categories of params * string list
@@ -418,8 +418,8 @@ type eventprop = [
 ] [@@deriving eq, show]
 
 type 'a alarm_struct = {
-  trigger : params * [ `Duration of int | `Datetime of (Ptime.t * bool) ] ;
-  duration_repeat: ((params * int) * (params * int )) option ;
+  trigger : params * [ `Duration of Ptime.Span.t | `Datetime of (Ptime.t * bool) ] ;
+  duration_repeat: ((params * Ptime.Span.t) * (params * int )) option ;
   other: other_prop list ;
   special: 'a ;
 } [@@deriving eq, show]
@@ -748,7 +748,10 @@ module Writer = struct
 
   let calprops_to_ics cr buf props = List.iter (calprop_to_ics cr buf) props
 
-  let duration_to_ics dur buf =
+  let duration_to_ics span buf =
+    let dur = match Ptime.Span.to_int_s span with
+    | None -> assert false
+    | Some x -> x in
     if dur < 0 then Buffer.add_char buf '-' ;
     Buffer.add_char buf 'P' ;
     let output_number i d c =
@@ -1270,7 +1273,8 @@ let dur_value =
   let date = lift2 (+) day (option 0 time)
   and week = to_seconds (digits <* char 'W') (7 * 24 * 3600)
   and apply_sign s n = if s = positive then n else (- n) in
-  lift2 apply_sign (opt_sign <* char 'P') (date <|> time <|> week)
+  let to_span s n = Ptime.Span.of_int_s (apply_sign s n) in
+  lift2 to_span (opt_sign <* char 'P') (date <|> time <|> week)
 
 let float =
   let make_float s i f =
@@ -1279,7 +1283,7 @@ let float =
   lift3 make_float opt_sign digits (option "" ((char '.') *> digits))
 
 let period =
-  let to_explicit (dt, utc) dur = match Ptime.add_span dt (Ptime.Span.of_int_s dur) with
+  let to_explicit (dt, utc) dur = match Ptime.add_span dt dur with
   | Some t -> (dt, t, utc)
   | None -> raise Parse_error in
   let to_period (tstart, utc) (tend, utc') = if utc = utc' then (tstart, tend, utc) else raise Parse_error in

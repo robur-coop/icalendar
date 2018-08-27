@@ -615,7 +615,7 @@ END:VCALENDAR
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
         [
           `Event
-            ([ `Duration (empty, 3600) ;
+            ([ `Duration (empty, Ptime.Span.of_int_s 3600) ;
                `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
                `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
                `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
@@ -1195,8 +1195,8 @@ END:VCALENDAR
       ";VALUE=DATE-TIME:19980101T050000Z" ;
     ]
   and expecteds = List.map expected [
-      (empty, `Duration (- (15 * 60))) ;
-      (singleton Related `End, `Duration (5 * 60)) ;
+      (empty, `Duration (Ptime.Span.of_int_s (- (15 * 60)))) ;
+      (singleton Related `End, `Duration (Ptime.Span.of_int_s (5 * 60))) ;
       (singleton Valuetype `Datetime, `Datetime (to_ptime (1998, 01, 01) (05, 00, 00), true))
     ]
   in
@@ -1236,8 +1236,8 @@ END:VCALENDAR
                `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
                `Summary (empty, "Bastille Day Party")
              ], [
-               `Audio { Icalendar.trigger = (empty, `Duration (-1800)) ; 
-                        duration_repeat = Some ((empty, 3600), (empty, 2)) ; 
+               `Audio { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ; 
+                        duration_repeat = Some ((empty, Ptime.Span.of_int_s 3600), (empty, 2)) ; 
                         other = [] ;
                         special = { Icalendar.attach = None }}
              ])
@@ -1277,8 +1277,8 @@ END:VCALENDAR
                `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
                `Summary (empty, "Bastille Day Party")
              ], [
-               `Audio { Icalendar.trigger = (empty, `Duration (-1800)) ; 
-                        duration_repeat = Some ((empty, 3600), (empty, 4)) ;
+               `Audio { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ; 
+                        duration_repeat = Some ((empty, Ptime.Span.of_int_s 3600), (empty, 4)) ;
                         other = [] ;
                         special = { Icalendar.attach = None } }
              ])
@@ -1327,7 +1327,7 @@ END:VCALENDAR
                `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
                `Summary (empty, "Bastille Day Party")
              ], [
-               `Audio { Icalendar.trigger = (empty, `Duration (-1800)) ; 
+               `Audio { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ; 
                         duration_repeat = None;
                         other = [] ;
                         special = { Icalendar.attach = Some
@@ -1382,7 +1382,7 @@ END:VCALENDAR
                `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
                `Summary (empty, "Bastille Day Party")
              ], [
-               `Display { Icalendar.trigger = (empty, `Duration (-1800)) ;
+               `Display { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ;
                           duration_repeat = None ;
                           other = [] ;
                           special = { Icalendar.description = (singleton Altrep (Uri.of_string "CID:part3.msg970930T083000SILVER@example.com"), "Meeting to provide technical review for \"Phoenix\" design.\nHappy Face Conference Room. Phoenix design team MUST attend this meeting.\nRSVP to team leader.") } }
@@ -1426,7 +1426,7 @@ END:VCALENDAR
                `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
                `Summary (empty, "Bastille Day Party")
              ], [
-               `Email { Icalendar.trigger = (empty, `Duration (-1800)) ;
+               `Email { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ;
                         duration_repeat = None ;
                         other = [] ;
                         special = { Icalendar.summary = (empty, "*** REMINDER: SEND AGENDA FOR WEEKLY STAFF MEETING ***") ;
@@ -1474,8 +1474,8 @@ END:VCALENDAR
                `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
                `Summary (empty, "Bastille Day Party")
              ], [
-               `Display { Icalendar.trigger = (empty, `Duration (-1800));
-                          duration_repeat = Some ((empty, 15 * 60), (empty, 2)) ;
+               `Display { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800)));
+                          duration_repeat = Some ((empty, Ptime.Span.of_int_s(15 * 60)), (empty, 2)) ;
                           other = [] ;
                           special = { Icalendar.description = (empty, "Breakfast meeting with executive\nteam at 8:30 AM EST."); }
                         }
@@ -1520,7 +1520,7 @@ END:VCALENDAR
                `Summary (empty, "Bastille Day Party")
              ], [
                `Audio { Icalendar.trigger = (singleton Valuetype `Datetime, `Datetime (to_ptime (1997,03,17) (13,30,00), true)) ;
-                        duration_repeat = Some ((empty, 15 * 60), (empty, 4)) ;
+                        duration_repeat = Some ((empty, Ptime.Span.of_int_s(15 * 60)), (empty, 4)) ;
                         other = [] ;
                         special = { Icalendar.attach = Some (singleton Media_type ("audio", "basic"), `Uri(Uri.of_string "ftp://example.com/pub/sounds/bell-01.aud"));
                                   }
@@ -1567,7 +1567,7 @@ END:VCALENDAR
                `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
                `Summary (empty, "Bastille Day Party")
              ], [
-               `Email { Icalendar.trigger = (singleton Related `End, `Duration (-2*24*60*60)) ;
+               `Email { Icalendar.trigger = (singleton Related `End, `Duration (Ptime.Span.of_int_s (-2*24*60*60))) ;
                         duration_repeat = None ;
                         other = [] ;
                         special = { Icalendar.attach = Some (singleton Media_type ("application", "msword"), `Uri(Uri.of_string "http://example.com/templates/agenda.doc")) ; attendees = [(empty, Uri.of_string "mailto:john_doe@example.com")]; 
@@ -1618,13 +1618,13 @@ END:VCALENDAR
         [
           `Event
             ([ `Uid (empty, "put-8@example.com") ;
-               `Duration (empty, 1*24*60*60) ;
+               `Duration (empty, Ptime.Span.of_int_s(1*24*60*60)) ;
                `Dtstart (singleton Valuetype `Date, `Date (2018, 04, 27)) ;
                `Dtstamp (empty, (to_ptime (2005, 12, 22) (20, 59,53), true) ) ;
                `Summary (empty, "event 8")
              ], [
-               `Display { Icalendar.trigger = (singleton Related `Start, `Duration (- 5 * 60)) ; duration_repeat = None ; other = [] ; special = { Icalendar.description = (empty, "Test") } } ;
-               `Display { Icalendar.trigger = (singleton Related `Start, `Duration (- 10 * 60)) ; duration_repeat = None ; other = [] ; special = { Icalendar.description = (empty, "Test") } } ;
+               `Display { Icalendar.trigger = (singleton Related `Start, `Duration (Ptime.Span.of_int_s(- 5 * 60))) ; duration_repeat = None ; other = [] ; special = { Icalendar.description = (empty, "Test") } } ;
+               `Display { Icalendar.trigger = (singleton Related `Start, `Duration (Ptime.Span.of_int_s(- 10 * 60))) ; duration_repeat = None ; other = [] ; special = { Icalendar.description = (empty, "Test") } } ;
              ])
         ])
   in
@@ -1686,7 +1686,7 @@ END:VCALENDAR
          [ `Event ([
                `Uid (empty, "put-3X-@example.com") ;
                `Dtstart (singleton Valuetype `Date, `Date (2018, 04, 27)) ;
-               `Duration (empty, 1 * 24 * 60 * 60) ;
+               `Duration (empty, Ptime.Span.of_int_s(1 * 24 * 60 * 60)) ;
                `Dtstamp (empty, (to_ptime (2005, 12, 22) (20, 59, 53), true)) ;
                `Summary (empty, "event 1") ;
                `Xprop (("", "APPLE-STRUCTURED-LOCATION"),
@@ -2110,7 +2110,7 @@ let encode_durations () =
         Buffer.contents buf
       in
       Alcotest.(check string __LOC__ e (to_string v)))
-    values expecteds
+    (List.map Ptime.Span.of_int_s values) expecteds
 
 let decode_encode () =
   let input = String.concat "\r\n" [
@@ -2158,7 +2158,7 @@ END:VCALENDAR
   and expected = [ `Calscale (empty, "GREGORIAN") ; `Prodid (empty, "-//Example Inc.//Example Calendar//EN") ; `Version (empty, "2.0") ; `Xprop (("WR", "CALNAME"), empty, "CalDAV tests") ], 
     [ `Event ([ `Dtstamp (empty, (to_ptime (2006, 02, 02) (20, 55, 36), true)) ;
                 `Dtstart (empty, `Datetime (to_ptime (2018, 01, 01) (12, 0, 0 ), false)) ;
-                `Duration (empty, 60 * 60 ) ;
+                `Duration (empty, Ptime.Span.of_int_s(60 * 60) ) ;
                 `Summary (empty, "event 1") ;
                 `Uid (empty, "event1@example.local") ;
               ], [])
