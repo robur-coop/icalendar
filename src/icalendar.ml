@@ -2088,24 +2088,22 @@ let recur_events event = match event.rrule with
   | None -> (fun () -> None)
   | Some (_, recur) ->
     let dtstart, utc, is_datetime = date_or_datetime_to_ptime (snd event.dtstart) in
-    let dtend_needs_update = match event.dtend_or_duration with
+    let adjust_dtend ts = match event.dtend_or_duration with
       | None -> None
-      | Some (`Duration _) -> None
+      | Some (`Duration d) -> Some (`Duration d)
       | Some (`Dtend (params, d_o_dt)) ->
         let dtend, utc, is_datetime = date_or_datetime_to_ptime d_o_dt in
-        Some (params, Ptime.diff dtend dtstart, utc, is_datetime)
+        let span = Ptime.diff dtend dtstart in
+        let ts' = add_span ts span in
+        let v = ptime_to_date_or_datetime ts' utc is_datetime in
+        Some (`Dtend (params, v))
     in
     let newdate = recur_dates dtstart recur in
     (fun () -> match newdate () with
        | None -> None
        | Some ts ->
-         let dtstart = (fst event.dtstart, ptime_to_date_or_datetime ts utc is_datetime) in
-         let dtend_or_duration = match dtend_needs_update with
-           | None -> event.dtend_or_duration
-           | Some (params, span, utc, is_datetime) ->
-             let ts' = add_span ts span in
-             let v = ptime_to_date_or_datetime ts' utc is_datetime in
-             Some (`Dtend (params, v))
+         let dtstart = (fst event.dtstart, ptime_to_date_or_datetime ts utc is_datetime)
+         and dtend_or_duration = adjust_dtend ts
          in
          Some { event with dtstart ; dtend_or_duration })
 
