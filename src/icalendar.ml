@@ -2065,7 +2065,7 @@ let parse (str : string) : (calendar, string) result =
   try parse_string calobject (normalize_lines str)
   with Parse_error _ -> Error "parse error"
 
-let recur_events dtstart (rrule : recurrence) =
+let recur_dates dtstart (rrule : recurrence) =
   Recurrence.new_gen dtstart rrule
 
 let occurence_before_timestamp datetime (tzprops : tzprop list) =
@@ -2082,7 +2082,7 @@ let occurence_before_timestamp datetime (tzprops : tzprop list) =
   let rrule = List.find_opt (function `Rrule _ -> true | _ -> false) tzprops in
   let next_event = match rrule with
   | None -> (fun () -> None)
-  | Some (`Rrule (_, rrule)) -> recur_events dtstart' rrule
+  | Some (`Rrule (_, rrule)) -> recur_dates dtstart' rrule
   | _ -> assert false
   in
   (* TODO handle RDATE in addition to rrule *)

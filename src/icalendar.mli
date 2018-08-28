@@ -248,7 +248,7 @@ module Writer : sig
   val timezoneprop_to_ics_key : timezoneprop -> string
 end
 
-val recur_events : Ptime.t -> recurrence -> (unit -> Ptime.t option)
+val recur_dates : Ptime.t -> recurrence -> (unit -> Ptime.t option)
 
 val normalize_timezone : Ptime.t -> bool * String.t ->
   timezoneprop list list ->
