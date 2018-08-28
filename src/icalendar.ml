@@ -469,8 +469,20 @@ type todoprop = [
   | other_prop
 ] [@@deriving eq, show]
 
+type date_or_datetime = [ `Datetime of Ptime.t * bool | `Date of Ptime.date ] [@@deriving eq, show]
+
+type event = {
+  dtstamp : params * (Ptime.t * bool) ;
+  uid : params * string ;
+  dtstart : (params * date_or_datetime) ;
+  dtend_or_duration : [ `Duration of params * Ptime.Span.t | `Dtend of params * date_or_datetime ] option ;
+  rrule : (params * recurrence) option ;
+  props : eventprop list ;
+  alarms : alarm list ;
+} [@@deriving eq, show]
+
 type component = [
-  | `Event of eventprop list * alarm list
+  | `Event of event
   | `Todo of todoprop list * alarm list
   | `Freebusy of freebusyprop list 
   | `Timezone of timezoneprop list
@@ -549,12 +561,12 @@ let params_to_tzid (params : params list) =
      | None -> acc in
   List.fold_left find_tzid_param Astring.String.Set.empty params
 
-let collect_tzids (comp: component) = 
+let collect_tzids (comp: component) =
   let params = match comp with
-  | `Event (props, alarms) -> List.map eventprop_to_params props
-  | `Todo (props, alarms) -> List.map todoprop_to_params props
-  | `Freebusy props -> List.map freebusyprop_to_params props
-  | `Timezone _ -> []
+    | `Event event -> (fst event.dtstamp) :: (fst event.uid) :: List.map eventprop_to_params event.props
+    | `Todo (props, alarms) -> List.map todoprop_to_params props
+    | `Freebusy props -> List.map freebusyprop_to_params props
+    | `Timezone _ -> []
   in
   params_to_tzid params
 
@@ -1051,9 +1063,18 @@ module Writer = struct
 
   let alarms_to_ics cr buf alarms = List.iter (alarm_to_ics cr buf) alarms
 
-  let event_to_ics cr buf eventprops alarms =
-    eventprops_to_ics cr buf eventprops ;
-    alarms_to_ics cr buf alarms
+  let event_to_ics cr buf event =
+    eventprop_to_ics cr buf (`Uid event.uid) ;
+    eventprop_to_ics cr buf (`Dtstamp event.dtstamp) ;
+    eventprop_to_ics cr buf (`Dtstart event.dtstart) ;
+    (match event.dtend_or_duration with
+     | Some x -> eventprop_to_ics cr buf (x :> eventprop)
+     | None -> ()) ;
+    (match event.rrule with
+     | Some x -> eventprop_to_ics cr buf (`Rrule x)
+     | None -> ()) ;
+    eventprops_to_ics cr buf event.props ;
+    alarms_to_ics cr buf event.alarms
 
   let todo_to_ics cr buf todoprops alarms =
     todoprops_to_ics cr buf todoprops ;
@@ -1130,7 +1151,7 @@ module Writer = struct
     let key = component_to_ics_key comp in
     write_line cr buf "BEGIN" Params.empty (write_string key) ;
     (match comp with
-     | `Event (eventprops, alarms) -> event_to_ics cr buf eventprops alarms
+     | `Event event -> event_to_ics cr buf event
      | `Timezone tzprops -> timezone_to_ics cr buf tzprops
      | `Freebusy fbprops -> freebusy_to_ics cr buf fbprops
      | `Todo (todoprops, alarms) -> todo_to_ics cr buf todoprops alarms) ;
@@ -1151,7 +1172,7 @@ let to_ics ?(cr = true) calendar =
   Buffer.contents buf
 
 open Angstrom
-exception Parse_error
+exception Parse_error of string
 
 let string_parsers m =
   List.map (fun (t, str) -> string str >>| fun _ -> t) m
@@ -1256,11 +1277,11 @@ let time =
 let datetime =
   let ptime d (t, utc) = match Ptime.of_date_time (d, (t, 0)) with
   | Some p -> p, utc
-  | None -> raise Parse_error in
+  | None -> raise (Parse_error "") in
   lift2 ptime date (char 'T' *> time)
 
 let parse_datetime s =
-  try parse_string datetime s with Parse_error -> Error "Invalid datetime."
+  try parse_string datetime s with Parse_error _ -> Error "Invalid datetime."
  
 let dur_value =
   let to_seconds p factor = p >>= ensure int_of_string >>| ( * ) factor in
@@ -1278,15 +1299,15 @@ let dur_value =
 
 let float =
   let make_float s i f =
-    let n = try float_of_string (i ^ "." ^ f) with Failure _ -> raise Parse_error in
+    let n = try float_of_string (i ^ "." ^ f) with Failure _ -> raise (Parse_error "") in
     if s = positive then n else (-. n) in
   lift3 make_float opt_sign digits (option "" ((char '.') *> digits))
 
 let period =
   let to_explicit (dt, utc) dur = match Ptime.add_span dt dur with
   | Some t -> (dt, t, utc)
-  | None -> raise Parse_error in
-  let to_period (tstart, utc) (tend, utc') = if utc = utc' then (tstart, tend, utc) else raise Parse_error in
+  | None -> raise (Parse_error "") in
+  let to_period (tstart, utc) (tend, utc') = if utc = utc' then (tstart, tend, utc) else raise (Parse_error "") in
   let explicit = lift2 to_period datetime (char '/' *> datetime)
   and start = lift2 to_explicit datetime (char '/' *> dur_value) in
   explicit <|> start
@@ -1330,14 +1351,14 @@ let recur =
     let i' = match interval with
     | [] -> None
     | [ i ] -> Some i
-    | _ -> raise Parse_error in
+    | _ -> raise (Parse_error "") in
     let c' = match count_or_until with
     | [] -> None
     | [ c ] -> Some c
-    | _ -> raise Parse_error in
+    | _ -> raise (Parse_error "") in
     match freqs with
     | [ f ] -> f, c', i', List.rev rest
-    | _ -> raise Parse_error)
+    | _ -> raise (Parse_error ""))
   (sep_by1 (char ';') recur_rule_part)
 
 (* out in the wild *)
@@ -1350,7 +1371,7 @@ let utcoffset =
     let factor = if sign = positive then 1 else (-1)
     and seconds = (h * 60 + m) * 60 + s in
     if sign = not positive && seconds = 0
-    then raise Parse_error
+    then raise (Parse_error "")
     else Ptime.Span.of_int_s (factor * seconds)
   in
   lift4 to_span sign hours minutes (option 0 seconds)
@@ -1539,14 +1560,14 @@ let check_date_datetime default a b =
   match valuetype, b with
   | `Datetime, `Datetime _ -> ()
   | `Date, `Date _ -> ()
-  | _ -> raise Parse_error
+  | _ -> raise (Parse_error "")
 
 let check_datetime_duration default a b =
   let valuetype = valuetype_or_default a default in
   match valuetype, b with
   | `Datetime, `Datetime _ -> ()
   | `Duration, `Duration _ -> ()
-  | _ -> raise Parse_error
+  | _ -> raise (Parse_error "")
 
 let check_date_datetime_period default a b =
   let valuetype = valuetype_or_default a default in
@@ -1554,14 +1575,14 @@ let check_date_datetime_period default a b =
   | `Datetime, `Datetime _ -> ()
   | `Date, `Date _ -> ()
   | `Period, `Period _ -> ()
-  | _ -> raise Parse_error
+  | _ -> raise (Parse_error "")
 
 let check_binary_uri default a b =
   let valuetype = valuetype_or_default a default in
   match valuetype, b with
   | `Binary, `Binary _ -> ()
   | `Uri, `Uri _ -> ()
-  | _ -> raise Parse_error
+  | _ -> raise (Parse_error "")
 
 let time_or_date =
   (datetime >>| fun dt -> `Datetime dt)
@@ -1691,7 +1712,7 @@ let attach =
        match encoding, b with
        | None, `Uri _ -> `Attach (a, b)
        | Some `Base64, `Binary _ -> `Attach (a, b)
-       | _ -> raise Parse_error)
+       | _ -> raise (Parse_error ""))
 
 let attendee =
   let attparam =
@@ -1724,12 +1745,12 @@ let exdate =
        in
        let date =
          if List.for_all is_date b then
-           let extract = function `Date d -> d | _ -> raise Parse_error in
+           let extract = function `Date d -> d | _ -> raise (Parse_error "") in
            `Dates (List.map extract b)
          else if List.for_all is_datetime b then
-           let extract = function `Datetime d -> d | _ -> raise Parse_error in
+           let extract = function `Datetime d -> d | _ -> raise (Parse_error "") in
            `Datetimes (List.map extract b)
-         else raise Parse_error
+         else raise (Parse_error "")
        in
        `Exdate (a, date))
 
@@ -1777,15 +1798,15 @@ let rdate =
        in
        let date =
          if List.for_all is_date b then
-           let extract = function `Date d -> d | _ -> raise Parse_error in
+           let extract = function `Date d -> d | _ -> raise (Parse_error "") in
            `Dates (List.map extract b)
          else if List.for_all is_datetime b then
-           let extract = function `Datetime d -> d | _ -> raise Parse_error in
+           let extract = function `Datetime d -> d | _ -> raise (Parse_error "") in
            `Datetimes (List.map extract b)
          else if List.for_all is_period b then
-           let extract = function `Period d -> d | _ -> raise Parse_error in
+           let extract = function `Period d -> d | _ -> raise (Parse_error "") in
            `Periods (List.map extract b)
-         else raise Parse_error
+         else raise (Parse_error "")
        in
        `Rdate (a, date))
 
@@ -1871,12 +1892,12 @@ let build_alarm props =
   let actions, rest = List.partition (function `Action _ -> true | _ -> false) props in
   let action = match actions with
    | [`Action x] -> x
-   | _ -> raise Parse_error in
+   | _ -> raise (Parse_error "") in
 
   let triggers, rest' = List.partition (function `Trigger _ -> true | _ -> false ) rest in
   let trigger = match triggers with
    | [`Trigger x] -> x
-   | _ -> raise Parse_error in
+   | _ -> raise (Parse_error "") in
 
   (* check dur repeat *)
   let duration_repeat, rest''' =
@@ -1885,53 +1906,53 @@ let build_alarm props =
     match durations, repeats with
      | [`Duration x], [`Repeat y] -> Some (x, y), rest'''
      | [], [] -> None, rest'''
-     | _, _ -> raise Parse_error in
+     | _, _ -> raise (Parse_error "") in
 
   let build_audio rest =
     let attachs, rest' = List.partition (function `Attach _ -> true | _ -> false ) rest in
     let attach = match attachs with
      | [`Attach x] -> Some x
      | [] -> None
-     | _ -> raise Parse_error in
+     | _ -> raise (Parse_error "") in
     match rest' with
      | [] -> `Audio { trigger ; duration_repeat ; other = [] ; special = { attach } }
-     | _ -> raise Parse_error in
+     | _ -> raise (Parse_error "") in
 
   let build_display rest =
     let descriptions, rest' = List.partition (function `Description _ -> true | _ -> false ) rest in
     let description = match descriptions with
      | [`Description x] -> x
-     | _ -> raise Parse_error in
+     | _ -> raise (Parse_error "") in
     match rest' with
      | [] -> `Display { trigger ; duration_repeat ; other = [] ; special = { description } }
-     | _ -> raise Parse_error in
+     | _ -> raise (Parse_error "") in
 
   let build_email rest =
     let descriptions, rest' = List.partition (function `Description _ -> true | _ -> false ) rest in
     let description = match descriptions with
      | [`Description x] -> x
-     | _ -> raise Parse_error in
+     | _ -> raise (Parse_error "") in
     let summarys, rest'' = List.partition (function `Summary _ -> true | _ -> false ) rest' in
     let summary = match summarys with
      | [`Summary x] -> x
-     | _ -> raise Parse_error in
+     | _ -> raise (Parse_error "") in
     let raw_attendees, rest''' = List.partition (function `Attendee _ -> true | _ -> false ) rest'' in
-    let attendees = List.map (function `Attendee x -> x | _ -> raise Parse_error) raw_attendees in
-    if attendees = [] then raise Parse_error;
+    let attendees = List.map (function `Attendee x -> x | _ -> raise (Parse_error "")) raw_attendees in
+    if attendees = [] then raise (Parse_error "");
     let attachs, rest'''' = List.partition (function `Attach _ -> true | _ -> false ) rest''' in
     let attach = match attachs with
      | [`Attach x] -> Some x
      | [] -> None
-     | _ -> raise Parse_error in
+     | _ -> raise (Parse_error "") in
     match rest'''' with
      | [] -> `Email { trigger ; duration_repeat ; other = [] ; special = { description ; summary ; attach ; attendees } }
-     | _ -> raise Parse_error in
+     | _ -> raise (Parse_error "") in
 
   match action with
     | _, `Audio -> build_audio rest'''
     | _, `Display -> build_display rest'''
     | _, `Email -> build_email rest'''
-    | _, _ -> raise Parse_error (*not supported yet*)
+    | _, _ -> raise (Parse_error "") (*not supported yet*)
 
 let alarmc =
   string "BEGIN:VALARM" *> end_of_line *>
@@ -1949,7 +1970,26 @@ let todoc =
 
 let build_event eventprops alarms =
   let f acc alarm = if List.exists (equal_alarm alarm) acc then acc else alarm :: acc in
-  `Event (eventprops, List.fold_left f [] alarms)
+  let dtstamp, rest = List.partition (function `Dtstamp _ -> true | _ -> false) eventprops in
+  let uid, rest' = List.partition (function `Uid _ -> true | _ -> false) rest in
+  let dtstart, rest'' = List.partition (function `Dtstart _ -> true | _ -> false) rest' in
+  let dtend_or_duration_list, rest''' = List.partition (function `Dtend _ | `Duration _ -> true | _ -> false) rest'' in
+  let dtend_or_duration = match dtend_or_duration_list with
+    | [ (`Duration _ as x) ] | [ (`Dtend _ as x) ] -> Some x
+    | [] -> None
+    | _ -> raise (Parse_error "only one Dtend or Duration allowed in event")
+  in
+  let rrule_list, rest'''' = List.partition (function `Rrule _ -> true | _ -> false) rest''' in
+  let rrule = match rrule_list with
+    | [ `Rrule r ] -> Some r
+    | [] -> None
+    | _ -> raise (Parse_error "only one Rrule allowed in event")
+  in
+  let alarms' = List.fold_left f [] alarms in
+  match dtstamp, uid, dtstart with
+  | [ `Dtstamp dtstamp ], [ `Uid uid ], [ `Dtstart dtstart ] ->
+    `Event { dtstamp ; uid ; dtstart ; dtend_or_duration ; rrule ; props = rest'''' ; alarms = alarms' }
+  | _ -> raise (Parse_error "")
 
 let eventc =
   string "BEGIN:VEVENT" *> end_of_line *>
@@ -2023,10 +2063,10 @@ let calobject =
 
 let parse (str : string) : (calendar, string) result =
   try parse_string calobject (normalize_lines str)
-  with Parse_error -> Error "parse error"
+  with Parse_error _ -> Error "parse error"
 
 let recur_events dtstart (rrule : recurrence) =
-  Recurrence.new_gen dtstart rrule 
+  Recurrence.new_gen dtstart rrule
 
 let occurence_before_timestamp datetime (tzprops : tzprop list) =
   let dtstart = List.find (function `Dtstart _ -> true | _ -> false) tzprops in
@@ -2043,6 +2083,7 @@ let occurence_before_timestamp datetime (tzprops : tzprop list) =
   let next_event = match rrule with
   | None -> (fun () -> None)
   | Some (`Rrule (_, rrule)) -> recur_events dtstart' rrule
+  | _ -> assert false
   in
   (* TODO handle RDATE in addition to rrule *)
   let rec in_timerange acc = function

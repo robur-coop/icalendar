@@ -13,26 +13,42 @@ let empty = Params.empty
 let singleton k v = Params.add k v empty
 let list_to_map xs = List.fold_right Params.addb xs empty
 
+let to_ptime date time =
+  match Ptime.of_date_time (date, (time, 0)) with
+  | None -> Alcotest.fail "invalid date time"
+  | Some p -> p
+
 let test_line () =
   let line =
     {_|BEGIN:VCALENDAR
 BEGIN:VEVENT
+UID:19970610T172345Z-AF23B2@example.com
+DTSTAMP:19970610T172345Z
+DTSTART:19970714T170000Z
 DESCRIPTION:This is a long description that exists on a long line.
 END:VEVENT
 END:VCALENDAR
 |_}
   in
   let expected =
-    Ok ([], [
-        `Event ([ `Description (empty, "This is a long description that exists on a long line.") ], [])
-      ])
+    let event =
+      { uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+        dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+        dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+        dtend_or_duration = None ; rrule = None ;
+        props = [ `Description (empty, "This is a long description that exists on a long line.") ] ;
+        alarms = [] }
+    in
+    Ok ([], [ `Event event ])
   in
-  let f = Icalendar.parse line in
-  Alcotest.check result_c "test short line" expected f
+  Alcotest.check result_c "test short line" expected (parse line)
 
 let test_multiline () =
   let multiline = {_|BEGIN:VCALENDAR
 BEGIN:VEVENT
+UID:19970610T172345Z-AF23B2@example.com
+DTSTAMP:19970610T172345Z
+DTSTART:19970714T170000Z
 DESCRIPTION:This is a lo
  ng description
   that exists on a long line.
@@ -40,17 +56,17 @@ END:VEVENT
 END:VCALENDAR
 |_} in
   let expected =
-    Ok ([], [
-        `Event ([ `Description (empty, "This is a long description that exists on a long line.")], [])
-      ])
+    let event =
+      { uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+        dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+        dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+        dtend_or_duration = None ; rrule = None ;
+        props = [ `Description (empty, "This is a long description that exists on a long line.") ] ;
+        alarms = [] }
+    in
+    Ok ([], [ `Event event ])
   in
-  let f = Icalendar.parse multiline in
-  Alcotest.check result_c "test short line" expected f
-
-let to_ptime date time =
-  match Ptime.of_date_time (date, (time, 0)) with
-  | None -> Alcotest.fail "invalid date time"
-  | Some p -> p
+  Alcotest.check result_c "test short line" expected (parse multiline)
 
 let calendar_object () =
   let input =
@@ -66,20 +82,23 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event =
+       { uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+         dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+         dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+         dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+         rrule = None ;
+         props = [ `Summary (empty, "Bastille Day Party") ] ;
+         alarms = []
+       }
+    in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event ([ `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-                    `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-                    `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-                    `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-                    `Summary (empty, "Bastille Day Party")
-                  ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_tzid () =
   let input =
@@ -95,21 +114,22 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (singleton Tzid (false, "America/New_York"), `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (singleton Tzid (false, "America/New_York"), `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_class () =
   let input =
@@ -126,22 +146,23 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Class (empty, `Public) ;
+                `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Class (empty, `Public) ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_created () =
   let input =
@@ -158,22 +179,23 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Created (empty, (to_ptime (1996, 03, 29) (13, 30, 00), true)) ;
+                `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Created (empty, (to_ptime (1996, 03, 29) (13, 30, 00), true)) ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_description () =
   let input =
@@ -192,22 +214,24 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [
+        `Description (singleton Altrep (Uri.of_string "CID:part3.msg970930T083000SILVER@example.com"), "Meeting to provide technical review for \"Phoenix\" design.\nHappy Face Conference Room. Phoenix design team MUST attend this meeting.\nRSVP to team leader.") ;
+        `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Description (singleton Altrep (Uri.of_string "CID:part3.msg970930T083000SILVER@example.com"), "Meeting to provide technical review for \"Phoenix\" design.\nHappy Face Conference Room. Phoenix design team MUST attend this meeting.\nRSVP to team leader.") ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_geo () =
   let input =
@@ -224,22 +248,23 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Geo (empty, (37.386013, -122.082932) ) ;
+                `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Geo (empty, (37.386013, -122.082932) ) ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_last_mod () =
   let input =
@@ -256,22 +281,23 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Lastmod (empty, (to_ptime (1996, 08, 17) (13, 30, 00), true) ) ;
+                `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Lastmod (empty, (to_ptime (1996, 08, 17) (13, 30, 00), true) ) ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_location () =
   let input =
@@ -289,22 +315,24 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props =
+        [ `Location (singleton Altrep (Uri.of_string "http://xyzcorp.com/conf-rooms/f123.vcf"), "Conference Room - F123, Bldg. 002") ;
+          `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Location (singleton Altrep (Uri.of_string "http://xyzcorp.com/conf-rooms/f123.vcf"), "Conference Room - F123, Bldg. 002") ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_organizer () =
   let input =
@@ -322,22 +350,23 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Organizer(singleton Sentby (Uri.of_string "mailto:sray@example.com"), Uri.of_string "mailto:jsmith@example.com") ;
+                `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Organizer(singleton Sentby (Uri.of_string "mailto:sray@example.com"), Uri.of_string "mailto:jsmith@example.com") ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_priority () =
   let input =
@@ -354,22 +383,23 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Priority (empty, 2) ;
+                `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Priority (empty, 2) ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_seq () =
   let input =
@@ -386,22 +416,23 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Seq (empty, 1234) ;
+                `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Seq (empty, 1234) ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_status () =
   let input =
@@ -418,22 +449,23 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Status (empty, `Tentative) ;
+                `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Status (empty, `Tentative) ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_summary () =
   let input =
@@ -450,22 +482,23 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Summary (empty, "Department Party") ;
+                `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Summary (empty, "Department Party") ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_transp () =
   let input =
@@ -482,22 +515,23 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Transparency (empty, `Transparent) ;
+                `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Transparency (empty, `Transparent) ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_url () =
   let input =
@@ -514,22 +548,23 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Url (empty, Uri.of_string "http://example.com/pub/busy/jpublic-01.ifb") ;
+                `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Url (empty, Uri.of_string "http://example.com/pub/busy/jpublic-01.ifb") ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_recur_id () =
   let input =
@@ -546,22 +581,23 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Recur_id (singleton Range `Thisandfuture, `Datetime (to_ptime (1996, 01, 20) (12,00,00), true)) ;
+                `Summary (empty, "Bastille Day Party") ] ;
+        alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Recur_id (singleton Range `Thisandfuture, `Datetime (to_ptime (1996, 01, 20) (12,00,00), true)) ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_rrule () =
   let input =
@@ -578,22 +614,22 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = Some (empty, (`Daily, Some( `Until (to_ptime (1997, 12, 24) (00, 00, 00), true)), None, [])) ;
+      props = [ `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Rrule (empty, (`Daily, Some( `Until (to_ptime (1997, 12, 24) (00, 00, 00), true)), None, [])) ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_duration () =
   let input =
@@ -605,27 +641,26 @@ DURATION:PT1H0M0S
 UID:19970610T172345Z-AF23B2@example.com
 DTSTAMP:19970610T172345Z
 DTSTART:19970714T170000Z
-DTEND:19970715T040000Z
 SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Duration (empty, Ptime.Span.of_int_s 3600)) ;
+      rrule = None ;
+      props = [ `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Duration (empty, Ptime.Span.of_int_s 3600) ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_attach () =
   let input =
@@ -652,12 +687,14 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
-      ( [ `Version (empty, "2.0") ;
-          `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Attach (list_to_map [ B (Media_type, ("text", "plain")) ; B (Encoding, `Base64) ; B (Valuetype, `Binary)], `Binary "TG9yZW\
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)));
+      rrule = None ;
+props = [ `Attach (list_to_map [ B (Media_type, ("text", "plain")) ; B (Encoding, `Base64) ; B (Valuetype, `Binary)], `Binary "TG9yZW\
 0gaXBzdW0gZG9sb3Igc2l0IGFtZXQsIGNvbnNlY3RldHVyIGFkaXBpc2ljaW\
 5nIGVsaXQsIHNlZCBkbyBlaXVzbW9kIHRlbXBvciBpbmNpZGlkdW50IHV0IG\
 xhYm9yZSBldCBkb2xvcmUgbWFnbmEgYWxpcXVhLiBVdCBlbmltIGFkIG1pbm\
@@ -667,17 +704,16 @@ F0LiBEdWlzIGF1dGUgaXJ1cmUgZG9sb3IgaW4gcmVwcmVoZW5kZXJpdCBpbi\
 B2b2x1cHRhdGUgdmVsaXQgZXNzZSBjaWxsdW0gZG9sb3JlIGV1IGZ1Z2lhdC\
 BudWxsYSBwYXJpYXR1ci4gRXhjZXB0ZXVyIHNpbnQgb2NjYWVjYXQgY3VwaW\
 RhdGF0IG5vbiBwcm9pZGVudCwgc3VudCBpbiBjdWxwYSBxdWkgb2ZmaWNpYS\
-BkZXNlcnVudCBtb2xsaXQgYW5pbSBpZCBlc3QgbGFib3J1bS4=") ; 
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+BkZXNlcnVudCBtb2xsaXQgYW5pbSBpZCBlc3QgbGFib3J1bS4=") ;
+                `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
+      ( [ `Version (empty, "2.0") ;
+          `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_attendee () =
   let input l =
@@ -694,19 +730,21 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected l = Ok
+  and expected l =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ l ;
+                `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ l ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
   let inputs = List.map input [
     {_|;MEMBER="mailto:DEV-GROUP@example.com":mailto:joecool@example.com|_} ;
@@ -732,8 +770,7 @@ END:VCALENDAR
     `Attendee (list_to_map [B (Role, `Nonparticipant) ; B (Partstat, `Delegated) ; B (Delegated_to, [Uri.of_string "mailto:hcabot@example.com"]) ; B (Cn, `String "The Big Cheese")], Uri.of_string "mailto:iamboss@example.com") ;
     `Attendee (list_to_map [B (Role, `Reqparticipant) ; B (Partstat, `Accepted) ; B (Cn, `String "Jane Doe")], Uri.of_string "mailto:jdoe@example.com") ;
   ] in
-  List.iter2 (fun i e -> let f = Icalendar.parse i in
-  Alcotest.check result_c __LOC__ e f) inputs expecteds
+  List.iter2 (fun i e -> Alcotest.check result_c __LOC__ e (parse i)) inputs expecteds
 
 let calendar_object_with_categories () =
   let input =
@@ -750,22 +787,23 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)));
+      rrule = None ;
+      props = [ `Categories (empty, ["APPOINTMENT" ; "EDUCATION"]) ;
+                `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Categories (empty, ["APPOINTMENT" ; "EDUCATION"]) ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_comment () =
   let input =
@@ -785,22 +823,23 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Comment (empty, "The meeting really needs to include both ourselves and the customer. We can't hold this meeting without them. As a matter of fact, the venue for the meeting ought to be at their site. - - John") ;
+                `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Comment (empty, "The meeting really needs to include both ourselves and the customer. We can't hold this meeting without them. As a matter of fact, the venue for the meeting ought to be at their site. - - John") ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_contact () =
   let input =
@@ -818,22 +857,23 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Contact (singleton Altrep (Uri.of_string "CID:part3.msg970930T083000SILVER@example.com"), "Jim Dolittle, ABC Industries, +1-919-555-1234") ;
+                `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Contact (singleton Altrep (Uri.of_string "CID:part3.msg970930T083000SILVER@example.com"), "Jim Dolittle, ABC Industries, +1-919-555-1234") ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_exdate () =
   let input =
@@ -850,24 +890,25 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Exdate (empty, `Datetimes [ (to_ptime (1996, 04, 02) (01, 00, 00), true) ;
+                                             (to_ptime (1996, 04, 03) (01, 00, 00), true) ;
+                                             (to_ptime (1996, 04, 04) (01, 00, 00), true) ]) ;
+                `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Exdate (empty, `Datetimes [ (to_ptime (1996, 04, 02) (01, 00, 00), true) ;
-                                         (to_ptime (1996, 04, 03) (01, 00, 00), true) ;
-                                         (to_ptime (1996, 04, 04) (01, 00, 00), true) ]) ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_rstatus () =
   let input s =
@@ -884,19 +925,20 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected s = Ok
+  and expected s =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ s ; `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ s ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
   let inputs = List.map input [
       "2.0;Success" ;
@@ -913,10 +955,7 @@ END:VCALENDAR
       `Rstatus (empty, ((3, 7, None), "Invalid calendar user", Some "ATTENDEE:mailto:jsmith@example.com")) ;
     ]
   in
-  List.iter2 (fun i e ->
-      let f = Icalendar.parse i in
-      Alcotest.check result_c __LOC__ e f)
-    inputs expecteds
+  List.iter2 (fun i e -> Alcotest.check result_c __LOC__ e (parse i)) inputs expecteds
 
 let calendar_object_with_related () =
   let input =
@@ -933,22 +972,23 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Related (empty, "jsmith.part7.19960817T083000.xyzMail@example.com") ;
+                `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Related (empty, "jsmith.part7.19960817T083000.xyzMail@example.com") ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_related2 () =
   let input =
@@ -965,22 +1005,23 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Related (empty, "19960401-080045-4000F192713-0052@example.com") ;
+                `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Related (empty, "19960401-080045-4000F192713-0052@example.com") ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_resource () =
   let input =
@@ -997,22 +1038,23 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Resource (empty, [ "EASEL" ; "PROJECTOR" ; "VCR" ]) ;
+                `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Resource (empty, [ "EASEL" ; "PROJECTOR" ; "VCR" ]) ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_resource2 () =
   let input =
@@ -1029,22 +1071,23 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Resource (singleton Language "fr", [ "Nettoyeur haute pression" ]) ;
+                `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Resource (singleton Language "fr", [ "Nettoyeur haute pression" ]) ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_rdate () =
   let input s =
@@ -1061,19 +1104,20 @@ SUMMARY:Bastille Day Party
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected s = Ok
+  and expected s =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ s ; `Summary (empty, "Bastille Day Party") ] ;
+      alarms = []
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ s ;
-               `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [])
-        ])
+        [ `Event event ])
   in
   let inputs = List.map input [
       ":19970714T123000Z" ;
@@ -1094,10 +1138,7 @@ END:VCALENDAR
                                              (1997, 11, 29) ; (1997, 12, 25) ])
     ]
   in
-  List.iter2 (fun i e ->
-      let f = Icalendar.parse i in
-      Alcotest.check result_c __LOC__ e f)
-    inputs expecteds
+  List.iter2 (fun i e -> Alcotest.check result_c __LOC__ e (parse i)) inputs expecteds
 
 let calendar_object_with_illegal_valarm () =
   let input =
@@ -1118,8 +1159,7 @@ END:VCALENDAR
 |_}
   and expected = Error "parse error"
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 
 let calendar_object_with_valarm_action () =
@@ -1140,22 +1180,23 @@ END:VALARM
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Summary (empty, "Bastille Day Party") ] ;
+      alarms =
+        [ `Audio { Icalendar.trigger = (singleton Valuetype `Datetime, `Datetime (to_ptime (1997, 03, 17) (13, 30, 00), true)) ; duration_repeat = None ; other = [] ; special = {Icalendar.attach = None } } ]
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ],
-             [ `Audio { Icalendar.trigger = (singleton Valuetype `Datetime, `Datetime (to_ptime (1997, 03, 17) (13, 30, 00), true)) ; duration_repeat = None ; other = [] ; special = {Icalendar.attach = None } } ])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_valarm_trigger () =
   let input s =
@@ -1175,19 +1216,20 @@ END:VALARM
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected s = Ok
+  and expected s =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Summary (empty, "Bastille Day Party") ] ;
+      alarms = [ `Audio { Icalendar.trigger = s ; duration_repeat = None ; other = [] ; special = {Icalendar.attach = None } } ]
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ],
-             [ `Audio { Icalendar.trigger = s ; duration_repeat = None ; other = [] ; special = {Icalendar.attach = None } } ])
-        ])
+        [ `Event event ])
   in
   let inputs = List.map input [
       ":-PT15M" ;
@@ -1200,10 +1242,7 @@ END:VCALENDAR
       (singleton Valuetype `Datetime, `Datetime (to_ptime (1998, 01, 01) (05, 00, 00), true))
     ]
   in
-  List.iter2 (fun i e ->
-      let f = Icalendar.parse i in
-      Alcotest.check result_c __LOC__ e f)
-    inputs expecteds
+  List.iter2 (fun i e -> Alcotest.check result_c __LOC__ e (parse i)) inputs expecteds
 
 let calendar_object_with_valarm_duration () =
   let input =
@@ -1225,26 +1264,27 @@ END:VALARM
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Summary (empty, "Bastille Day Party") ] ;
+      alarms = [
+        `Audio { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ;
+                 duration_repeat = Some ((empty, Ptime.Span.of_int_s 3600), (empty, 2)) ;
+                 other = [] ;
+                 special = { Icalendar.attach = None }}
+      ]
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [
-               `Audio { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ; 
-                        duration_repeat = Some ((empty, Ptime.Span.of_int_s 3600), (empty, 2)) ; 
-                        other = [] ;
-                        special = { Icalendar.attach = None }}
-             ])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_valarm_repeat () =
   let input =
@@ -1266,26 +1306,27 @@ END:VALARM
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Summary (empty, "Bastille Day Party") ] ;
+      alarms = [
+        `Audio { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ; 
+                 duration_repeat = Some ((empty, Ptime.Span.of_int_s 3600), (empty, 4)) ;
+                 other = [] ;
+                 special = { Icalendar.attach = None } }
+      ]
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [
-               `Audio { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ; 
-                        duration_repeat = Some ((empty, Ptime.Span.of_int_s 3600), (empty, 4)) ;
-                        other = [] ;
-                        special = { Icalendar.attach = None } }
-             ])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_valarm_attach () =
   let input =
@@ -1316,22 +1357,20 @@ END:VALARM
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
-      ( [ `Version (empty, "2.0") ;
-          `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [
-               `Audio { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ; 
-                        duration_repeat = None;
-                        other = [] ;
-                        special = { Icalendar.attach = Some
-               (list_to_map [B (Media_type, ("text", "plain")) ; B (Encoding, `Base64) ; B (Valuetype, `Binary)], `Binary "TG9yZW\
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Summary (empty, "Bastille Day Party") ] ;
+      alarms = [
+        `Audio { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ;
+                 duration_repeat = None;
+                 other = [] ;
+                 special = { Icalendar.attach = Some
+                                 (list_to_map [B (Media_type, ("text", "plain")) ; B (Encoding, `Base64) ; B (Valuetype, `Binary)], `Binary "TG9yZW\
 0gaXBzdW0gZG9sb3Igc2l0IGFtZXQsIGNvbnNlY3RldHVyIGFkaXBpc2ljaW\
 5nIGVsaXQsIHNlZCBkbyBlaXVzbW9kIHRlbXBvciBpbmNpZGlkdW50IHV0IG\
 xhYm9yZSBldCBkb2xvcmUgbWFnbmEgYWxpcXVhLiBVdCBlbmltIGFkIG1pbm\
@@ -1342,13 +1381,16 @@ B2b2x1cHRhdGUgdmVsaXQgZXNzZSBjaWxsdW0gZG9sb3JlIGV1IGZ1Z2lhdC\
 BudWxsYSBwYXJpYXR1ci4gRXhjZXB0ZXVyIHNpbnQgb2NjYWVjYXQgY3VwaW\
 RhdGF0IG5vbiBwcm9pZGVudCwgc3VudCBpbiBjdWxwYSBxdWkgb2ZmaWNpYS\
 BkZXNlcnVudCBtb2xsaXQgYW5pbSBpZCBlc3QgbGFib3J1bS4=")
-                                  }
-                      }
-             ])
-        ])
+                           }
+               }
+      ]
+    } in
+    Ok
+      ( [ `Version (empty, "2.0") ;
+          `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_valarm_description () =
   let input =
@@ -1371,26 +1413,27 @@ END:VALARM
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Summary (empty, "Bastille Day Party") ] ;
+      alarms = [
+        `Display { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ;
+                   duration_repeat = None ;
+                   other = [] ;
+                   special = { Icalendar.description = (singleton Altrep (Uri.of_string "CID:part3.msg970930T083000SILVER@example.com"), "Meeting to provide technical review for \"Phoenix\" design.\nHappy Face Conference Room. Phoenix design team MUST attend this meeting.\nRSVP to team leader.") } }
+      ]
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [
-               `Display { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ;
-                          duration_repeat = None ;
-                          other = [] ;
-                          special = { Icalendar.description = (singleton Altrep (Uri.of_string "CID:part3.msg970930T083000SILVER@example.com"), "Meeting to provide technical review for \"Phoenix\" design.\nHappy Face Conference Room. Phoenix design team MUST attend this meeting.\nRSVP to team leader.") } }
-             ])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_valarm_summary () =
   let input =
@@ -1415,31 +1458,32 @@ END:VALARM
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Summary (empty, "Bastille Day Party") ] ;
+      alarms = [
+        `Email { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ;
+                 duration_repeat = None ;
+                 other = [] ;
+                 special = { Icalendar.summary = (empty, "*** REMINDER: SEND AGENDA FOR WEEKLY STAFF MEETING ***") ;
+                             description = (empty, "A draft agenda needs to be sent out to the attendees to the weekly managers meeting (MGR-LIST). Attached is a pointer the document template for the agenda file.") ;
+                             attendees = [(empty, Uri.of_string "mailto:john_doe@example.com")] ;
+                             attach = None ;
+                           }
+               }
+      ]
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [
-               `Email { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ;
-                        duration_repeat = None ;
-                        other = [] ;
-                        special = { Icalendar.summary = (empty, "*** REMINDER: SEND AGENDA FOR WEEKLY STAFF MEETING ***") ;
-                                    description = (empty, "A draft agenda needs to be sent out to the attendees to the weekly managers meeting (MGR-LIST). Attached is a pointer the document template for the agenda file.") ;
-                                    attendees = [(empty, Uri.of_string "mailto:john_doe@example.com")] ;
-                                    attach = None ;
-                                  }
-                      }
-             ])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_display_alarm_relative () =
   let input =
@@ -1463,27 +1507,28 @@ END:VALARM
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Summary (empty, "Bastille Day Party") ] ;
+      alarms = [
+        `Display { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800)));
+                   duration_repeat = Some ((empty, Ptime.Span.of_int_s(15 * 60)), (empty, 2)) ;
+                   other = [] ;
+                   special = { Icalendar.description = (empty, "Breakfast meeting with executive\nteam at 8:30 AM EST."); }
+                 }
+      ]
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [
-               `Display { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800)));
-                          duration_repeat = Some ((empty, Ptime.Span.of_int_s(15 * 60)), (empty, 2)) ;
-                          other = [] ;
-                          special = { Icalendar.description = (empty, "Breakfast meeting with executive\nteam at 8:30 AM EST."); }
-                        }
-             ])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 
 let calendar_object_with_audio_alarm_precise () =
@@ -1508,28 +1553,29 @@ END:VALARM
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Summary (empty, "Bastille Day Party") ] ;
+      alarms = [
+        `Audio { Icalendar.trigger = (singleton Valuetype `Datetime, `Datetime (to_ptime (1997,03,17) (13,30,00), true)) ;
+                 duration_repeat = Some ((empty, Ptime.Span.of_int_s(15 * 60)), (empty, 4)) ;
+                 other = [] ;
+                 special = { Icalendar.attach = Some (singleton Media_type ("audio", "basic"), `Uri(Uri.of_string "ftp://example.com/pub/sounds/bell-01.aud"));
+                           }
+               }
+      ]
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [
-               `Audio { Icalendar.trigger = (singleton Valuetype `Datetime, `Datetime (to_ptime (1997,03,17) (13,30,00), true)) ;
-                        duration_repeat = Some ((empty, Ptime.Span.of_int_s(15 * 60)), (empty, 4)) ;
-                        other = [] ;
-                        special = { Icalendar.attach = Some (singleton Media_type ("audio", "basic"), `Uri(Uri.of_string "ftp://example.com/pub/sounds/bell-01.aud"));
-                                  }
-                      }
-             ])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let calendar_object_with_email_alarm () =
   let input =
@@ -1556,30 +1602,31 @@ END:VALARM
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
+      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
+      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      rrule = None ;
+      props = [ `Summary (empty, "Bastille Day Party") ] ;
+      alarms = [
+        `Email { Icalendar.trigger = (singleton Related `End, `Duration (Ptime.Span.of_int_s (-2*24*60*60))) ;
+                 duration_repeat = None ;
+                 other = [] ;
+                 special = { Icalendar.attach = Some (singleton Media_type ("application", "msword"), `Uri(Uri.of_string "http://example.com/templates/agenda.doc")) ; attendees = [(empty, Uri.of_string "mailto:john_doe@example.com")]; 
+                             summary = (empty, "*** REMINDER: SEND AGENDA FOR WEEKLY STAFF MEETING ***");
+                             description = (empty, "A draft agenda needs to be sent out to the attendees to the weekly managers meeting (MGR-LIST). Attached is a pointer the document template for the agenda file.")
+                           }
+               }
+      ]
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//hacksw/handcal//NONSGML v1.0//EN") ],
-        [
-          `Event
-            ([ `Uid (empty, "19970610T172345Z-AF23B2@example.com") ;
-               `Dtstamp (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-               `Dtstart (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-               `Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)) ;
-               `Summary (empty, "Bastille Day Party")
-             ], [
-               `Email { Icalendar.trigger = (singleton Related `End, `Duration (Ptime.Span.of_int_s (-2*24*60*60))) ;
-                        duration_repeat = None ;
-                        other = [] ;
-                        special = { Icalendar.attach = Some (singleton Media_type ("application", "msword"), `Uri(Uri.of_string "http://example.com/templates/agenda.doc")) ; attendees = [(empty, Uri.of_string "mailto:john_doe@example.com")]; 
-                                    summary = (empty, "*** REMINDER: SEND AGENDA FOR WEEKLY STAFF MEETING ***");
-                                    description = (empty, "A draft agenda needs to be sent out to the attendees to the weekly managers meeting (MGR-LIST). Attached is a pointer the document template for the agenda file.")
-                                  }
-                      }
-             ])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 
 
@@ -1612,24 +1659,25 @@ END:VALARM
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Ok
+  and expected =
+    let event = {
+      uid = (empty, "put-8@example.com") ;
+      dtstamp = (empty, (to_ptime (2005, 12, 22) (20, 59,53), true) ) ;
+      dtstart = (singleton Valuetype `Date, `Date (2018, 04, 27)) ;
+      dtend_or_duration = Some (`Duration (empty, Ptime.Span.of_int_s(1*24*60*60))) ;
+      rrule = None ;
+      props = [ `Summary (empty, "event 8") ] ;
+      alarms = [
+        `Display { Icalendar.trigger = (singleton Related `Start, `Duration (Ptime.Span.of_int_s(- 5 * 60))) ; duration_repeat = None ; other = [] ; special = { Icalendar.description = (empty, "Test") } } ;
+        `Display { Icalendar.trigger = (singleton Related `Start, `Duration (Ptime.Span.of_int_s(- 10 * 60))) ; duration_repeat = None ; other = [] ; special = { Icalendar.description = (empty, "Test") } } ;
+      ]
+    } in
+    Ok
       ( [ `Version (empty, "2.0") ;
           `Prodid (empty, "-//PYVOBJECT//NONSGML Version 1//EN") ],
-        [
-          `Event
-            ([ `Uid (empty, "put-8@example.com") ;
-               `Duration (empty, Ptime.Span.of_int_s(1*24*60*60)) ;
-               `Dtstart (singleton Valuetype `Date, `Date (2018, 04, 27)) ;
-               `Dtstamp (empty, (to_ptime (2005, 12, 22) (20, 59,53), true) ) ;
-               `Summary (empty, "event 8")
-             ], [
-               `Display { Icalendar.trigger = (singleton Related `Start, `Duration (Ptime.Span.of_int_s(- 5 * 60))) ; duration_repeat = None ; other = [] ; special = { Icalendar.description = (empty, "Test") } } ;
-               `Display { Icalendar.trigger = (singleton Related `Start, `Duration (Ptime.Span.of_int_s(- 10 * 60))) ; duration_repeat = None ; other = [] ; special = { Icalendar.description = (empty, "Test") } } ;
-             ])
-        ])
+        [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 (*
 It is not very clear whether an URI may contain a \ character, but
@@ -1653,17 +1701,16 @@ END:VCALENDAR
 |} and expected =
      Ok ([ `Version (empty, "2.0") ; `Prodid (empty, "-//PYVOBJECT//NONSGML Version 1//EN") ],
          [ `Event ([
-               `Uid (empty, "put-i2@example.com") ;
+               uid = (empty, "put-i2@example.com") ;
                `Dtstart ([`Valuetype `Date], `Date (2018, 04, 27)) ;
                `Duration (empty, 1 * 24 * 60 * 60) ;
-               `Dtstamp (empty, (to_ptime (2005, 12, 22) (20, 59, 53), true)) ;
+               dtstamp = (empty, (to_ptime (2005, 12, 22) (20, 59, 53), true)) ;
                `Summary (empty, "event 1") ;
                `Url (empty, Uri.of_string "http://www.example.com$abc\\,def")
              ], [])
          ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 *)
 
 let apple_test_with_x_not_text () =
@@ -1682,23 +1729,26 @@ X-Test:geo:123.123,123.123
 END:VEVENT
 END:VCALENDAR
 |} and expected =
+     let event = {
+       uid = (empty, "put-3X-@example.com") ;
+       dtstamp = (empty, (to_ptime (2005, 12, 22) (20, 59, 53), true)) ;
+       dtstart = (singleton Valuetype `Date, `Date (2018, 04, 27)) ;
+       dtend_or_duration = Some (`Duration (empty, Ptime.Span.of_int_s(1 * 24 * 60 * 60))) ;
+       rrule = None ;
+       props = [
+         `Summary (empty, "event 1") ;
+         `Xprop (("", "APPLE-STRUCTURED-LOCATION"),
+                 singleton Valuetype `Uri,
+                 "geo:123.123,123.123") ;
+         `Xprop (("", "Test"), empty, "Just some text\\, <- here.") ;
+         `Xprop (("", "Test"), empty, "geo:123.123,123.123")
+       ] ;
+       alarms = []
+     } in
      Ok ([ `Version (empty, "2.0") ; `Prodid (empty, "-//PYVOBJECT//NONSGML Version 1//EN") ],
-         [ `Event ([
-               `Uid (empty, "put-3X-@example.com") ;
-               `Dtstart (singleton Valuetype `Date, `Date (2018, 04, 27)) ;
-               `Duration (empty, Ptime.Span.of_int_s(1 * 24 * 60 * 60)) ;
-               `Dtstamp (empty, (to_ptime (2005, 12, 22) (20, 59, 53), true)) ;
-               `Summary (empty, "event 1") ;
-               `Xprop (("", "APPLE-STRUCTURED-LOCATION"),
-                       singleton Valuetype `Uri,
-                       "geo:123.123,123.123") ;
-               `Xprop (("", "Test"), empty, "Just some text\\, <- here.") ;
-               `Xprop (("", "Test"), empty, "geo:123.123,123.123")
-             ], [])
-         ])
+         [ `Event event ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let object_tests = [
   "test single long line", `Quick, test_line ;
@@ -1790,8 +1840,7 @@ END:VCALENDAR
       ]
     ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let timezone_new_york_since_april_1967 () =
   let input = {|BEGIN:VCALENDAR
@@ -1921,8 +1970,7 @@ END:VCALENDAR
             `Tzname (empty, "EST") ]
         ] ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let timezone_new_york_since_2007 () =
   let input = {|BEGIN:VCALENDAR
@@ -1971,8 +2019,7 @@ END:VCALENDAR
              `Tzname (empty, "EDT") ] ;
          ] ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let timezone_fictitious_end_date () =
   let input = {|BEGIN:VCALENDAR
@@ -2014,8 +2061,7 @@ END:VCALENDAR
                  `Tzname (empty, "EDT") ] ;
              ] ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let timezone_fictitious_two_daylight () =
   let input = {|BEGIN:VCALENDAR
@@ -2070,8 +2116,7 @@ END:VCALENDAR
              `Tzname (empty, "EDT") ] ;
          ] ])
   in
-  let f = Icalendar.parse input in
-  Alcotest.check result_c __LOC__ expected f
+  Alcotest.check result_c __LOC__ expected (parse input)
 
 let timezone_tests = [
   "New York timezone with dtstart only", `Quick, timezone_new_york_dtstart ;
@@ -2155,16 +2200,21 @@ UID:event1@example.local
 END:VEVENT
 END:VCALENDAR
 |}
-  and expected = [ `Calscale (empty, "GREGORIAN") ; `Prodid (empty, "-//Example Inc.//Example Calendar//EN") ; `Version (empty, "2.0") ; `Xprop (("WR", "CALNAME"), empty, "CalDAV tests") ], 
-    [ `Event ([ `Dtstamp (empty, (to_ptime (2006, 02, 02) (20, 55, 36), true)) ;
-                `Dtstart (empty, `Datetime (to_ptime (2018, 01, 01) (12, 0, 0 ), false)) ;
-                `Duration (empty, Ptime.Span.of_int_s(60 * 60) ) ;
-                `Summary (empty, "event 1") ;
-                `Uid (empty, "event1@example.local") ;
-              ], [])
-    ]
+  and expected =
+    let event = {
+      dtstamp = (empty, (to_ptime (2006, 02, 02) (20, 55, 36), true)) ;
+      uid = (empty, "event1@example.local") ;
+      dtstart = (empty, `Datetime (to_ptime (2018, 01, 01) (12, 0, 0 ), false)) ;
+      dtend_or_duration = Some (`Duration (empty, Ptime.Span.of_int_s(60 * 60) )) ;
+      rrule = None ;
+      props = [ `Summary (empty, "event 1") ] ;
+      alarms = []
+    } in
+    Ok
+      ([ `Calscale (empty, "GREGORIAN") ; `Prodid (empty, "-//Example Inc.//Example Calendar//EN") ; `Version (empty, "2.0") ; `Xprop (("WR", "CALNAME"), empty, "CalDAV tests") ],
+       [ `Event event ])
   in
-  Alcotest.check result_c __LOC__ (Ok expected) (Icalendar.parse input) 
+  Alcotest.check result_c __LOC__ expected (Icalendar.parse input)
 
 let decode_encode_tests = [
   "encode durations", `Quick, encode_durations ;
@@ -2172,7 +2222,7 @@ let decode_encode_tests = [
   "apple calendar tester case for put", `Quick, x_apple_put ;
 ]
 
-let reply_busy_time () = 
+let reply_busy_time () =
   let input = {|BEGIN:VCALENDAR
 PRODID:-//Example Inc.//Example Calendar//EN
 VERSION:2.0
@@ -2189,10 +2239,10 @@ COMMENT:This iCalendar file contains busy time information for
 END:VFREEBUSY
 END:VCALENDAR
 |}
-  and expected = 
+  and expected =
   [`Prodid (empty, "-//Example Inc.//Example Calendar//EN");
      `Version (empty, "2.0")],
-   [`Freebusy ([`Uid ((empty, "19970901T095957Z-76A912@example.com"));
+   [`Freebusy ([ `Uid ((empty, "19970901T095957Z-76A912@example.com"));
                  `Organizer ((empty, Uri.of_string "mailto:jane_doe@example.com"));
                  `Attendee ((empty, Uri.of_string "mailto:john_public@example.com"));
                  `Dtstamp ((empty, (to_ptime (1997,09,01) (10,00,00), true)));
@@ -2210,7 +2260,7 @@ END:VCALENDAR
                  ])
      ]
   in
-  Alcotest.check result_c __LOC__ (Ok expected) (Icalendar.parse input) 
+  Alcotest.check result_c __LOC__ (Ok expected) (parse input) 
 
 let publish_busy_time () = 
   let input = {|BEGIN:VCALENDAR

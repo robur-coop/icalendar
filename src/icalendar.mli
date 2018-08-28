@@ -70,7 +70,7 @@ type _ icalparameter =
   | Sentby : Uri.t icalparameter
   | Tzid : (bool * string) icalparameter
   | Valuetype : valuetype icalparameter
-  | Iana_param : (string * param_value list) icalparameter
+  | Iana_param : (string * param_value list) icalparameter (* TODO need to allow Iana_param "foo" and Iana_param "bar" in the same map! *)
   | Xparam : ((string * string) * param_value list) icalparameter
 
 val equal_icalparameter : 'a icalparameter -> 'a -> 'b icalparameter -> 'b -> bool
@@ -204,8 +204,21 @@ type freebusyprop = [
   | other_prop 
 ]
 
+
+type date_or_datetime = [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+
+type event = {
+  dtstamp : params * (Ptime.t * bool) ;
+  uid : params * string ;
+  dtstart : params * date_or_datetime ; (* NOTE: optional if METHOD present according to RFC 5545 *)
+  dtend_or_duration : [ `Duration of params * Ptime.Span.t | `Dtend of params * date_or_datetime ] option ;
+  rrule : (params * recurrence) option ; (* NOTE: RFC says SHOULD NOT occur more than once *)
+  props : eventprop list ;
+  alarms : alarm list ;
+}
+
 type component = [
-  | `Event of eventprop list * alarm list
+  | `Event of event
   | `Todo of todoprop list * alarm list
   | `Freebusy of freebusyprop list 
   | `Timezone of timezoneprop list
