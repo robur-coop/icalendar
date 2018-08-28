@@ -452,5 +452,3 @@ let new_gen start recurrence =
       (fun () -> next_until gen_until)
     | _ ->
       (fun () -> Some (next_rr gen_event))
-
-(* EXDATE and RDATE can manually override recurrence rules *)

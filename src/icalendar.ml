@@ -2068,6 +2068,47 @@ let parse (str : string) : (calendar, string) result =
 let recur_dates dtstart (rrule : recurrence) =
   Recurrence.new_gen dtstart rrule
 
+let date_or_datetime_to_ptime = function
+  | `Datetime (dtstart, utc) -> dtstart, utc, true
+  | `Date start -> match Ptime.of_date_time (start, ((0, 0, 0), 0)) with
+    | None -> assert false
+    | Some dtstart -> dtstart, false, false
+
+let ptime_to_date_or_datetime ts utc is_datetime =
+  if is_datetime
+  then `Datetime (ts, utc)
+  else `Date (fst @@ Ptime.to_date_time ts)
+
+let add_span ts span = match Ptime.add_span ts span with
+  | None -> assert false
+  | Some ts' -> ts'
+
+(* TODO handle Exdate and Rdate *)
+let recur_events event = match event.rrule with
+  | None -> (fun () -> None)
+  | Some (_, recur) ->
+    let dtstart, utc, is_datetime = date_or_datetime_to_ptime (snd event.dtstart) in
+    let dtend_needs_update = match event.dtend_or_duration with
+      | None -> None
+      | Some (`Duration _) -> None
+      | Some (`Dtend (params, d_o_dt)) ->
+        let dtend, utc, is_datetime = date_or_datetime_to_ptime d_o_dt in
+        Some (params, Ptime.diff dtend dtstart, utc, is_datetime)
+    in
+    let newdate = recur_dates dtstart recur in
+    (fun () -> match newdate () with
+       | None -> None
+       | Some ts ->
+         let dtstart = (fst event.dtstart, ptime_to_date_or_datetime ts utc is_datetime) in
+         let dtend_or_duration = match dtend_needs_update with
+           | None -> event.dtend_or_duration
+           | Some (params, span, utc, is_datetime) ->
+             let ts' = add_span ts span in
+             let v = ptime_to_date_or_datetime ts' utc is_datetime in
+             Some (`Dtend (params, v))
+         in
+         Some { event with dtstart ; dtend_or_duration })
+
 let occurence_before_timestamp datetime (tzprops : tzprop list) =
   let dtstart = List.find (function `Dtstart _ -> true | _ -> false) tzprops in
   let dtstart' = match dtstart with
@@ -2081,9 +2122,9 @@ let occurence_before_timestamp datetime (tzprops : tzprop list) =
   (* dtstart in a vtimezone subcomponent may not contain a tzid property! *)
   let rrule = List.find_opt (function `Rrule _ -> true | _ -> false) tzprops in
   let next_event = match rrule with
-  | None -> (fun () -> None)
-  | Some (`Rrule (_, rrule)) -> recur_dates dtstart' rrule
-  | _ -> assert false
+    | None -> (fun () -> None)
+    | Some (`Rrule (_, rrule)) -> recur_dates dtstart' rrule
+    | _ -> assert false
   in
   (* TODO handle RDATE in addition to rrule *)
   let rec in_timerange acc = function
