@@ -730,6 +730,11 @@ module Writer = struct
 
   let write_string str buf = Buffer.add_string buf str
 
+  let write_begin_end cr buf tag inside = 
+    write_line cr buf "BEGIN" Params.empty (write_string tag) ;
+    inside (); (* delay because buffer is imperative *)
+    write_line cr buf "END" Params.empty (write_string tag)
+
   let other_prop_to_ics_key (prop: other_prop) = match prop with
     | `Iana_prop (ianatoken, _, _) -> ianatoken
     | `Xprop ((vendor, token), _, _) -> print_x vendor token
@@ -1040,7 +1045,7 @@ module Writer = struct
 
   let alarm_to_ics cr buf alarm =
     (* TODO: output alarm.other field *)
-    write_line cr buf "BEGIN" Params.empty (write_string "VALARM") ;
+    write_begin_end cr buf "VALARM" @@ fun () ->
     let write_trigger buf trig =
       let params, print = match trig with
         | (params, `Duration d) ->
@@ -1068,8 +1073,7 @@ module Writer = struct
        attach_to_ics cr buf email.special.attach ;
        description_to_ics cr buf email.special.description ;
        summary_to_ics cr buf email.special.summary ;
-       attendees_to_ics cr buf email.special.attendees ) ;
-    write_line cr buf "END" Params.empty (write_string "VALARM")
+       attendees_to_ics cr buf email.special.attendees ) 
 
   let alarms_to_ics cr buf alarms = List.iter (alarm_to_ics cr buf) alarms
 
@@ -1130,13 +1134,11 @@ module Writer = struct
     | `Lastmod (params, ts) -> write_line cr buf "LAST-MODIFIED" params (datetime_to_ics ts)
     | `Tzurl (params, uri) -> write_line cr buf "TZURL" params (write_string (Uri.to_string uri))
     | `Standard tzprops ->
-      write_line cr buf "BEGIN" Params.empty (write_string "STANDARD") ;
-      tzprops_to_ics cr buf tzprops ;
-      write_line cr buf "END" Params.empty (write_string "STANDARD")
+      write_begin_end cr buf "STANDARD" @@ fun () ->
+      tzprops_to_ics cr buf tzprops
     | `Daylight tzprops ->
-      write_line cr buf "BEGIN" Params.empty (write_string "DAYLIGHT") ;
-      tzprops_to_ics cr buf tzprops ;
-      write_line cr buf "END" Params.empty (write_string "DAYLIGHT")
+      write_begin_end cr buf "DAYLIGHT" @@ fun () ->
+      tzprops_to_ics cr buf tzprops
     | #other_prop as x -> other_prop_to_ics cr buf x
 
   let freebusyprop_to_ics_key = function
@@ -1159,22 +1161,20 @@ module Writer = struct
 
   let component_to_ics cr buf comp =
     let key = component_to_ics_key comp in
-    write_line cr buf "BEGIN" Params.empty (write_string key) ;
-    (match comp with
+    write_begin_end cr buf key @@ fun () ->
+    match comp with
      | `Event event -> event_to_ics cr buf event
      | `Timezone tzprops -> timezone_to_ics cr buf tzprops
      | `Freebusy fbprops -> freebusy_to_ics cr buf fbprops
-     | `Todo (todoprops, alarms) -> todo_to_ics cr buf todoprops alarms) ;
-    write_line cr buf "END" Params.empty (write_string key)
+     | `Todo (todoprops, alarms) -> todo_to_ics cr buf todoprops alarms
 
   let components_to_ics cr buf comps = List.iter (component_to_ics cr buf) comps
 
   let calendar_to_ics cr buf filter (props, comps) =
     let write_calendar prop_filter comp_filter =
-      write_line cr buf "BEGIN" Params.empty (write_string "VCALENDAR") ;
-      calprops_to_ics cr buf prop_filter props ;
-      components_to_ics cr buf comps ;
-      write_line cr buf "END" Params.empty (write_string "VCALENDAR")
+      write_begin_end cr buf "VCALENDAR" @@ fun () ->
+        calprops_to_ics cr buf prop_filter props ;
+        components_to_ics cr buf comps
     in
     match filter with
     | None -> write_calendar `Allprop `Allcomp
