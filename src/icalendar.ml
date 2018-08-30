@@ -714,7 +714,7 @@ module Writer = struct
       let r = match r with `Start -> "START" | `End -> "END" in
       write_kv "RELATED" r
 
-  let write_line cr buf name params write_value =
+  let write_line cr buf name params ?(is_write_value=true) value_writer =
     let write = Buffer.add_string buf in
     let write_char = Buffer.add_char buf in
     write name ;
@@ -724,9 +724,8 @@ module Writer = struct
         write_param buf paramk paramv)
       params ;
     write_char ':' ;
-    write_value buf ;
-    if cr then
-      write_char '\r' ;
+    if is_write_value then value_writer buf ;
+    if cr then write_char '\r' ;
     write_char '\n'
 
   let write_string str buf = Buffer.add_string buf str
@@ -742,23 +741,34 @@ module Writer = struct
     | `Method _ -> "METHOD"
     | #other_prop as x -> other_prop_to_ics_key x
 
-  let other_prop_to_ics cr buf prop = 
+  let other_prop_to_ics cr buf ?is_write_value prop = 
     let key = other_prop_to_ics_key prop in
     match prop with
-    | `Iana_prop (_, params, value) -> write_line cr buf key params (write_string value)
-    | `Xprop (_, params, value) -> write_line cr buf key params (write_string value)
+    | `Iana_prop (_, params, value) -> write_line cr buf key params ?is_write_value (write_string value)
+    | `Xprop (_, params, value) -> write_line cr buf key params ?is_write_value (write_string value)
 
-  let calprop_to_ics cr buf prop =
+  let calprop_to_ics cr buf filter prop =
     let key = calprop_to_ics_key prop in
-    let output = write_line cr buf key in
-    match prop with
-    | `Prodid (params, value) -> output params (write_string value)
-    | `Version (params, value) -> output params (write_string value)
-    | `Calscale (params, value) -> output params (write_string value)
-    | `Method (params, value) -> output params (write_string value)
-    | #other_prop as x -> other_prop_to_ics cr buf x
+    let is_write_property, is_write_value = match filter with
+    | `Allprop -> true, true
+    | `Prop ps -> match List.find_opt (fun (k, _) -> k = key) ps with
+      | None -> false, false
+      | Some (_, print_value) -> true, print_value
+    in
+    if not is_write_property 
+    then ()
+    else 
+      let output params value = 
+        write_line cr buf key params ~is_write_value (write_string value)
+      in
+      match prop with
+      | `Prodid (params, value) -> output params value
+      | `Version (params, value) -> output params value
+      | `Calscale (params, value) -> output params value
+      | `Method (params, value) -> output params value
+      | #other_prop as x -> other_prop_to_ics cr buf ~is_write_value x
 
-  let calprops_to_ics cr buf props = List.iter (calprop_to_ics cr buf) props
+  let calprops_to_ics cr buf filter props = List.iter (calprop_to_ics cr buf filter) props
 
   let duration_to_ics span buf =
     let dur = match Ptime.Span.to_int_s span with
@@ -1159,16 +1169,30 @@ module Writer = struct
 
   let components_to_ics cr buf comps = List.iter (component_to_ics cr buf) comps
 
-  let calendar_to_ics cr buf (props, comps) =
-    write_line cr buf "BEGIN" Params.empty (write_string "VCALENDAR") ;
-    calprops_to_ics cr buf props ;
-    components_to_ics cr buf comps ;
-    write_line cr buf "END" Params.empty (write_string "VCALENDAR")
+  let calendar_to_ics cr buf filter (props, comps) =
+    let write_calendar prop_filter comp_filter =
+      write_line cr buf "BEGIN" Params.empty (write_string "VCALENDAR") ;
+      calprops_to_ics cr buf prop_filter props ;
+      components_to_ics cr buf comps ;
+      write_line cr buf "END" Params.empty (write_string "VCALENDAR")
+    in
+    match filter with
+    | None -> write_calendar `Allprop `Allcomp
+    | Some (comp_name, prop_filter, comp_filter) ->
+      if comp_name = "VCALENDAR" 
+      then write_calendar prop_filter comp_filter
+      else ()
 end
 
-let to_ics ?(cr = true) calendar =
+
+(* TODO this actually belongs to CalDAV! this is Webdav_xml module! *)
+type comp = [ `Allcomp | `Comp of component_transform list ]
+and prop = [ `Allprop | `Prop of (string * bool) list ]
+and component_transform = string * prop * comp [@@deriving show, eq]
+
+let to_ics ?(cr = true) ?(filter = None) calendar =
   let buf = Buffer.create 1023 in
-  Writer.calendar_to_ics cr buf calendar ;
+  Writer.calendar_to_ics cr buf filter calendar ;
   Buffer.contents buf
 
 open Angstrom

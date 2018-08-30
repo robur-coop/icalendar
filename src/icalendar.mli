@@ -237,7 +237,12 @@ val parse_datetime: string -> (Ptime.t * bool, string) result
 val parse : string -> (calendar, string) result
 val pp : calendar Fmt.t
 
-val to_ics : ?cr:bool -> calendar -> string
+(* TODO this actually belongs to CalDAV! this is Webdav_xml module! *)
+type comp = [ `Allcomp | `Comp of component_transform list ]
+and prop = [ `Allprop | `Prop of (string * bool) list ]
+and component_transform = string * prop * comp [@@deriving show, eq]
+
+val to_ics : ?cr:bool -> ?filter:component_transform option -> calendar -> string
 
 module Writer : sig
   val duration_to_ics : Ptime.Span.t -> Buffer.t -> unit
