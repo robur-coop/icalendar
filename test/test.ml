@@ -1157,7 +1157,7 @@ END:VALARM
 END:VEVENT
 END:VCALENDAR
 |_}
-  and expected = Error "parse error"
+  and expected = Error "parse error: build_alarm props: trigger"
   in
   Alcotest.check result_c __LOC__ expected (parse input)
 
@@ -2216,10 +2216,101 @@ END:VCALENDAR
   in
   Alcotest.check result_c __LOC__ expected (Icalendar.parse input)
 
+let apple_reminder_todos () =
+  let input = {|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//Mac OS X 10.13.5//EN
+CALSCALE:GREGORIAN
+BEGIN:VTIMEZONE
+TZID:Europe/Paris
+BEGIN:DAYLIGHT
+TZOFFSETFROM:+0100
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU
+DTSTART:19810329T020000
+TZNAME:CEST
+TZOFFSETTO:+0200
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:+0200
+RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU
+DTSTART:19961027T030000
+TZNAME:CET
+TZOFFSETTO:+0100
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VTODO
+CREATED:20180904T112426Z
+UID:F41EFFCF-2483-43CE-A10E-91C484419193
+SUMMARY:tomorrow buy milk
+DTSTART;TZID=Europe/Paris:20180905T120000
+DTSTAMP:20180904T112432Z
+SEQUENCE:0
+DUE;TZID=Europe/Paris:20180905T120000
+BEGIN:VALARM
+X-WR-ALARMUID:C5EF8EEC-546B-462A-BE1E-5F4CB06661AB
+UID:C5EF8EEC-546B-462A-BE1E-5F4CB06661AB
+TRIGGER;VALUE=DATE-TIME:20180905T100000Z
+DESCRIPTION:Event reminder
+ACTION:DISPLAY
+END:VALARM
+END:VTODO
+END:VCALENDAR
+|}
+  and expected = Ok
+  ([`Version ((empty, "2.0"));
+     `Prodid ((empty, "-//Apple Inc.//Mac OS X 10.13.5//EN"));
+     `Calscale ((empty, "GREGORIAN"))],
+   [`Timezone ([`Timezone_id ((empty, (false, "Europe/Paris")));
+                 `Daylight ([`Tzoffset_from ((empty, Ptime.Span.of_int_s (60*60)));
+                              `Rrule ((empty,
+                                       (`Yearly, None, None,
+                                        [`Bymonth ([3]);
+                                          `Byday ([(-1, `Sunday)])])));
+                              `Dtstart ((empty,
+                                         `Datetime ((to_ptime (1981,03,29) (02,00,00),
+                                                     false))));
+                              `Tzname ((empty, "CEST")); `Tzoffset_to ((empty, Ptime.Span.of_int_s (60*60*2)))]);
+                 `Standard ([`Tzoffset_from ((empty, Ptime.Span.of_int_s (60*60*2)));
+                              `Rrule ((empty,
+                                       (`Yearly, None, None,
+                                        [`Bymonth ([10]);
+                                          `Byday ([(-1, `Sunday)])])));
+                              `Dtstart ((empty,
+                                         `Datetime ((to_ptime (1996,10,27) (03,00,00),
+                                                     false))));
+                              `Tzname ((empty, "CET")); `Tzoffset_to ((empty, Ptime.Span.of_int_s (60*60)))])
+                 ]);
+     `Todo (([`Created ((empty, (to_ptime (2018,09,04) (11,24,26), true)));
+               `Uid ((empty, "F41EFFCF-2483-43CE-A10E-91C484419193"));
+               `Summary ((empty, "tomorrow buy milk"));
+               `Dtstart ((singleton Tzid (false, "Europe/Paris"),
+                          `Datetime ((to_ptime (2018,09,05) (12,00,00), false))));
+               `Dtstamp ((empty, (to_ptime (2018,09,04) (11,24,32), true)));
+               `Seq ((empty, 0));
+               `Due ((singleton Tzid (false, "Europe/Paris"),
+                      `Datetime ((to_ptime (2018,09,05) (12,00,00), false))))
+               ],
+             [`Display ({ Icalendar.trigger =
+                          (singleton Valuetype `Datetime,
+                           `Datetime ((to_ptime (2018,09,05) (10,00,00), true)));
+                          duration_repeat = None;
+                          other =
+                          [`Iana_prop (("UID", empty,
+                                        "C5EF8EEC-546B-462A-BE1E-5F4CB06661AB"));
+                            `Xprop ((("WR", "ALARMUID"), empty,
+                                     "C5EF8EEC-546B-462A-BE1E-5F4CB06661AB"))
+                            ];
+                          special =
+                          { Icalendar.description = (empty, "Event reminder") } })
+               ]))
+     ]) in
+  Alcotest.check result_c __LOC__ expected (Icalendar.parse input)
+
 let decode_encode_tests = [
   "encode durations", `Quick, encode_durations ;
   "decode and encode is identity", `Quick, decode_encode ;
   "apple calendar tester case for put", `Quick, x_apple_put ;
+  "apple reminders app todos", `Quick, apple_reminder_todos ;
 ]
 
 let reply_busy_time () =
