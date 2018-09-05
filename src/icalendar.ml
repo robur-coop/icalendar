@@ -11,6 +11,21 @@ end
 
 let positive = true
 
+type utc_timestamp = Ptime.t [@@deriving eq, show]
+type local_timestamp = Ptime.t [@@deriving eq, show]
+
+type utc_or_local_timestamp = [
+  | `Utc of utc_timestamp
+  | `Local of local_timestamp
+] [@@deriving eq, show]
+
+type timestamp = [
+  utc_or_local_timestamp
+  | `With_tzid of local_timestamp * string
+] [@@deriving eq, show]
+
+type date_or_datetime = [ `Datetime of timestamp | `Date of Ptime.date ] [@@deriving eq, show]
+
 type valuetype = [
     `Binary | `Boolean | `Caladdress | `Date | `Datetime | `Duration | `Float
   | `Integer | `Period | `Recur | `Text | `Time | `Uri | `Utcoffset
@@ -322,7 +337,7 @@ type other_prop =
   [ `Iana_prop of string * params * string
   | `Xprop of (string * string) * params * string ] [@@deriving eq, show]
 
-type calprop =
+type cal_prop =
   [ `Prodid of params * string
   | `Version of params * string
   | `Calscale of params * string
@@ -349,7 +364,7 @@ type freq = [ `Daily | `Hourly | `Minutely | `Monthly | `Secondly | `Weekly | `Y
 
 type count_or_until = [
   | `Count of int
-  | `Until of Ptime.t * bool
+  | `Until of utc_or_local_timestamp
 ] [@@deriving eq, show]
 
 type interval = int [@@deriving eq, show]
@@ -362,30 +377,15 @@ type status = [ `Draft | `Final | `Cancelled |
                 `Needs_action | `Completed | `In_process | (* `Cancelled *)
                 `Tentative | `Confirmed (* | `Cancelled *) ] [@@deriving eq, show]
 
-type freebusyprop = [
-  | `Dtstamp of params * (Ptime.t * bool)
+type general_prop = [
+  | `Dtstamp of params * utc_timestamp
   | `Uid of params * string
-  | `Contact of params * string
-  | `Dtstart of params * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Dtend of params * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
-  | `Organizer of params * Uri.t
-  | `Url of params * Uri.t
-  | `Attendee of params * Uri.t
-  | `Comment of params * string
-  | `Freebusy of params * (Ptime.t * Ptime.t * bool) list 
-  | `Rstatus of params * ((int * int * int option) * string * string option)
-  | other_prop 
-] [@@deriving eq, show]
-
-type generalprop = [
-  | `Dtstamp of params * (Ptime.t * bool)
-  | `Uid of params * string
-  | `Dtstart of params * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Dtstart of params * date_or_datetime
   | `Class of params * class_
-  | `Created of params * (Ptime.t * bool)
+  | `Created of params * utc_timestamp
   | `Description of params * string
   | `Geo of params * (float * float)
-  | `Lastmod of params * (Ptime.t * bool)
+  | `Lastmod of params * utc_timestamp
   | `Location of params * string
   | `Organizer of params * Uri.t
   | `Priority of params * int
@@ -393,7 +393,11 @@ type generalprop = [
   | `Status of params * status
   | `Summary of params * string
   | `Url of params * Uri.t
-  | `Recur_id of params * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Recur_id of params * date_or_datetime
+   (* TODO: Furthermore, this property MUST be specified
+      as a date with local time if and only if the "DTSTART" property
+      contained within the recurring component is specified as a date
+      with local time. *)
   | `Rrule of params * recurrence
   | `Duration of params * Ptime.Span.t
   | `Attach of params * [ `Uri of Uri.t | `Binary of string ]
@@ -402,23 +406,24 @@ type generalprop = [
   | `Comment of params * string
   | `Contact of params * string
   | `Exdate of params *
-    [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list ]
+    [ `Datetimes of timestamp list | `Dates of Ptime.date list ]
   | `Rstatus of params * ((int * int * int option) * string * string option)
   | `Related of params * string
   | `Resource of params * string list
   | `Rdate of params *
-              [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
+              [ `Datetimes of timestamp list | `Dates of Ptime.date list | `Periods of (timestamp * Ptime.Span.t) list ]
 ] [@@deriving eq, show]
 
-type eventprop = [
-  | generalprop
+type event_prop = [
+  | general_prop
   | `Transparency of params * [ `Transparent | `Opaque ]
-  | `Dtend of params * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Dtend of params * date_or_datetime
+  (* TODO: valuetype same as DTSTART *)
   | other_prop
 ] [@@deriving eq, show]
 
 type 'a alarm_struct = {
-  trigger : params * [ `Duration of Ptime.Span.t | `Datetime of (Ptime.t * bool) ] ;
+  trigger : params * [ `Duration of Ptime.Span.t | `Datetime of utc_timestamp ] ;
   duration_repeat: ((params * Ptime.Span.t) * (params * int )) option ;
   other: other_prop list ;
   special: 'a ;
@@ -441,134 +446,69 @@ type email_struct = {
 
 type alarm = [ `Audio of audio_struct alarm_struct | `Display of display_struct alarm_struct | `Email of email_struct alarm_struct ] [@@deriving eq, show]
 
-type tzprop = [
-  | `Dtstart of params * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+type tz_prop = [
+  | `Dtstart_local of params * local_timestamp
   | `Tzoffset_to of params * Ptime.Span.t
   | `Tzoffset_from of params * Ptime.Span.t
   | `Rrule of params * recurrence
   | `Comment of params * string
-  | `Rdate of params * [ `Datetimes of (Ptime.t * bool) list | `Dates of Ptime.date list | `Periods of (Ptime.t * Ptime.t * bool) list ]
+  | `Rdate of params * [ `Datetimes of timestamp list | `Dates of Ptime.date list | `Periods of (timestamp * Ptime.Span.t) list ]
   | `Tzname of params * string
   | other_prop
 ] [@@deriving eq, show]
 
-type timezoneprop = [
+type timezone_prop = [
   | `Timezone_id of params * (bool * string)
-  | `Lastmod of params * (Ptime.t * bool)
+  | `Lastmod of params * utc_timestamp
   | `Tzurl of params * Uri.t
-  | `Standard of tzprop list
-  | `Daylight of tzprop list
+  | `Standard of tz_prop list
+  | `Daylight of tz_prop list
   | other_prop
 ] [@@deriving eq, show]
 
-type todoprop = [
-  | generalprop
-  | `Completed of params * (Ptime.t * bool)
+type todo_prop = [
+  | general_prop
+  | `Completed of params * utc_timestamp
   | `Percent of params * int
-  | `Due of  params * [ `Datetime of Ptime.t * bool | `Date of Ptime.date ]
+  | `Due of  params * date_or_datetime
   | other_prop
 ] [@@deriving eq, show]
 
-type date_or_datetime = [ `Datetime of Ptime.t * bool | `Date of Ptime.date ] [@@deriving eq, show]
+type freebusy_prop = [
+  | `Dtstamp of params * utc_timestamp
+  | `Uid of params * string
+  | `Contact of params * string
+  | `Dtstart_utc of params * utc_timestamp
+  | `Dtend_utc of params * utc_timestamp
+  | `Organizer of params * Uri.t
+  | `Url of params * Uri.t
+  | `Attendee of params * Uri.t
+  | `Comment of params * string
+  | `Freebusy of params * (utc_timestamp * Ptime.Span.t) list
+  | `Rstatus of params * ((int * int * int option) * string * string option)
+  | other_prop
+] [@@deriving eq, show]
 
 type event = {
-  dtstamp : params * (Ptime.t * bool) ;
+  dtstamp : params * utc_timestamp ;
   uid : params * string ;
-  dtstart : (params * date_or_datetime) ;
+  dtstart : params * date_or_datetime ; (* NOTE: optional if METHOD present according to RFC 5545 *)
   dtend_or_duration : [ `Duration of params * Ptime.Span.t | `Dtend of params * date_or_datetime ] option ;
-  rrule : (params * recurrence) option ;
-  props : eventprop list ;
+  rrule : (params * recurrence) option ; (* NOTE: RFC says SHOULD NOT occur more than once *)
+  props : event_prop list ;
   alarms : alarm list ;
 } [@@deriving eq, show]
 
+type timezone = timezone_prop list [@@deriving eq, show]
+
 type component = [
   | `Event of event
-  | `Todo of todoprop list * alarm list
-  | `Freebusy of freebusyprop list 
-  | `Timezone of timezoneprop list
+  | `Todo of todo_prop list * alarm list
+  | `Freebusy of freebusy_prop list
+  | `Timezone of timezone
 ] [@@deriving eq, show]
 
-type calendar = calprop list * component list [@@deriving eq, show]
-
-let next start freq = 
-  let (y, m, d), ((hh, mm, ss), offset) = Ptime.to_date_time start in
-  let dt = match freq with
-  | `Daily -> (y, m, d + 1), ((hh, mm, ss), offset)
-  | `Hourly -> (y, m, d), ((hh + 1, mm, ss), offset) 
-  | `Minutely -> (y, m, d), ((hh, mm + 1, ss), offset) 
-  | `Monthly -> (y, m + 1, d), ((hh, mm, ss), offset) 
-  | `Secondly -> (y, m, d), ((hh, mm, ss + 1), offset) 
-  | `Weekly -> (y, m, d + 7), ((hh, mm, ss), offset) 
-  | `Yearly -> (y + 1, m, d), ((hh, mm, ss), offset) 
-  in Ptime.of_date_time dt
-
-let other_prop_to_params = function 
-  | `Iana_prop (_, params, value)
-  | `Xprop (_, params, value) -> params
-
-let generalprop_to_params = function 
-  | `Dtstamp (params, _)
-  | `Uid (params, _)
-  | `Dtstart (params, _)
-  | `Class (params, _)
-  | `Created (params, _)
-  | `Description (params, _)
-  | `Geo (params, _)
-  | `Lastmod (params, _)
-  | `Location (params, _)
-  | `Organizer (params, _)
-  | `Priority (params, _)
-  | `Seq (params, _)
-  | `Status (params, _)
-  | `Summary (params, _)
-  | `Url (params, _)
-  | `Recur_id (params, _)
-  | `Rrule (params, _)
-  | `Duration (params, _)
-  | `Attach (params, _)
-  | `Attendee (params, _)
-  | `Categories (params, _)
-  | `Comment (params, _)
-  | `Contact (params, _)
-  | `Exdate (params, _)
-  | `Rstatus (params, _)
-  | `Related (params, _)
-  | `Resource (params, _)
-  | `Rdate (params, _) -> params
-
-let eventprop_to_params = function
-  | #generalprop as x -> generalprop_to_params x
-  | #other_prop as x  -> other_prop_to_params x
-  | `Transparency (params, _)
-  | `Dtend (params, _) -> params
-
-let todoprop_to_params = function
-  | #generalprop as x -> generalprop_to_params x
-  | #other_prop as x  -> other_prop_to_params x
-  | `Completed (params, _)
-  | `Percent (params, _)
-  | `Due (params, _) -> params
-
-let freebusyprop_to_params = function
-  | #generalprop as x -> generalprop_to_params x
-  | #other_prop as x  -> other_prop_to_params x
-  | `Freebusy (params, _)
-  | `Dtend (params, _) -> params
-
-let params_to_tzid (params : params list) =
-  let find_tzid_param acc m = match Params.find Tzid m with
-     | Some (_, tzid) -> Astring.String.Set.add tzid acc
-     | None -> acc in
-  List.fold_left find_tzid_param Astring.String.Set.empty params
-
-let collect_tzids (comp: component) =
-  let params = match comp with
-    | `Event event -> (fst event.dtstamp) :: (fst event.uid) :: List.map eventprop_to_params event.props
-    | `Todo (props, alarms) -> List.map todoprop_to_params props
-    | `Freebusy props -> List.map freebusyprop_to_params props
-    | `Timezone _ -> []
-  in
-  params_to_tzid params
+type calendar = cal_prop list * component list [@@deriving eq, show]
 
 let component_to_ics_key = function
   | `Event _ -> "VEVENT"
@@ -734,7 +674,7 @@ module Writer = struct
 
   let write_string str buf = Buffer.add_string buf str
 
-  let write_begin_end cr buf tag inside = 
+  let write_begin_end cr buf tag inside =
     write_line cr buf "BEGIN" Params.empty (write_string tag) ;
     inside (); (* delay because buffer is imperative *)
     write_line cr buf "END" Params.empty (write_string tag)
@@ -743,14 +683,14 @@ module Writer = struct
     | `Iana_prop (ianatoken, _, _) -> ianatoken
     | `Xprop ((vendor, token), _, _) -> print_x vendor token
 
-  let calprop_to_ics_key (prop: calprop) = match prop with
+  let calprop_to_ics_key (prop: cal_prop) = match prop with
     | `Prodid _ -> "PRODID"
     | `Version _ -> "VERSION"
     | `Calscale _ -> "CALSCALE"
     | `Method _ -> "METHOD"
     | #other_prop as x -> other_prop_to_ics_key x
 
-  let other_prop_to_ics cr buf ?dont_write_value prop = 
+  let other_prop_to_ics cr buf ?dont_write_value prop =
     let key = other_prop_to_ics_key prop in
     match prop with
     | `Iana_prop (_, params, value) -> write_line cr buf key params ?dont_write_value (write_string value)
@@ -762,13 +702,13 @@ module Writer = struct
       | None -> false, true
       | Some (_, dont_print_value) -> true, dont_print_value
 
-  let calprop_to_ics cr buf filter prop =
+  let cal_prop_to_ics cr buf filter prop =
     let key = calprop_to_ics_key prop in
     let is_write_prop, dont_write_value = write_prop_and_value key filter in
-    if not is_write_prop 
+    if not is_write_prop
     then ()
-    else 
-      let output params value = 
+    else
+      let output params value =
         write_line cr buf key params ~dont_write_value (write_string value)
       in
       match prop with
@@ -778,7 +718,8 @@ module Writer = struct
       | `Method (params, value) -> output params value
       | #other_prop as x -> other_prop_to_ics cr buf ~dont_write_value x
 
-  let calprops_to_ics cr buf filter props = List.iter (calprop_to_ics cr buf filter) props
+  let cal_props_to_ics cr buf filter props =
+    List.iter (cal_prop_to_ics cr buf filter) props
 
   let duration_to_ics span buf =
     let dur = match Ptime.Span.to_int_s span with
@@ -825,33 +766,36 @@ module Writer = struct
   let date_to_ics buf date =
     Buffer.add_string buf (date_to_str date)
 
-  let datetime_to_str (ptime, utc) =
+  let datetime_to_str ptime utc =
     let date, ((hh, mm, ss), _) = Ptime.to_date_time ptime in
     Printf.sprintf "%sT%02d%02d%02d%s" (date_to_str date) hh mm ss (if utc then "Z" else "")
 
-  let datetime_to_ics datetime buf =
-    Buffer.add_string buf (datetime_to_str datetime)
+  let timestamp_to_ics ts buf =
+    Buffer.add_string buf @@ match ts with
+    | `Utc ts -> datetime_to_str ts true
+    | `Local ts -> datetime_to_str ts false
+    | `With_tzid (ts, str) -> (* TODO *) datetime_to_str ts false
 
   let date_or_time_to_ics dt buf = match dt with
     | `Date d -> date_to_ics buf d
-    | `Datetime dt -> datetime_to_ics dt buf
+    | `Datetime dt -> timestamp_to_ics dt buf
 
   let dates_or_times_to_ics dt buf =
     let swap f a b = f b a in
     match dt with
     | `Dates xs -> List.iter (date_to_ics buf) xs
-    | `Datetimes xs -> List.iter (swap datetime_to_ics buf) xs
+    | `Datetimes xs -> List.iter (swap timestamp_to_ics buf) xs
 
-  let period_to_ics buf (start, until, utc) =
-    datetime_to_ics (start, utc) buf ;
+  let period_to_ics buf (start, span) =
+    timestamp_to_ics start buf ;
     Buffer.add_char buf '/' ;
-    datetime_to_ics (until, utc) buf
+    duration_to_ics span buf
 
   let dates_or_times_or_periods_to_ics dt buf =
     let swap f a b = f b a in
     match dt with
     | `Dates xs -> List.iter (date_to_ics buf) xs
-    | `Datetimes xs -> List.iter (swap datetime_to_ics buf) xs
+    | `Datetimes xs -> List.iter (swap timestamp_to_ics buf) xs
     | `Periods xs -> List.iter (period_to_ics buf) xs
 
 
@@ -882,14 +826,16 @@ module Writer = struct
     write_rulepart "FREQ" (List.assoc freq freq_strings) ;
     ( match count_or_until with
       | None -> ()
-      | Some x -> 
+      | Some x ->
         Buffer.add_char buf ';' ;
-        match x with 
+        match x with
         | `Count c -> write_rulepart "COUNT" (string_of_int c)
-        | `Until enddate -> write_rulepart "UNTIL" (datetime_to_str enddate) ) ;
+        | `Until enddate -> (* TODO cleanup *)
+          Buffer.add_string buf "UNTIL=" ;
+          timestamp_to_ics enddate buf) ;
     ( match interval with
       | None -> ()
-      | Some i -> 
+      | Some i ->
         Buffer.add_char buf ';' ;
         write_rulepart "INTERVAL" (string_of_int i) ) ;
     List.iter (fun recur ->
@@ -897,14 +843,14 @@ module Writer = struct
         recur_to_ics buf recur)
       l
 
-  let generalprop_to_ics_key = function
+  let general_prop_to_ics_key = function
     | `Dtstamp (params, ts) -> "DTSTAMP"
     | `Uid (params, str) -> "UID"
     | `Dtstart (params, date_or_time) -> "DTSTART"
     | `Class (params, class_) -> "CLASS"
     | `Created (params, ts) -> "CREATED"
-    | `Description desc -> "DESCRIPTION" 
-    | `Geo (params, (lat, lon)) -> "GEO" 
+    | `Description desc -> "DESCRIPTION"
+    | `Geo (params, (lat, lon)) -> "GEO"
     | `Lastmod (params, ts) -> "LAST-MODIFIED"
     | `Location (params, name) -> "LOCATION"
     | `Organizer (params, uri) -> "ORGANIZER"
@@ -916,7 +862,7 @@ module Writer = struct
     | `Recur_id (params, date_or_time) -> "RECURRENCE-ID"
     | `Rrule (params, _) -> "RRULE"
     | `Duration (params, dur) -> "DURATION"
-    | `Attach att -> "ATTACH" 
+    | `Attach att -> "ATTACH"
     | `Attendee att -> "ATTENDEE"
     | `Categories (params, cats) -> "CATEGORIES"
     | `Comment (params, comment) -> "COMMENT"
@@ -927,22 +873,22 @@ module Writer = struct
     | `Resource (params, res) -> "RESOURCE"
     | `Rdate (params, dates_or_times_or_periods) -> "RDATE"
 
-  let generalprop_to_ics cr buf ?dont_write_value prop = 
-    let key = generalprop_to_ics_key prop in
+  let general_prop_to_ics cr buf ?dont_write_value (prop : general_prop) =
+    let key = general_prop_to_ics_key prop in
     let output params v = write_line cr buf key params ?dont_write_value v in
     match prop with
-    | `Dtstamp (params, ts) -> output params (datetime_to_ics ts)
+    | `Dtstamp (params, ts) -> output params (timestamp_to_ics (`Utc ts))
     | `Uid (params, str) -> output params (write_string str)
     | `Dtstart (params, date_or_time) -> output params (date_or_time_to_ics date_or_time)
     | `Class (params, class_) -> output params (write_string (List.assoc class_ class_strings))
-    | `Created (params, ts) -> output params (datetime_to_ics ts)
+    | `Created (params, ts) -> output params (timestamp_to_ics (`Utc ts))
     | `Description (params, desc) -> output params (write_string desc)
     | `Geo (params, (lat, lon)) ->
       output params (fun buf ->
           Buffer.add_string buf (string_of_float lat) ;
           Buffer.add_char buf ';' ;
           Buffer.add_string buf (string_of_float lon))
-    | `Lastmod (params, ts) -> output params (datetime_to_ics ts)
+    | `Lastmod (params, ts) -> output params (timestamp_to_ics (`Utc ts))
     | `Location (params, name) -> output params (write_string name)
     | `Organizer (params, uri) -> output params (write_string (Uri.to_string uri))
     | `Priority (params, prio) -> output params (write_string (string_of_int prio))
@@ -953,7 +899,7 @@ module Writer = struct
     | `Recur_id (params, date_or_time) -> output params (date_or_time_to_ics date_or_time)
     | `Rrule (params, recurs) -> output params (recurs_to_ics recurs)
     | `Duration (params, dur) -> output params (duration_to_ics dur)
-    | `Attach (params, att) -> 
+    | `Attach (params, att) ->
       let value' = match att with
         | `Uri uri -> Uri.to_string uri
         | `Binary s -> s
@@ -993,45 +939,45 @@ module Writer = struct
       output params
         (dates_or_times_or_periods_to_ics dates_or_times_or_periods)
 
-  let eventprop_to_ics_key = function
-    | #generalprop as x -> generalprop_to_ics_key x
+  let event_prop_to_ics_key = function
+    | #general_prop as x -> general_prop_to_ics_key x
     | #other_prop as x -> other_prop_to_ics_key x
     | `Transparency _ -> "TRANSP"
     | `Dtend _ -> "DTEND"
 
-  let eventprop_to_ics cr buf filter (prop: eventprop) =
-    let key = eventprop_to_ics_key prop in
+  let event_prop_to_ics cr buf filter (prop: event_prop) =
+    let key = event_prop_to_ics_key prop in
     let is_write_prop, dont_write_value = write_prop_and_value key filter in
     if not is_write_prop then ()
     else
       match prop with
-      | #generalprop as x -> generalprop_to_ics cr buf ~dont_write_value x
+      | #general_prop as x -> general_prop_to_ics cr buf ~dont_write_value x
       | #other_prop as x -> other_prop_to_ics cr buf ~dont_write_value x
       | `Transparency (params, transp) -> write_line cr buf key params ~dont_write_value (write_string (List.assoc transp transp_strings))
       | `Dtend (params, date_or_time) -> write_line cr buf key params ~dont_write_value (date_or_time_to_ics date_or_time)
 
-  let eventprops_to_ics cr buf filter props = List.iter (eventprop_to_ics cr buf filter) props
+  let event_props_to_ics cr buf filter props = List.iter (event_prop_to_ics cr buf filter) props
 
-  let todoprop_to_ics_key = function
-    | #generalprop as x -> generalprop_to_ics_key x
+  let todo_prop_to_ics_key = function
+    | #general_prop as x -> general_prop_to_ics_key x
     | #other_prop as x -> other_prop_to_ics_key x
     | `Completed _ -> "COMPLETED"
     | `Percent _ -> "PERCENT"
     | `Due _ -> "DUE"
 
-  let todoprop_to_ics cr buf filter prop =
-    let key = todoprop_to_ics_key prop in
+  let todo_prop_to_ics cr buf filter prop =
+    let key = todo_prop_to_ics_key prop in
     let is_write_prop, dont_write_value = write_prop_and_value key filter in
     if not is_write_prop then ()
     else
       match prop with
-      | #generalprop as x -> generalprop_to_ics cr buf ~dont_write_value x
+      | #general_prop as x -> general_prop_to_ics cr buf ~dont_write_value x
       | #other_prop as x -> other_prop_to_ics cr buf ~dont_write_value x
-      | `Completed (params, ts) -> write_line cr buf key params ~dont_write_value (datetime_to_ics ts)
+      | `Completed (params, ts) -> write_line cr buf key params ~dont_write_value (timestamp_to_ics (`Utc ts))
       | `Percent (params, pct) -> write_line cr buf key params ~dont_write_value (write_string (string_of_int pct))
       | `Due (params, date_or_time) -> write_line cr buf key params ~dont_write_value (date_or_time_to_ics date_or_time)
 
-  let todoprops_to_ics cr buf filter props = List.iter (todoprop_to_ics cr buf filter) props
+  let todo_props_to_ics cr buf filter props = List.iter (todo_prop_to_ics cr buf filter) props
 
   let filter_and_write_component component_writer name = function
     | `Allcomp | `Comp [] -> component_writer `Allprop `Allcomp
@@ -1040,36 +986,36 @@ module Writer = struct
       | Some (_, prop_filter, comp_filter) -> component_writer prop_filter comp_filter
 
   let alarm_to_ics cr buf filter alarm =
-    let component_writer prop_filter _ =  
+    let component_writer prop_filter _ =
       let prop_to_ics = function
-        | `Action tag -> 
+        | `Action tag ->
           let is_write_prop, dont_write_value = write_prop_and_value "ACTION" prop_filter in
           if not is_write_prop then ()
           else write_line cr buf "ACTION" Params.empty ~dont_write_value (write_string tag)
-        | `Trigger (params, value) -> 
+        | `Trigger (params, value) ->
           let is_write_prop, dont_write_value = write_prop_and_value "TRIGGER" prop_filter in
           if not is_write_prop then ()
-          else 
+          else
             let print = match value with
               | `Duration d -> duration_to_ics d
-              | `Datetime dt -> datetime_to_ics dt
+              | `Datetime dt -> timestamp_to_ics (`Utc dt)
             in
             write_line cr buf "TRIGGER" params ~dont_write_value print
         | `Duration_repeat None -> ()
-        | `Duration_repeat (Some ((durparams, dur), (repparams, rep))) -> 
+        | `Duration_repeat (Some ((durparams, dur), (repparams, rep))) ->
           let is_write_prop, dont_write_value = write_prop_and_value "DURATION" prop_filter in
           if not is_write_prop then ()
-          else 
+          else
             write_line cr buf "DURATION" durparams ~dont_write_value (duration_to_ics dur) ;
           let is_write_prop, dont_write_value = write_prop_and_value "REPEAT" prop_filter in
           if not is_write_prop then ()
-          else 
+          else
             write_line cr buf "REPEAT" repparams ~dont_write_value (write_string (string_of_int rep))
-        | #generalprop as prop ->
-          let key = eventprop_to_ics_key prop in
+        | #general_prop as prop ->
+          let key = event_prop_to_ics_key prop in
           let is_write_prop, dont_write_value = write_prop_and_value key prop_filter in
           if not is_write_prop then ()
-          else generalprop_to_ics cr buf ~dont_write_value prop
+          else general_prop_to_ics cr buf ~dont_write_value prop
         | #other_prop as prop ->
           let key = other_prop_to_ics_key prop in
           let is_write_prop, dont_write_value = write_prop_and_value key prop_filter in
@@ -1105,21 +1051,21 @@ module Writer = struct
   let alarms_to_ics cr buf filter alarms = List.iter (alarm_to_ics cr buf filter) alarms
 
   let event_to_ics cr buf prop_filter comp_filter event =
-    let prop_to_ics = eventprop_to_ics cr buf prop_filter in
+    let prop_to_ics = event_prop_to_ics cr buf prop_filter in
     prop_to_ics (`Uid event.uid) ;
     prop_to_ics (`Dtstamp event.dtstamp) ;
     prop_to_ics (`Dtstart event.dtstart) ;
     (match event.dtend_or_duration with
-     | Some x -> prop_to_ics (x :> eventprop)
+     | Some x -> prop_to_ics (x :> event_prop)
      | None -> ()) ;
     (match event.rrule with
      | Some x -> prop_to_ics (`Rrule x)
      | None -> ()) ;
-    eventprops_to_ics cr buf prop_filter event.props ;
+    event_props_to_ics cr buf prop_filter event.props ;
     alarms_to_ics cr buf comp_filter event.alarms
 
   let todo_to_ics cr buf prop_filter comp_filter todoprops alarms =
-    todoprops_to_ics cr buf prop_filter todoprops ;
+    todo_props_to_ics cr buf prop_filter todoprops ;
     alarms_to_ics cr buf comp_filter alarms
 
   let span_to_string span =
@@ -1133,8 +1079,8 @@ module Writer = struct
       Printf.sprintf "%s%02d%02d%s" sign hours minutes
         (if seconds = 0 then "" else Printf.sprintf "%02d" seconds)
 
-  let tzprop_to_ics cr buf = function
-    | `Dtstart (params, date_or_time) -> write_line cr buf "DTSTART" params (date_or_time_to_ics date_or_time)
+  let tz_prop_to_ics cr buf = function
+    | `Dtstart_local (params, ts) -> write_line cr buf "DTSTART" params (timestamp_to_ics (`Local ts))
     | `Tzoffset_to (params, span) -> write_line cr buf "TZOFFSETTO" params (write_string (span_to_string span))
     | `Tzoffset_from (params, span) -> write_line cr buf "TZOFFSETFROM" params (write_string (span_to_string span))
     | `Rrule (params, recurs) -> write_line cr buf "RRULE" params (recurs_to_ics recurs)
@@ -1145,9 +1091,9 @@ module Writer = struct
     | `Tzname (params, id) -> write_line cr buf "TZNAME" params (write_string id)
     | #other_prop as x -> other_prop_to_ics cr buf x
 
-  let tzprops_to_ics cr buf tzprops = List.iter (tzprop_to_ics cr buf) tzprops
+  let tz_props_to_ics cr buf tzprops = List.iter (tz_prop_to_ics cr buf) tzprops
 
-  let timezoneprop_to_ics_key = function
+  let timezone_prop_to_ics_key = function
     | `Timezone_id _ -> "TZID"
     | `Lastmod _ -> "LAST-MODIFIED"
     | `Tzurl _ -> "TZURL"
@@ -1156,45 +1102,51 @@ module Writer = struct
     | #other_prop as x -> other_prop_to_ics_key x
 
   let timezone_prop_to_ics cr buf prop_filter prop =
-    let key = timezoneprop_to_ics_key prop in
+    let key = timezone_prop_to_ics_key prop in
     let is_write_prop, dont_write_value = write_prop_and_value key prop_filter in
-    if not is_write_prop 
-    then () 
+    if not is_write_prop
+    then ()
     else match prop with
       | `Timezone_id (params, (prefix, name)) ->
         let value = Printf.sprintf "%s%s" (if prefix then "/" else "") name in
         write_line cr buf "TZID" params ~dont_write_value (write_string value)
-      | `Lastmod (params, ts) -> write_line cr buf "LAST-MODIFIED" params ~dont_write_value (datetime_to_ics ts)
+      | `Lastmod (params, ts) -> write_line cr buf "LAST-MODIFIED" params ~dont_write_value (timestamp_to_ics (`Utc ts))
       | `Tzurl (params, uri) -> write_line cr buf "TZURL" params ~dont_write_value (write_string (Uri.to_string uri))
       | `Standard tzprops ->
         write_begin_end cr buf "STANDARD" @@ fun () ->
-        tzprops_to_ics cr buf tzprops
+        tz_props_to_ics cr buf tzprops
       | `Daylight tzprops ->
         write_begin_end cr buf "DAYLIGHT" @@ fun () ->
-        tzprops_to_ics cr buf tzprops
+        tz_props_to_ics cr buf tzprops
       | #other_prop as x -> other_prop_to_ics cr buf ~dont_write_value x
 
-  let freebusyprop_to_ics_key = function
-    | #generalprop as x -> generalprop_to_ics_key x
-    | #other_prop as x -> other_prop_to_ics_key x
-    | `Dtend _ -> "DTEND"
+  let freebusy_prop_to_ics_key = function
+    | `Dtend_utc _ -> "DTEND"
+    | `Dtstart_utc _ -> "DTSTART"
     | `Freebusy _ -> "FREEBUSY"
- 
-  let freebusy_prop_to_ics cr buf filter prop = 
-    let key = freebusyprop_to_ics_key prop in
+    | #general_prop as x -> general_prop_to_ics_key x
+    | #other_prop as x -> other_prop_to_ics_key x
+
+  let freebusy_prop_to_ics cr buf filter prop =
+    let key = freebusy_prop_to_ics_key prop in
     let is_write_prop, dont_write_value = write_prop_and_value key filter in
     if not is_write_prop
     then ()
-    else 
+    else
       match prop with
-      | `Freebusy (params, periods) -> write_line cr buf key params ~dont_write_value (fun buf -> List.iter (period_to_ics buf) periods)
-      | `Dtend (params, date_or_time) -> write_line cr buf key params ~dont_write_value (date_or_time_to_ics date_or_time)
-      | #generalprop as x -> generalprop_to_ics cr buf ~dont_write_value x
+      | `Freebusy (params, periods) ->
+        let periods' = List.map (fun (start, duration) -> (`Utc start, duration)) periods in
+        write_line cr buf key params ~dont_write_value (fun buf -> List.iter (period_to_ics buf) periods')
+      | `Dtend_utc (params, ts) -> write_line cr buf key params ~dont_write_value (timestamp_to_ics (`Utc ts))
+      | `Dtstart_utc (params, ts) -> write_line cr buf key params ~dont_write_value (timestamp_to_ics (`Utc ts))
+      | #general_prop as x -> general_prop_to_ics cr buf ~dont_write_value x
       | #other_prop as x -> other_prop_to_ics cr buf ~dont_write_value x
 
-  let timezone_to_ics cr buf filter props = List.iter (timezone_prop_to_ics cr buf filter) props
+  let timezone_to_ics cr buf filter props =
+    List.iter (timezone_prop_to_ics cr buf filter) props
 
-  let freebusy_to_ics cr buf filter props = List.iter (freebusy_prop_to_ics cr buf filter) props
+  let freebusy_to_ics cr buf filter props =
+    List.iter (freebusy_prop_to_ics cr buf filter) props
 
   let component_to_ics cr buf filter comp =
     let key = component_to_ics_key comp in
@@ -1213,19 +1165,19 @@ module Writer = struct
   let calendar_to_ics cr buf filter (props, comps) =
     let write_calendar prop_filter comp_filter =
       write_begin_end cr buf "VCALENDAR" @@ fun () ->
-        calprops_to_ics cr buf prop_filter props ;
+        cal_props_to_ics cr buf prop_filter props ;
         components_to_ics cr buf comp_filter comps
     in
     match filter with
     | None -> write_calendar `Allprop `Allcomp
     | Some (comp_name, prop_filter, comp_filter) ->
-      if comp_name = "VCALENDAR" 
+      if comp_name = "VCALENDAR"
       then write_calendar prop_filter comp_filter
       else ()
 end
 
 
-let to_ics ?(cr = true) ?(filter = None) calendar =
+let to_ics ?(cr = true) ?(filter = None) (calendar : calendar) =
   let buf = Buffer.create 1023 in
   Writer.calendar_to_ics cr buf filter calendar ;
   Buffer.contents buf
@@ -1335,13 +1287,18 @@ let time =
 
 let datetime =
   let ptime d (t, utc) = match Ptime.of_date_time (d, (t, 0)) with
-  | Some p -> p, utc
-  | None -> raise (Parse_error "datetime") in
+    | Some p -> if utc then `Utc p else `Local p
+    | None -> raise (Parse_error "datetime")
+  in
   lift2 ptime date (char 'T' *> time)
+
+let utc_only = function
+  | `Utc ts -> return ts
+  | `Local _ -> fail "timestamp must be in UTC"
 
 let parse_datetime s =
   try parse_string datetime s with Parse_error s -> Error s
- 
+
 let dur_value =
   let to_seconds p factor = p >>= ensure int_of_string >>| ( * ) factor in
   let second = to_seconds (digits <* char 'S') 1 in
@@ -1363,12 +1320,13 @@ let float =
   lift3 make_float opt_sign digits (option "" ((char '.') *> digits))
 
 let period =
-  let to_explicit (dt, utc) dur = match Ptime.add_span dt dur with
-  | Some t -> (dt, t, utc)
-  | None -> raise (Parse_error "period ptime add_span failed") in
-  let to_period (tstart, utc) (tend, utc') = if utc = utc' then (tstart, tend, utc) else raise (Parse_error "period utc <> utc'") in
+  let to_period tstart tend = match tstart, tend with
+    | `Utc s, `Utc e -> (`Utc s, Ptime.diff e s)
+    | `Local s, `Local e -> (`Local s, Ptime.diff e s)
+    | _ -> raise (Parse_error "period timestamps need to have the same format")
+  in
   let explicit = lift2 to_period datetime (char '/' *> datetime)
-  and start = lift2 to_explicit datetime (char '/' *> dur_value) in
+  and start = lift2 pair datetime (char '/' *> dur_value) in
   explicit <|> start
 
 let recur =
@@ -1383,10 +1341,14 @@ let recur =
   and yeardaynum = lift2 apply_sign opt_sign (up_to_three_digits >>= in_range 1 366)
   and weeknum = lift2 apply_sign opt_sign (up_to_two_digits >>= in_range 1 53)
   and monthnum = up_to_two_digits >>= in_range 1 12
-  and ptime = date >>= fun d -> match Ptime.of_date d with None -> fail "Parse_error recur: Ptime.of_date failed" | Some x -> return (x, true) in
+  and ts_of_date = date >>= fun d ->
+    match Ptime.of_date d with
+    | None -> fail "Parse_error recur: Ptime.of_date failed"
+    | Some x -> return (`Utc x)
+  in
   let recur_rule_part =
        ( string "FREQ=" *> freq >>| fun f -> `Frequency f )
-   <|> ( string "UNTIL=" *> (datetime <|> ptime) >>| fun u -> `Until u )
+   <|> ( string "UNTIL=" *> (datetime <|> ts_of_date) >>| fun u -> `Until u )
    <|> ( string "COUNT=" *> digits >>= ensure int_of_string >>| fun c -> `Count c )
    <|> ( string "INTERVAL=" *> digits >>= ensure int_of_string >>| fun i -> `Interval i )
    <|> ( string "BYSECOND=" *> (sep_by1 (char ',') (up_to_two_digits >>= in_range 0 60)) >>| fun s -> `Bysecond s )
@@ -1399,10 +1361,10 @@ let recur =
    <|> ( string "BYMONTH=" *> (sep_by1 (char ',') monthnum) >>| fun m -> `Bymonth m )
    <|> ( string "BYSETPOS=" *> (sep_by1 (char ',') yeardaynum) >>| fun d -> `Bysetposday d )
    <|> ( string "WKST=" *> weekday >>| fun d -> `Weekday d ) in
-  lift (fun l -> 
-    let freqs, count_or_until, interval, rest = 
-      List.fold_left (fun (freqs, count_or_until, interval, rest) -> 
-        function | `Frequency f -> (f :: freqs), count_or_until, interval, rest 
+  lift (fun l ->
+    let freqs, count_or_until, interval, rest =
+      List.fold_left (fun (freqs, count_or_until, interval, rest) ->
+        function | `Frequency f -> (f :: freqs), count_or_until, interval, rest
                  | `Count c -> freqs, `Count c :: count_or_until, interval, rest
                  | `Until u -> freqs, `Until u :: count_or_until, interval, rest
                  | `Interval i -> freqs, count_or_until, i :: interval, rest
@@ -1604,7 +1566,8 @@ let calprops =
   many (prodid <|> version <|> calscale <|> meth <|> otherprop)
 
 let dtstamp =
-  propparser "DTSTAMP" other_param datetime (fun a b -> `Dtstamp (a, b))
+  propparser "DTSTAMP" other_param (datetime >>= utc_only)
+    (fun a b -> `Dtstamp (a, b))
 
 let uid =
   propparser "UID" other_param text (fun a b -> `Uid (a, b))
@@ -1655,7 +1618,7 @@ let dtstart =
        `Dtstart (a, b))
 
 let completed =
-  propparser "COMPLETED" other_param datetime
+  propparser "COMPLETED" other_param (datetime >>= utc_only)
     (fun a b -> `Completed (a, b))
 
 let percent =
@@ -1678,7 +1641,8 @@ let class_ =
   propparser "CLASS" other_param class_value (fun a b -> `Class (a, b))
 
 let created =
-  propparser "CREATED" other_param datetime (fun a b -> `Created (a, b))
+  propparser "CREATED" other_param (datetime >>= utc_only)
+    (fun a b -> `Created (a, b))
 
 let description =
   let desc_param = altrepparam <|> languageparam <|> other_param in
@@ -1692,7 +1656,7 @@ let geo =
   propparser "GEO" other_param latlon (fun a b -> `Geo (a, b))
 
 let last_mod =
-  propparser "LAST-MODIFIED" other_param datetime
+  propparser "LAST-MODIFIED" other_param (datetime >>= utc_only)
     (fun a b -> `Lastmod (a, b))
 
 let location =
@@ -1869,7 +1833,7 @@ let rdate =
        in
        `Rdate (a, date))
 
-let eventprop =
+let event_prop =
   dtstamp <|> uid <|>
   dtstart <|>
   class_ <|> created <|> description <|> geo <|>
@@ -1882,7 +1846,7 @@ let eventprop =
   contact <|> exdate <|> rstatus <|> related <|>
   resources <|> rdate <|> otherprop
 
-let eventprops = many eventprop
+let event_props = many event_prop
 
 let todoprop =
   dtstamp <|> uid <|>
@@ -1918,7 +1882,7 @@ let trigger =
   let trigparam = trigrelparam <|> valuetypeparam <|> other_param in
   let trigvalue =
         (dur_value >>| fun d -> `Duration d)
-    <|> (datetime >>| fun d -> `Datetime d)
+    <|> (datetime >>= utc_only >>| fun ts -> `Datetime ts)
   in
   propparser "TRIGGER" trigparam trigvalue
     (fun a b ->
@@ -2057,7 +2021,7 @@ let build_event eventprops alarms =
 
 let eventc =
   string "BEGIN:VEVENT" *> end_of_line *>
-  lift2 build_event eventprops (many alarmc)
+  lift2 build_event event_props (many alarmc)
   <* string "END:VEVENT" <* end_of_line
 
 let tzid =
@@ -2083,17 +2047,30 @@ let tzname =
     (fun p v -> `Tzname (p, v))
 
 let tzprop =
-  dtstart <|> tzoffsetto <|> tzoffsetfrom <|>
+  (dtstart >>= function
+    | `Dtstart (params, `Datetime (`Local ts)) -> return (`Dtstart_local (params, ts))
+    | `Dtstart _ -> fail "the dtstart time zone property needs to be in local time")
+  <|> tzoffsetto <|> tzoffsetfrom <|>
   rrule <|>
   comment <|> rdate <|> tzname <|> otherprop
 
 let freebusy =
   let fbparam = fbtypeparam <|> other_param in
-  propparser "FREEBUSY" fbparam (sep_by1 (char ',') period)
+  propparser "FREEBUSY" fbparam (sep_by1 (char ',') (period >>= function
+    | `Utc ts, span -> return (ts, span)
+    | `Local _, _ -> fail "freebusy prop may only contain UTC timestamps"))
     (fun p v -> `Freebusy (p, v))
 
+let is_utc_datetime = function
+  | `Datetime (`Utc ts) -> return ts
+  | _ -> fail "is not a UTC timestamp"
+
 let freebusyprop =
-  dtstamp <|> uid <|> contact <|> dtstart <|> dtend <|>
+  dtstamp <|> uid <|> contact <|>
+  (dtstart >>= fun (`Dtstart (params, v)) ->
+   is_utc_datetime v >>| fun ts -> `Dtstart_utc (params, ts)) <|>
+  (dtend >>= fun (`Dtend (params, v)) ->
+   is_utc_datetime v >>| fun ts -> `Dtend_utc (params, ts)) <|>
   organizer <|> url <|> attendee <|> comment <|> freebusy <|> rstatus <|> otherprop
 
 let standardc =
@@ -2116,7 +2093,8 @@ let freebusyc =
   (many freebusyprop >>| fun props -> `Freebusy props)
   <* string "END:VFREEBUSY" <* end_of_line
 
-let component = many1 (eventc <|> todoc (* <|> journalc *) <|> freebusyc <|> timezonec)
+let component =
+  many1 (eventc <|> todoc (* <|> journalc *) <|> freebusyc <|> timezonec)
 
 let icalbody = lift2 pair calprops component
 
@@ -2133,14 +2111,16 @@ let recur_dates dtstart (rrule : recurrence) =
   Recurrence.new_gen dtstart rrule
 
 let date_or_datetime_to_ptime = function
-  | `Datetime (dtstart, utc) -> dtstart, utc, true
+  | `Datetime (`Utc dtstart) -> dtstart, true, true
+  | `Datetime (`Local dtstart) -> dtstart, false, true
+  | `Datetime (`With_tzid _) -> assert false (*TODO*)
   | `Date start -> match Ptime.of_date_time (start, ((0, 0, 0), 0)) with
     | None -> assert false
     | Some dtstart -> dtstart, false, false
 
 let ptime_to_date_or_datetime ts utc is_datetime =
   if is_datetime
-  then `Datetime (ts, utc)
+  then `Datetime (if utc then `Utc ts else `Local ts)
   else `Date (fst @@ Ptime.to_date_time ts)
 
 let add_span ts span = match Ptime.add_span ts span with
@@ -2171,14 +2151,10 @@ let recur_events event = match event.rrule with
          in
          Some { event with dtstart ; dtend_or_duration })
 
-let occurence_before_timestamp datetime (tzprops : tzprop list) =
-  let dtstart = List.find (function `Dtstart _ -> true | _ -> false) tzprops in
+let occurence_before_timestamp datetime (tzprops : tz_prop list) =
+  let dtstart = List.find (function `Dtstart_local _ -> true | _ -> false) tzprops in
   let dtstart' = match dtstart with
-    | `Dtstart (_, `Datetime (dtstart, utc)) -> dtstart
-    | `Dtstart (_, `Date start) ->  begin match Ptime.of_date_time (start, ((0, 0, 0), 0)) with
-      | None -> assert false
-      | Some dtstart -> dtstart
-      end
+    | `Dtstart_local (_, dtstart) -> dtstart
     | _ -> assert false
   in
   (* dtstart in a vtimezone subcomponent may not contain a tzid property! *)
@@ -2197,7 +2173,7 @@ let occurence_before_timestamp datetime (tzprops : tzprop list) =
    | None -> acc in
   in_timerange None (Some dtstart')
 
-let calculate_offset (props : tzprop list) ts datetime =
+let calculate_offset (props : tz_prop list) ts datetime =
   match
     List.find (function `Tzoffset_to _ -> true | _ -> false) props,
     List.find (function `Tzoffset_from _ -> true | _ -> false) props
@@ -2227,7 +2203,7 @@ let calculate_offset (props : tzprop list) ts datetime =
     end
   | _ -> assert false
 
-let normalize_timezone datetime (is_unique, tzid) (timezones : timezoneprop list list) =
+let normalize_timezone datetime (is_unique, tzid) (timezones : timezone_prop list list) =
   (* TODO optimize timezone data structure *)
   let timezoneprops =
     List.find (fun tzprops ->
@@ -2257,3 +2233,16 @@ let normalize_timezone datetime (is_unique, tzid) (timezones : timezoneprop list
       (Ptime.min, []) relevant_offsets
   in
   calculate_offset props ts datetime
+
+(*
+let timepair_to_utc (ts, utc) offset_to_utc =
+  if utc
+  then ts
+  else match Ptime.add_span ts offset_to_utc with
+    | Some ts' -> ts'
+    | None -> assert false (* TODO maybe result type? this is probably rare *)
+
+let utc_to_timepair ts target_offset_to_utc =
+  match Ptime.sub_span ts target_offset_to_utc with
+  ts, true
+*)

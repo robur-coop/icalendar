@@ -45,7 +45,7 @@ let ex_2 () =
   (* modified end: october instead of december *)
   let date = (1997, 09, 02)
   and time = (09, 00, 00)
-  and rrule = (`Daily, Some (`Until (to_ptime (1997, 10, 24) (00, 00, 00), true)), None, [])
+  and rrule = (`Daily, Some (`Until (`Utc (to_ptime (1997, 10, 24) (00, 00, 00)))), None, [])
   and res = [
     (1997, 09, 02) ; (1997, 09, 03) ; (1997, 09, 04) ; (1997, 09, 05) ;
     (1997, 09, 06) ; (1997, 09, 07) ; (1997, 09, 08) ; (1997, 09, 09) ;
@@ -82,7 +82,7 @@ let ex_3 () =
               (all_events date time rrule)) ;
   (* same with until *)
   let rrule' =
-    (`Daily, Some (`Until (to_ptime (1997, 09, 20) (10, 00, 00), true)), Some 2, [])
+    (`Daily, Some (`Until (`Utc (to_ptime (1997, 09, 20) (10, 00, 00)))), Some 2, [])
   in
   Alcotest.(check (list p) "compute occurences example 3"
               (List.map (fun d -> to_ptime d time) res)
@@ -104,7 +104,7 @@ let ex_4 () =
 let ex_5 () =
   let date = (1998, 01, 01)
   and time = (09, 00, 00)
-  and rrule = (`Daily, Some (`Until (to_ptime (2000, 01, 31) (14, 00, 00), true)), None, [ `Bymonth [ 1 ]])
+  and rrule = (`Daily, Some (`Until (`Utc (to_ptime (2000, 01, 31) (14, 00, 00)))), None, [ `Bymonth [ 1 ]])
   and res = [
     (1998, 01, 01) ; (1998, 01, 02) ; (1998, 01, 03) ; (1998, 01, 04) ;
     (1998, 01, 05) ; (1998, 01, 06) ; (1998, 01, 07) ; (1998, 01, 08) ;
@@ -141,7 +141,7 @@ let ex_5 () =
   ] in
   let rrule' =
     (`Yearly,
-     Some (`Until (to_ptime (2000, 01, 31) (14, 00, 00), true)),
+     Some (`Until (`Utc (to_ptime (2000, 01, 31) (14, 00, 00)))),
      None, [ `Bymonth [ 1 ] ; `Byday all_days ])
   in
   Alcotest.(check (list p) "compute occurences example 5"
@@ -165,7 +165,7 @@ let ex_6 () =
 let ex_7 () =
   let date = (1997, 09, 02)
   and time = (09, 00, 00)
-  and rrule = (`Weekly, Some (`Until (to_ptime (1997, 12, 24) (0, 0, 0), true)), None, [])
+  and rrule = (`Weekly, Some (`Until (`Utc (to_ptime (1997, 12, 24) (0, 0, 0)))), None, [])
   and res = [
     (1997, 09, 02) ; (1997, 09, 09) ; (1997, 09, 16) ; (1997, 09, 23) ;
     (1997, 09, 30) ; (1997, 10, 07) ; (1997, 10, 14) ; (1997, 10, 21) ;
@@ -196,7 +196,7 @@ let ex_8 () =
 let ex_9 () =
   let date = (1997, 09, 02)
   and time = (09, 00, 00)
-  and rrule = (`Weekly, Some (`Until (to_ptime (1997, 10, 07) (00, 00, 00), true)), None, [`Weekday `Sunday ; `Byday [ (0, `Tuesday) ; (0, `Thursday) ]])
+  and rrule = (`Weekly, Some (`Until (`Utc (to_ptime (1997, 10, 07) (00, 00, 00)))), None, [`Weekday `Sunday ; `Byday [ (0, `Tuesday) ; (0, `Thursday) ]])
   and res = [
     (1997, 09, 02) ; (1997, 09, 04) ; (1997, 09, 09) ; (1997, 09, 11) ;
     (1997, 09, 16) ; (1997, 09, 18) ; (1997, 09, 23) ; (1997, 09, 25) ;
@@ -214,7 +214,7 @@ let ex_9 () =
 let ex_10 () =
   let date = (1997, 09, 01)
   and time = (09, 00, 00)
-  and rrule = (`Weekly, Some (`Until (to_ptime (1997, 12, 24) (00, 00, 00), true)), Some 2, [`Weekday `Sunday ; `Byday [ (0, `Monday) ; (0, `Wednesday) ; (0, `Friday) ]])
+  and rrule = (`Weekly, Some (`Until (`Utc (to_ptime (1997, 12, 24) (00, 00, 00)))), Some 2, [`Weekday `Sunday ; `Byday [ (0, `Monday) ; (0, `Wednesday) ; (0, `Friday) ]])
   and res = [
     (1997, 09, 01) ; (1997, 09, 03) ; (1997, 09, 05) ; (1997, 09, 15) ;
     (1997, 09, 17) ; (1997, 09, 19) ; (1997, 09, 29) ; (1997, 10, 01) ;
@@ -259,7 +259,7 @@ let ex_12 () =
 let ex_13 () =
   let date = (1997, 09, 05)
   and time = (09, 00, 00)
-  and rrule = (`Monthly, Some (`Until (to_ptime (1997, 12, 24) (0, 0, 0), true)), None, [`Byday [ (1, `Friday) ]])
+  and rrule = (`Monthly, Some (`Until (`Utc (to_ptime (1997, 12, 24) (0, 0, 0)))), None, [`Byday [ (1, `Friday) ]])
   and res = [
     (1997, 09, 05) ; (1997, 10, 03) ; (1997, 11, 07) ; (1997, 12, 05)
   ]

@@ -33,8 +33,8 @@ END:VCALENDAR
   let expected =
     let event =
       { uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-        dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-        dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+        dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+        dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
         dtend_or_duration = None ; rrule = None ;
         props = [ `Description (empty, "This is a long description that exists on a long line.") ] ;
         alarms = [] }
@@ -58,8 +58,8 @@ END:VCALENDAR
   let expected =
     let event =
       { uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-        dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-        dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+        dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+        dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
         dtend_or_duration = None ; rrule = None ;
         props = [ `Description (empty, "This is a long description that exists on a long line.") ] ;
         alarms = [] }
@@ -85,9 +85,9 @@ END:VCALENDAR
   and expected =
     let event =
        { uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-         dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-         dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-         dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+         dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+         dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+         dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
          rrule = None ;
          props = [ `Summary (empty, "Bastille Day Party") ] ;
          alarms = []
@@ -108,7 +108,7 @@ PRODID:-//hacksw/handcal//NONSGML v1.0//EN
 BEGIN:VEVENT
 UID:19970610T172345Z-AF23B2@example.com
 DTSTAMP:19970610T172345Z
-DTSTART;TZID=America/New_York:19970714T170000Z
+DTSTART;TZID=America/New_York:19970714T170000
 DTEND:19970715T040000Z
 SUMMARY:Bastille Day Party
 END:VEVENT
@@ -117,9 +117,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (singleton Tzid (false, "America/New_York"), `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45) ) ;
+      dtstart = (singleton Tzid (false, "America/New_York"), `Datetime (`Local (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Summary (empty, "Bastille Day Party") ] ;
       alarms = []
@@ -149,9 +149,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Class (empty, `Public) ;
                 `Summary (empty, "Bastille Day Party") ] ;
@@ -182,11 +182,11 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
-      props = [ `Created (empty, (to_ptime (1996, 03, 29) (13, 30, 00), true)) ;
+      props = [ `Created (empty, to_ptime (1996, 03, 29) (13, 30, 00)) ;
                 `Summary (empty, "Bastille Day Party") ] ;
       alarms = []
     } in
@@ -217,9 +217,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [
         `Description (singleton Altrep (Uri.of_string "CID:part3.msg970930T083000SILVER@example.com"), "Meeting to provide technical review for \"Phoenix\" design.\nHappy Face Conference Room. Phoenix design team MUST attend this meeting.\nRSVP to team leader.") ;
@@ -251,9 +251,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Geo (empty, (37.386013, -122.082932) ) ;
                 `Summary (empty, "Bastille Day Party") ] ;
@@ -284,11 +284,11 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
-      props = [ `Lastmod (empty, (to_ptime (1996, 08, 17) (13, 30, 00), true) ) ;
+      props = [ `Lastmod (empty, to_ptime (1996, 08, 17) (13, 30, 00)) ;
                 `Summary (empty, "Bastille Day Party") ] ;
       alarms = []
     } in
@@ -318,9 +318,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props =
         [ `Location (singleton Altrep (Uri.of_string "http://xyzcorp.com/conf-rooms/f123.vcf"), "Conference Room - F123, Bldg. 002") ;
@@ -353,9 +353,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Organizer(singleton Sentby (Uri.of_string "mailto:sray@example.com"), Uri.of_string "mailto:jsmith@example.com") ;
                 `Summary (empty, "Bastille Day Party") ] ;
@@ -386,9 +386,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Priority (empty, 2) ;
                 `Summary (empty, "Bastille Day Party") ] ;
@@ -419,9 +419,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Seq (empty, 1234) ;
                 `Summary (empty, "Bastille Day Party") ] ;
@@ -452,9 +452,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Status (empty, `Tentative) ;
                 `Summary (empty, "Bastille Day Party") ] ;
@@ -485,9 +485,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Summary (empty, "Department Party") ;
                 `Summary (empty, "Bastille Day Party") ] ;
@@ -518,9 +518,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Transparency (empty, `Transparent) ;
                 `Summary (empty, "Bastille Day Party") ] ;
@@ -551,9 +551,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Url (empty, Uri.of_string "http://example.com/pub/busy/jpublic-01.ifb") ;
                 `Summary (empty, "Bastille Day Party") ] ;
@@ -584,11 +584,11 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
-      props = [ `Recur_id (singleton Range `Thisandfuture, `Datetime (to_ptime (1996, 01, 20) (12,00,00), true)) ;
+      props = [ `Recur_id (singleton Range `Thisandfuture, `Datetime (`Utc (to_ptime (1996, 01, 20) (12,00,00)))) ;
                 `Summary (empty, "Bastille Day Party") ] ;
         alarms = []
     } in
@@ -617,10 +617,10 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
-      rrule = Some (empty, (`Daily, Some( `Until (to_ptime (1997, 12, 24) (00, 00, 00), true)), None, [])) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
+      rrule = Some (empty, (`Daily, Some( `Until (`Utc (to_ptime (1997, 12, 24) (00, 00, 00)))), None, [])) ;
       props = [ `Summary (empty, "Bastille Day Party") ] ;
       alarms = []
     } in
@@ -648,8 +648,8 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
       dtend_or_duration = Some (`Duration (empty, Ptime.Span.of_int_s 3600)) ;
       rrule = None ;
       props = [ `Summary (empty, "Bastille Day Party") ] ;
@@ -690,9 +690,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)));
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00)))));
       rrule = None ;
 props = [ `Attach (list_to_map [ B (Media_type, ("text", "plain")) ; B (Encoding, `Base64) ; B (Valuetype, `Binary)], `Binary "TG9yZW\
 0gaXBzdW0gZG9sb3Igc2l0IGFtZXQsIGNvbnNlY3RldHVyIGFkaXBpc2ljaW\
@@ -733,9 +733,9 @@ END:VCALENDAR
   and expected l =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ l ;
                 `Summary (empty, "Bastille Day Party") ] ;
@@ -790,9 +790,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true)));
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00)))));
       rrule = None ;
       props = [ `Categories (empty, ["APPOINTMENT" ; "EDUCATION"]) ;
                 `Summary (empty, "Bastille Day Party") ] ;
@@ -826,9 +826,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Comment (empty, "The meeting really needs to include both ourselves and the customer. We can't hold this meeting without them. As a matter of fact, the venue for the meeting ought to be at their site. - - John") ;
                 `Summary (empty, "Bastille Day Party") ] ;
@@ -860,9 +860,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Contact (singleton Altrep (Uri.of_string "CID:part3.msg970930T083000SILVER@example.com"), "Jim Dolittle, ABC Industries, +1-919-555-1234") ;
                 `Summary (empty, "Bastille Day Party") ] ;
@@ -893,13 +893,13 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
-      props = [ `Exdate (empty, `Datetimes [ (to_ptime (1996, 04, 02) (01, 00, 00), true) ;
-                                             (to_ptime (1996, 04, 03) (01, 00, 00), true) ;
-                                             (to_ptime (1996, 04, 04) (01, 00, 00), true) ]) ;
+      props = [ `Exdate (empty, `Datetimes [ (`Utc (to_ptime (1996, 04, 02) (01, 00, 00))) ;
+                                             (`Utc (to_ptime (1996, 04, 03) (01, 00, 00))) ;
+                                             (`Utc (to_ptime (1996, 04, 04) (01, 00, 00))) ]) ;
                 `Summary (empty, "Bastille Day Party") ] ;
       alarms = []
     } in
@@ -928,9 +928,9 @@ END:VCALENDAR
   and expected s =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ s ; `Summary (empty, "Bastille Day Party") ] ;
       alarms = []
@@ -975,9 +975,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Related (empty, "jsmith.part7.19960817T083000.xyzMail@example.com") ;
                 `Summary (empty, "Bastille Day Party") ] ;
@@ -1008,9 +1008,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Related (empty, "19960401-080045-4000F192713-0052@example.com") ;
                 `Summary (empty, "Bastille Day Party") ] ;
@@ -1041,9 +1041,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Resource (empty, [ "EASEL" ; "PROJECTOR" ; "VCR" ]) ;
                 `Summary (empty, "Bastille Day Party") ] ;
@@ -1074,9 +1074,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Resource (singleton Language "fr", [ "Nettoyeur haute pression" ]) ;
                 `Summary (empty, "Bastille Day Party") ] ;
@@ -1107,9 +1107,9 @@ END:VCALENDAR
   and expected s =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ s ; `Summary (empty, "Bastille Day Party") ] ;
       alarms = []
@@ -1126,11 +1126,11 @@ END:VCALENDAR
       ";VALUE=DATE:19970101,19970120,19970217,19970421,19970526,19970704,19970901,19971014,19971128,19971129,19971225"
     ]
   and expecteds = List.map expected [
-      `Rdate (empty, `Datetimes [ to_ptime (1997, 07, 14) (12, 30, 00), true ]) ;
-      `Rdate (singleton Tzid (false, "America/New_York"), `Datetimes [ to_ptime (1997, 07, 14) (08, 30, 00), false ]) ;
+      `Rdate (empty, `Datetimes [ `Utc (to_ptime (1997, 07, 14) (12, 30, 00)) ]) ;
+      `Rdate (singleton Tzid (false, "America/New_York"), `Datetimes [ `Local (to_ptime (1997, 07, 14) (08, 30, 00)) ]) ;
       `Rdate (singleton Valuetype `Period, `Periods [
-          (to_ptime (1996, 04, 03) (02, 00, 00), to_ptime (1996, 04, 03) (04, 00, 00), true) ;
-          (to_ptime (1996, 04, 04) (01, 00, 00), to_ptime (1996, 04, 04) (04, 00, 00), true)
+          (`Utc (to_ptime (1996, 04, 03) (02, 00, 00)), Ptime.Span.of_int_s (2 * 60 * 60)) ;
+          (`Utc (to_ptime (1996, 04, 04) (01, 00, 00)), Ptime.Span.of_int_s (3 * 60 * 60))
         ]) ;
       `Rdate (singleton Valuetype `Date, `Dates [ (1997, 01, 01) ; (1997, 01, 20) ; (1997, 02, 17) ;
                                              (1997, 04, 21) ; (1997, 05, 26) ; (1997, 07, 04) ;
@@ -1183,13 +1183,13 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Summary (empty, "Bastille Day Party") ] ;
       alarms =
-        [ `Audio { Icalendar.trigger = (singleton Valuetype `Datetime, `Datetime (to_ptime (1997, 03, 17) (13, 30, 00), true)) ; duration_repeat = None ; other = [] ; special = {Icalendar.attach = None } } ]
+        [ `Audio { Icalendar.trigger = (singleton Valuetype `Datetime, `Datetime (to_ptime (1997, 03, 17) (13, 30, 00))) ; duration_repeat = None ; other = [] ; special = {Icalendar.attach = None } } ]
     } in
     Ok
       ( [ `Version (empty, "2.0") ;
@@ -1219,9 +1219,9 @@ END:VCALENDAR
   and expected s =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Summary (empty, "Bastille Day Party") ] ;
       alarms = [ `Audio { Icalendar.trigger = s ; duration_repeat = None ; other = [] ; special = {Icalendar.attach = None } } ]
@@ -1239,7 +1239,7 @@ END:VCALENDAR
   and expecteds = List.map expected [
       (empty, `Duration (Ptime.Span.of_int_s (- (15 * 60)))) ;
       (singleton Related `End, `Duration (Ptime.Span.of_int_s (5 * 60))) ;
-      (singleton Valuetype `Datetime, `Datetime (to_ptime (1998, 01, 01) (05, 00, 00), true))
+      (singleton Valuetype `Datetime, `Datetime (to_ptime (1998, 01, 01) (05, 00, 00)))
     ]
   in
   List.iter2 (fun i e -> Alcotest.check result_c __LOC__ e (parse i)) inputs expecteds
@@ -1267,9 +1267,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Summary (empty, "Bastille Day Party") ] ;
       alarms = [
@@ -1309,9 +1309,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Summary (empty, "Bastille Day Party") ] ;
       alarms = [
@@ -1360,9 +1360,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Summary (empty, "Bastille Day Party") ] ;
       alarms = [
@@ -1416,9 +1416,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Summary (empty, "Bastille Day Party") ] ;
       alarms = [
@@ -1461,9 +1461,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Summary (empty, "Bastille Day Party") ] ;
       alarms = [
@@ -1510,9 +1510,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Summary (empty, "Bastille Day Party") ] ;
       alarms = [
@@ -1556,13 +1556,13 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Summary (empty, "Bastille Day Party") ] ;
       alarms = [
-        `Audio { Icalendar.trigger = (singleton Valuetype `Datetime, `Datetime (to_ptime (1997,03,17) (13,30,00), true)) ;
+        `Audio { Icalendar.trigger = (singleton Valuetype `Datetime, `Datetime (to_ptime (1997,03,17) (13,30,00))) ;
                  duration_repeat = Some ((empty, Ptime.Span.of_int_s(15 * 60)), (empty, 4)) ;
                  other = [] ;
                  special = { Icalendar.attach = Some (singleton Media_type ("audio", "basic"), `Uri(Uri.of_string "ftp://example.com/pub/sounds/bell-01.aud"));
@@ -1605,9 +1605,9 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
-      dtstamp = (empty, (to_ptime (1997, 06, 10) (17, 23, 45), true) ) ;
-      dtstart = (empty, `Datetime (to_ptime (1997, 07, 14) (17, 00, 00), true)) ;
-      dtend_or_duration = Some (`Dtend (empty, `Datetime (to_ptime (1997, 07, 15) (04, 00, 00), true))) ;
+      dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45)) ;
+      dtstart = (empty, `Datetime (`Utc (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Summary (empty, "Bastille Day Party") ] ;
       alarms = [
@@ -1662,7 +1662,7 @@ END:VCALENDAR
   and expected =
     let event = {
       uid = (empty, "put-8@example.com") ;
-      dtstamp = (empty, (to_ptime (2005, 12, 22) (20, 59,53), true) ) ;
+      dtstamp = (empty, to_ptime (2005, 12, 22) (20, 59,53)) ;
       dtstart = (singleton Valuetype `Date, `Date (2018, 04, 27)) ;
       dtend_or_duration = Some (`Duration (empty, Ptime.Span.of_int_s(1*24*60*60))) ;
       rrule = None ;
@@ -1704,7 +1704,7 @@ END:VCALENDAR
                uid = (empty, "put-i2@example.com") ;
                `Dtstart ([`Valuetype `Date], `Date (2018, 04, 27)) ;
                `Duration (empty, 1 * 24 * 60 * 60) ;
-               dtstamp = (empty, (to_ptime (2005, 12, 22) (20, 59, 53), true)) ;
+               dtstamp = (empty, (`Utc (to_ptime (2005, 12, 22) (20, 59, 53)))) ;
                `Summary (empty, "event 1") ;
                `Url (empty, Uri.of_string "http://www.example.com$abc\\,def")
              ], [])
@@ -1731,7 +1731,7 @@ END:VCALENDAR
 |} and expected =
      let event = {
        uid = (empty, "put-3X-@example.com") ;
-       dtstamp = (empty, (to_ptime (2005, 12, 22) (20, 59, 53), true)) ;
+       dtstamp = (empty, to_ptime (2005, 12, 22) (20, 59, 53)) ;
        dtstart = (singleton Valuetype `Date, `Date (2018, 04, 27)) ;
        dtend_or_duration = Some (`Duration (empty, Ptime.Span.of_int_s(1 * 24 * 60 * 60))) ;
        rrule = None ;
@@ -1824,15 +1824,15 @@ END:VCALENDAR
   and expected = Ok ([], [
       `Timezone [
         `Timezone_id (empty, (false, "America/New_York")) ;
-        `Lastmod (empty, (to_ptime (2005, 08, 09) (05, 00, 00), true)) ;
+        `Lastmod (empty, to_ptime (2005, 08, 09) (05, 00, 00)) ;
         `Standard [
-          `Dtstart (empty, `Datetime (to_ptime (2007, 11, 04) (02, 00, 00), false)) ;
+          `Dtstart_local (empty, to_ptime (2007, 11, 04) (02, 00, 00)) ;
           `Tzoffset_from (empty, Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
           `Tzoffset_to (empty, Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
           `Tzname (empty, "EST")
         ] ;
         `Daylight [
-          `Dtstart (empty, `Datetime (to_ptime (2007, 03, 11) (02, 00, 00), false)) ;
+          `Dtstart_local (empty, to_ptime (2007, 03, 11) (02, 00, 00)) ;
           `Tzoffset_from (empty, Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
           `Tzoffset_to (empty, Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
           `Tzname (empty, "EDT")
@@ -1903,10 +1903,10 @@ END:VCALENDAR
     Ok ([], [
         `Timezone [
           `Timezone_id (empty, (false, "America/New_York")) ;
-          `Lastmod (empty, (to_ptime (2005, 08, 09) (05, 00, 00), true)) ;
+          `Lastmod (empty, to_ptime (2005, 08, 09) (05, 00, 00)) ;
           `Daylight [
-            `Dtstart (empty, `Datetime (to_ptime (1967, 04, 30) (02, 00, 00), false)) ;
-            `Rrule (empty, (`Yearly, Some ( `Until (to_ptime (1973, 04, 29) (07, 00, 00), true) ), None,
+            `Dtstart_local (empty, to_ptime (1967, 04, 30) (02, 00, 00)) ;
+            `Rrule (empty, (`Yearly, Some ( `Until (`Utc (to_ptime (1973, 04, 29) (07, 00, 00))) ), None,
 [
                           `Bymonth [4] ;
                           `Byday [(-1, `Sunday)] ;
@@ -1915,8 +1915,8 @@ END:VCALENDAR
             `Tzoffset_to (empty, Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
             `Tzname (empty, "EDT") ] ;
           `Standard [
-            `Dtstart (empty, `Datetime (to_ptime (1967, 10, 29) (02, 00, 00), false)) ;
-            `Rrule (empty, (`Yearly, Some ( `Until (to_ptime (2006, 10, 29) (06, 00, 00), true) ), None,
+            `Dtstart_local (empty, to_ptime (1967, 10, 29) (02, 00, 00)) ;
+            `Rrule (empty, (`Yearly, Some ( `Until (`Utc (to_ptime (2006, 10, 29) (06, 00, 00))) ), None,
 [
                           `Bymonth [10] ;
                           `Byday [(-1, `Sunday)] ;
@@ -1925,14 +1925,14 @@ END:VCALENDAR
             `Tzoffset_to (empty, Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
             `Tzname (empty, "EST") ] ;
           `Daylight [
-            `Dtstart (empty, `Datetime (to_ptime (1974, 01, 06) (02, 00, 00), false)) ;
-            `Rdate (empty, `Datetimes [ (to_ptime (1975, 02, 23) (02, 00, 00), false) ]) ;
+            `Dtstart_local (empty, to_ptime (1974, 01, 06) (02, 00, 00)) ;
+            `Rdate (empty, `Datetimes [ (`Local (to_ptime (1975, 02, 23) (02, 00, 00))) ]) ;
             `Tzoffset_from (empty, Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
             `Tzoffset_to (empty, Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
             `Tzname (empty, "EDT") ] ;
           `Daylight [
-            `Dtstart (empty, `Datetime (to_ptime (1976, 04, 25) (02, 00, 00), false)) ;
-            `Rrule (empty, (`Yearly, Some ( `Until (to_ptime (1986, 04, 27) (07, 00, 00), true) ), None,
+            `Dtstart_local (empty, to_ptime (1976, 04, 25) (02, 00, 00)) ;
+            `Rrule (empty, (`Yearly, Some ( `Until (`Utc (to_ptime (1986, 04, 27) (07, 00, 00))) ), None,
 [
                           `Bymonth [4] ;
                           `Byday [(-1, `Sunday)] ;
@@ -1941,8 +1941,8 @@ END:VCALENDAR
             `Tzoffset_to (empty, Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
             `Tzname (empty, "EDT") ] ;
           `Daylight [
-            `Dtstart (empty, `Datetime (to_ptime (1987, 04, 05) (02, 00, 00), false)) ;
-            `Rrule (empty, (`Yearly, Some ( `Until (to_ptime (2006, 04, 02) (07, 00, 00), true) ), None,
+            `Dtstart_local (empty, to_ptime (1987, 04, 05) (02, 00, 00)) ;
+            `Rrule (empty, (`Yearly, Some ( `Until (`Utc (to_ptime (2006, 04, 02) (07, 00, 00))) ), None,
 [
                           `Bymonth [4] ;
                           `Byday [(1, `Sunday)] ;
@@ -1951,7 +1951,7 @@ END:VCALENDAR
             `Tzoffset_to (empty, Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
             `Tzname (empty, "EDT") ] ;
           `Daylight [
-            `Dtstart (empty, `Datetime (to_ptime (2007, 03, 11) (02, 00, 00), false)) ;
+            `Dtstart_local (empty, to_ptime (2007, 03, 11) (02, 00, 00)) ;
             `Rrule (empty, (`Yearly, None, None,
 [
                           `Bymonth [3] ;
@@ -1960,7 +1960,7 @@ END:VCALENDAR
             `Tzoffset_to (empty, Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
             `Tzname (empty, "EDT") ] ;
           `Standard [
-            `Dtstart (empty, `Datetime (to_ptime (2007, 11, 04) (02, 00, 00), false)) ;
+            `Dtstart_local (empty, to_ptime (2007, 11, 04) (02, 00, 00)) ;
             `Rrule (empty, (`Yearly, None, None,
 [
                           `Bymonth [11] ;
@@ -1998,10 +1998,10 @@ END:VCALENDAR
      Ok ([], [
          `Timezone [
            `Timezone_id (empty, (false, "America/New_York")) ;
-           `Lastmod (empty, (to_ptime (2005, 08, 09) (05, 00, 00), true)) ;
+           `Lastmod (empty, to_ptime (2005, 08, 09) (05, 00, 00)) ;
            `Tzurl (empty, Uri.of_string "http://zones.example.com/tz/America-New_York.ics") ;
            `Standard [
-             `Dtstart (empty, `Datetime (to_ptime (2007, 11, 04) (02, 00, 00), false)) ;
+             `Dtstart_local (empty, to_ptime (2007, 11, 04) (02, 00, 00)) ;
              `Rrule (empty, (`Yearly, None, None, [
                            `Bymonth [11] ;
                            `Byday [(1, `Sunday)] ])) ;
@@ -2009,7 +2009,7 @@ END:VCALENDAR
              `Tzoffset_to (empty, Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
              `Tzname (empty, "EST") ] ;
            `Daylight [
-             `Dtstart (empty, `Datetime (to_ptime (2007, 03, 11) (02, 00, 00), false)) ;
+             `Dtstart_local (empty, to_ptime (2007, 03, 11) (02, 00, 00)) ;
              `Rrule (empty,
                  (`Yearly, None, None, [
                  `Bymonth [3] ;
@@ -2046,16 +2046,16 @@ END:VCALENDAR
      Ok ([],
          [ `Timezone [
                `Timezone_id (empty, (false, "Fictitious")) ;
-               `Lastmod (empty, (to_ptime (1987, 01, 01) (00, 00, 00), true)) ;
+               `Lastmod (empty, to_ptime (1987, 01, 01) (00, 00, 00)) ;
                `Standard [
-                 `Dtstart (empty, `Datetime (to_ptime (1967, 10, 29) (02, 00, 00), false)) ;
+                 `Dtstart_local (empty, to_ptime (1967, 10, 29) (02, 00, 00)) ;
                  `Rrule (empty, (`Yearly, None, None, [ `Byday [(-1, `Sunday)] ; `Bymonth [10]])) ;
                  `Tzoffset_from (empty, Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
                  `Tzoffset_to (empty, Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
                  `Tzname (empty, "EST") ] ;
                `Daylight [
-                 `Dtstart (empty, `Datetime (to_ptime (1987, 04, 05) (02, 00, 00), false)) ;
-                 `Rrule (empty, (`Yearly, Some (`Until (to_ptime (1998, 04, 04) (07, 00, 00), true)), None, [ `Byday [(1, `Sunday)] ; `Bymonth [4]  ])) ;
+                 `Dtstart_local (empty, to_ptime (1987, 04, 05) (02, 00, 00)) ;
+                 `Rrule (empty, (`Yearly, Some (`Until (`Utc (to_ptime (1998, 04, 04) (07, 00, 00)))), None, [ `Byday [(1, `Sunday)] ; `Bymonth [4]  ])) ;
                  `Tzoffset_from (empty, Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
                  `Tzoffset_to (empty, Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
                  `Tzname (empty, "EDT") ] ;
@@ -2095,21 +2095,21 @@ END:VCALENDAR
      Ok ([], [
          `Timezone [
            `Timezone_id (empty, (false, "Fictitious")) ;
-           `Lastmod (empty, (to_ptime (1987, 01, 01) (00, 00, 00), true)) ;
+           `Lastmod (empty, to_ptime (1987, 01, 01) (00, 00, 00)) ;
            `Standard [
-             `Dtstart (empty, `Datetime (to_ptime (1967, 10, 29) (02, 00, 00), false)) ;
+             `Dtstart_local (empty, to_ptime (1967, 10, 29) (02, 00, 00)) ;
              `Rrule (empty, (`Yearly, None, None, [ `Byday [(-1, `Sunday)] ; `Bymonth [10] ])) ;
              `Tzoffset_from (empty, Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
              `Tzoffset_to (empty, Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
              `Tzname (empty, "EST") ] ;
            `Daylight [
-             `Dtstart (empty, `Datetime (to_ptime (1987, 04, 05) (02, 00, 00), false)) ;
-             `Rrule (empty, (`Yearly, Some (`Until (to_ptime (1998, 04, 04) (07, 00, 00), true) ), None, [ `Byday [(1, `Sunday)] ; `Bymonth [4] ])) ;
+             `Dtstart_local (empty, to_ptime (1987, 04, 05) (02, 00, 00)) ;
+             `Rrule (empty, (`Yearly, Some (`Until (`Utc (to_ptime (1998, 04, 04) (07, 00, 00))) ), None, [ `Byday [(1, `Sunday)] ; `Bymonth [4] ])) ;
              `Tzoffset_from (empty, Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
              `Tzoffset_to (empty, Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
              `Tzname (empty, "EDT") ] ;
            `Daylight [
-             `Dtstart (empty, `Datetime (to_ptime (1999, 04, 24) (02, 00, 00), false)) ;
+             `Dtstart_local (empty, to_ptime (1999, 04, 24) (02, 00, 00)) ;
              `Rrule (empty, (`Yearly, None, None, [ `Byday [(-1, `Sunday)] ; `Bymonth [4] ])) ;
              `Tzoffset_from (empty, Ptime.Span.of_int_s ((-5) * 60 * 60)) ;
              `Tzoffset_to (empty, Ptime.Span.of_int_s ((-4) * 60 * 60)) ;
@@ -2202,9 +2202,9 @@ END:VCALENDAR
 |}
   and expected =
     let event = {
-      dtstamp = (empty, (to_ptime (2006, 02, 02) (20, 55, 36), true)) ;
+      dtstamp = (empty, to_ptime (2006, 02, 02) (20, 55, 36)) ;
       uid = (empty, "event1@example.local") ;
-      dtstart = (empty, `Datetime (to_ptime (2018, 01, 01) (12, 0, 0 ), false)) ;
+      dtstart = (empty, `Datetime (`Local (to_ptime (2018, 01, 01) (12, 0, 0 )))) ;
       dtend_or_duration = Some (`Duration (empty, Ptime.Span.of_int_s(60 * 60) )) ;
       rrule = None ;
       props = [ `Summary (empty, "event 1") ] ;
@@ -2266,33 +2266,31 @@ END:VCALENDAR
                                        (`Yearly, None, None,
                                         [`Bymonth ([3]);
                                           `Byday ([(-1, `Sunday)])])));
-                              `Dtstart ((empty,
-                                         `Datetime ((to_ptime (1981,03,29) (02,00,00),
-                                                     false))));
+                              `Dtstart_local ((empty,
+                                         to_ptime (1981,03,29) (02,00,00) ));
                               `Tzname ((empty, "CEST")); `Tzoffset_to ((empty, Ptime.Span.of_int_s (60*60*2)))]);
                  `Standard ([`Tzoffset_from ((empty, Ptime.Span.of_int_s (60*60*2)));
                               `Rrule ((empty,
                                        (`Yearly, None, None,
                                         [`Bymonth ([10]);
                                           `Byday ([(-1, `Sunday)])])));
-                              `Dtstart ((empty,
-                                         `Datetime ((to_ptime (1996,10,27) (03,00,00),
-                                                     false))));
+                              `Dtstart_local ((empty,
+                                         to_ptime (1996,10,27) (03,00,00))) ;
                               `Tzname ((empty, "CET")); `Tzoffset_to ((empty, Ptime.Span.of_int_s (60*60)))])
                  ]);
-     `Todo (([`Created ((empty, (to_ptime (2018,09,04) (11,24,26), true)));
+     `Todo (([`Created ((empty, to_ptime (2018,09,04) (11,24,26)));
                `Uid ((empty, "F41EFFCF-2483-43CE-A10E-91C484419193"));
                `Summary ((empty, "tomorrow buy milk"));
                `Dtstart ((singleton Tzid (false, "Europe/Paris"),
-                          `Datetime ((to_ptime (2018,09,05) (12,00,00), false))));
-               `Dtstamp ((empty, (to_ptime (2018,09,04) (11,24,32), true)));
+                          `Datetime ((`Local (to_ptime (2018,09,05) (12,00,00))))));
+               `Dtstamp ((empty, to_ptime (2018,09,04) (11,24,32)));
                `Seq ((empty, 0));
                `Due ((singleton Tzid (false, "Europe/Paris"),
-                      `Datetime ((to_ptime (2018,09,05) (12,00,00), false))))
+                      `Datetime ((`Local (to_ptime (2018,09,05) (12,00,00))))))
                ],
              [`Display ({ Icalendar.trigger =
                           (singleton Valuetype `Datetime,
-                           `Datetime ((to_ptime (2018,09,05) (10,00,00), true)));
+                           `Datetime (to_ptime (2018,09,05) (10,00,00)));
                           duration_repeat = None;
                           other =
                           [`Iana_prop (("UID", empty,
@@ -2336,14 +2334,11 @@ END:VCALENDAR
    [`Freebusy ([ `Uid ((empty, "19970901T095957Z-76A912@example.com"));
                  `Organizer ((empty, Uri.of_string "mailto:jane_doe@example.com"));
                  `Attendee ((empty, Uri.of_string "mailto:john_public@example.com"));
-                 `Dtstamp ((empty, (to_ptime (1997,09,01) (10,00,00), true)));
+                 `Dtstamp ((empty, to_ptime (1997,09,01) (10,00,00)));
                  `Freebusy ((empty,
-                             [(to_ptime (1997,10,15) (05,00,00),
-                               to_ptime (1997,10,15) (13,30,00), true);
-                               (to_ptime (1997,10,15) (16,00,00),
-                                to_ptime (1997,10,15) (21,30,00), true);
-                               (to_ptime (1997,10,15) (22,30,00),
-                                to_ptime (1997,10,16) (05,00,00), true)
+                             [ to_ptime (1997,10,15) (05,00,00), Ptime.Span.of_int_s (8 * 60 * 60 + 30 * 60) ;
+                               to_ptime (1997,10,15) (16,00,00), Ptime.Span.of_int_s (5 * 60 * 60 + 30 * 60) ;
+                               to_ptime (1997,10,15) (22,30,00), Ptime.Span.of_int_s (6 * 60 * 60 + 30 * 60)
                                ]));
                  `Url ((empty, Uri.of_string "http://example.com/pub/busy/jpublic-01.ifb"));
                  `Comment ((empty,
@@ -2373,20 +2368,17 @@ END:VCALENDAR
   and expected = [`Prodid ((empty, "-//Example Inc.//Example Calendar//EN"));
      `Version ((empty, "2.0"))],
    [`Freebusy ([`Uid ((empty, "19970901T115957Z-76A912@example.com"));
-                 `Dtstamp ((empty, (to_ptime (1997,09,01) (12,00,00), true)));
+                 `Dtstamp ((empty, to_ptime (1997,09,01) (12,00,00)));
                  `Organizer ((empty, Uri.of_string "jsmith@example.com"));
-                 `Dtstart ((empty,
-                            `Datetime ((to_ptime (1998,03,13) (14,17,11), true))));
-                 `Dtend ((empty, `Datetime ((to_ptime (1998,04,10) (14,17,11), true))));
+                 `Dtstart_utc ((empty,
+                            (to_ptime (1998,03,13) (14,17,11))));
+                 `Dtend_utc ((empty, (to_ptime (1998,04,10) (14,17,11))));
                  `Freebusy ((empty,
-                             [(to_ptime (1998,03,14) (23,30,00),
-                               to_ptime (1998,03,15) (00,30,00), true)]));
+                             [to_ptime (1998,03,14) (23,30,00), Ptime.Span.of_int_s (60 * 60) ])) ;
                  `Freebusy ((empty,
-                             [(to_ptime (1998,03,16) (15,30,00),
-                               to_ptime (1998,03,16) (16,30,00), true)]));
+                             [to_ptime (1998,03,16) (15,30,00), Ptime.Span.of_int_s (60 * 60) ]));
                  `Freebusy ((empty,
-                             [(to_ptime (1998,03,18) (03,00,00),
-                               to_ptime (1998,03,18) (04,00,00), true)]));
+                             [to_ptime (1998,03,18) (03,00,00), Ptime.Span.of_int_s (60 * 60)]));
                  `Url ((empty,
                         Uri.of_string "http://www.example.com/calendar/busytime/jsmith.ifb"))
                  ])
@@ -2407,10 +2399,10 @@ let compare_ptime =
   end in (module M: Alcotest.TESTABLE with type t = M.t)
 
 let timezone =
-  [ `Lastmod (empty, (to_ptime (2004, 01, 10) (03, 28, 45), true));
+  [ `Lastmod (empty, to_ptime (2004, 01, 10) (03, 28, 45));
     `Timezone_id (empty, (false, "America/New_York"));
     `Daylight
-      [`Dtstart (empty, `Datetime (to_ptime (2007, 03, 11) (02, 00, 00), false));
+      [`Dtstart_local (empty, to_ptime (2007, 03, 11) (02, 00, 00));
        `Rrule
          (empty,
           (`Yearly, None, None, [`Byday [(2, `Sunday)]; `Bymonth [3]]));
@@ -2418,7 +2410,7 @@ let timezone =
        `Tzoffset_from (empty, Ptime.Span.of_int_s (- 5*60*60));
        `Tzoffset_to (empty, Ptime.Span.of_int_s (- 4*60*60))];
     `Standard
-      [`Dtstart (empty, `Datetime (to_ptime (2007, 11, 04) (02, 00, 00), false));
+      [`Dtstart_local (empty, to_ptime (2007, 11, 04) (02, 00, 00));
        `Rrule
          (empty,
           (`Yearly, None, None, [`Byday [(1, `Sunday)]; `Bymonth [11]]));

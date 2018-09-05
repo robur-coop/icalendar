@@ -447,8 +447,8 @@ let new_gen start recurrence =
     | Some (`Count n) ->
       let gen_count = init_count n gen_event in
       (fun () -> next_count gen_count)
-    | Some (`Until (t, true)) -> (* TODO until (t, _false_)! *)
-      let gen_until = init_until t gen_event in
+    | Some (`Until (`Utc ts)) -> (* TODO `Until (`Local ts)! *)
+      let gen_until = init_until ts gen_event in
       (fun () -> next_until gen_until)
     | _ ->
       (fun () -> Some (next_rr gen_event))
