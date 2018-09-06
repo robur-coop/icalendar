@@ -1,16 +1,16 @@
 
 (* TODO: tag these with `Utc | `Local *)
-type utc_timestamp = Ptime.t [@@deriving eq, show]
-type local_timestamp = Ptime.t [@@deriving eq, show]
+type timestamp_utc = Ptime.t [@@deriving eq, show]
+type timestamp_local = Ptime.t [@@deriving eq, show]
 
-type utc_or_local_timestamp = [
-  | `Utc of utc_timestamp
-  | `Local of local_timestamp
+type utc_or_timestamp_local = [
+  | `Utc of timestamp_utc
+  | `Local of timestamp_local
 ] [@@deriving eq, show]
 
 type timestamp = [
-  utc_or_local_timestamp
-  | `With_tzid of local_timestamp * string
+  utc_or_timestamp_local
+  | `With_tzid of timestamp_local * string
 ] [@@deriving eq, show]
 
 type date_or_datetime = [ `Datetime of timestamp | `Date of Ptime.date ]
@@ -34,7 +34,7 @@ type freq = [ `Daily | `Hourly | `Minutely | `Monthly | `Secondly | `Weekly | `Y
 
 type count_or_until = [
   | `Count of int
-  | `Until of utc_or_local_timestamp (* TODO date or datetime *)
+  | `Until of utc_or_timestamp_local (* TODO date or datetime *)
 ] [@@deriving eq, show]
 
 type interval = int
@@ -113,18 +113,21 @@ type status = [ `Draft | `Final | `Cancelled |
                 `Needs_action | `Completed | `In_process | (* `Cancelled *)
                 `Tentative | `Confirmed (* | `Cancelled *) ]
 
+type period = timestamp * Ptime.Span.t * bool
+type period_utc = timestamp_utc * Ptime.Span.t * bool
+
 type dates_or_datetimes = [ `Datetimes of timestamp list | `Dates of Ptime.date list ]
-type dates_or_datetimes_or_periods = [ dates_or_datetimes | `Periods of (timestamp * Ptime.Span.t) list ]
+type dates_or_datetimes_or_periods = [ dates_or_datetimes | `Periods of period list ]
 
 type general_prop = [
-  | `Dtstamp of params * utc_timestamp
+  | `Dtstamp of params * timestamp_utc
   | `Uid of params * string
   | `Dtstart of params * date_or_datetime
   | `Class of params * class_
-  | `Created of params * utc_timestamp
+  | `Created of params * timestamp_utc
   | `Description of params * string
   | `Geo of params * (float * float)
-  | `Lastmod of params * utc_timestamp
+  | `Lastmod of params * timestamp_utc
   | `Location of params * string
   | `Organizer of params * Uri.t
   | `Priority of params * int
@@ -160,7 +163,7 @@ type event_prop = [
 ]
 
 type 'a alarm_struct = {
-  trigger : params * [ `Duration of Ptime.Span.t | `Datetime of utc_timestamp ] ;
+  trigger : params * [ `Duration of Ptime.Span.t | `Datetime of timestamp_utc ] ;
   duration_repeat: ((params * Ptime.Span.t) * (params * int )) option ;
   other: other_prop list ;
   special: 'a ;
@@ -184,7 +187,7 @@ type email_struct = {
 type alarm = [ `Audio of audio_struct alarm_struct | `Display of display_struct alarm_struct | `Email of email_struct alarm_struct ]
 
 type tz_prop = [
-  | `Dtstart_local of params * local_timestamp
+  | `Dtstart_local of params * timestamp_local
   | `Tzoffset_to of params * Ptime.Span.t
   | `Tzoffset_from of params * Ptime.Span.t
   | `Rrule of params * recurrence
@@ -196,7 +199,7 @@ type tz_prop = [
 
 type timezone_prop = [
   | `Timezone_id of params * (bool * string)
-  | `Lastmod of params * utc_timestamp
+  | `Lastmod of params * timestamp_utc
   | `Tzurl of params * Uri.t
   | `Standard of tz_prop list
   | `Daylight of tz_prop list
@@ -205,29 +208,29 @@ type timezone_prop = [
 
 type todo_prop = [
   | general_prop
-  | `Completed of params * utc_timestamp
+  | `Completed of params * timestamp_utc
   | `Percent of params * int
   | `Due of  params * date_or_datetime
   | other_prop
 ]
 
 type freebusy_prop = [
-  | `Dtstamp of params * utc_timestamp
+  | `Dtstamp of params * timestamp_utc
   | `Uid of params * string
   | `Contact of params * string
-  | `Dtstart_utc of params * utc_timestamp
-  | `Dtend_utc of params * utc_timestamp
+  | `Dtstart_utc of params * timestamp_utc
+  | `Dtend_utc of params * timestamp_utc
   | `Organizer of params * Uri.t
   | `Url of params * Uri.t
   | `Attendee of params * Uri.t
   | `Comment of params * string
-  | `Freebusy of params * (utc_timestamp * Ptime.Span.t) list
+  | `Freebusy of params * period_utc list
   | `Rstatus of params * ((int * int * int option) * string * string option)
   | other_prop
 ]
 
 type event = {
-  dtstamp : params * utc_timestamp ;
+  dtstamp : params * timestamp_utc ;
   uid : params * string ;
   dtstart : params * date_or_datetime ; (* NOTE: optional if METHOD present according to RFC 5545 *)
   dtend_or_duration : [ `Duration of params * Ptime.Span.t | `Dtend of params * date_or_datetime ] option ;
@@ -277,6 +280,6 @@ val normalize_timezone : Ptime.t -> bool * String.t ->
   Ptime.t
 
 (*
-val add_tzid_offset : local_timestamp -> string -> timezone list -> utc_timestamp
-val remove_tzid_offset : utc_timestamp -> string -> timezone list -> local_timestamp
+val add_tzid_offset : timestamp_local -> string -> timezone list -> timestamp_utc
+val remove_tzid_offset : timestamp_utc -> string -> timezone list -> timestamp_local
                                                                      *)

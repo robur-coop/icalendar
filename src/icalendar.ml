@@ -11,17 +11,17 @@ end
 
 let positive = true
 
-type utc_timestamp = Ptime.t [@@deriving eq, show]
-type local_timestamp = Ptime.t [@@deriving eq, show]
+type timestamp_utc = Ptime.t [@@deriving eq, show]
+type timestamp_local = Ptime.t [@@deriving eq, show]
 
-type utc_or_local_timestamp = [
-  | `Utc of utc_timestamp
-  | `Local of local_timestamp
+type utc_or_timestamp_local = [
+  | `Utc of timestamp_utc
+  | `Local of timestamp_local
 ] [@@deriving eq, show]
 
 type timestamp = [
-  utc_or_local_timestamp
-  | `With_tzid of local_timestamp * string
+  utc_or_timestamp_local
+  | `With_tzid of timestamp_local * string
 ] [@@deriving eq, show]
 
 type date_or_datetime = [ `Datetime of timestamp | `Date of Ptime.date ] [@@deriving eq, show]
@@ -364,7 +364,7 @@ type freq = [ `Daily | `Hourly | `Minutely | `Monthly | `Secondly | `Weekly | `Y
 
 type count_or_until = [
   | `Count of int
-  | `Until of utc_or_local_timestamp
+  | `Until of utc_or_timestamp_local
 ] [@@deriving eq, show]
 
 type interval = int [@@deriving eq, show]
@@ -377,18 +377,21 @@ type status = [ `Draft | `Final | `Cancelled |
                 `Needs_action | `Completed | `In_process | (* `Cancelled *)
                 `Tentative | `Confirmed (* | `Cancelled *) ] [@@deriving eq, show]
 
+type period = timestamp * Ptime.Span.t * bool [@@deriving eq, show]
+type period_utc = timestamp_utc * Ptime.Span.t * bool [@@deriving eq, show]
+
 type dates_or_datetimes = [ `Datetimes of timestamp list | `Dates of Ptime.date list ] [@@deriving eq, show]
-type dates_or_datetimes_or_periods = [ dates_or_datetimes | `Periods of (timestamp * Ptime.Span.t) list ] [@@deriving eq, show]
+type dates_or_datetimes_or_periods = [ dates_or_datetimes | `Periods of period list ] [@@deriving eq, show]
 
 type general_prop = [
-  | `Dtstamp of params * utc_timestamp
+  | `Dtstamp of params * timestamp_utc
   | `Uid of params * string
   | `Dtstart of params * date_or_datetime
   | `Class of params * class_
-  | `Created of params * utc_timestamp
+  | `Created of params * timestamp_utc
   | `Description of params * string
   | `Geo of params * (float * float)
-  | `Lastmod of params * utc_timestamp
+  | `Lastmod of params * timestamp_utc
   | `Location of params * string
   | `Organizer of params * Uri.t
   | `Priority of params * int
@@ -424,7 +427,7 @@ type event_prop = [
 ] [@@deriving eq, show]
 
 type 'a alarm_struct = {
-  trigger : params * [ `Duration of Ptime.Span.t | `Datetime of utc_timestamp ] ;
+  trigger : params * [ `Duration of Ptime.Span.t | `Datetime of timestamp_utc ] ;
   duration_repeat: ((params * Ptime.Span.t) * (params * int )) option ;
   other: other_prop list ;
   special: 'a ;
@@ -448,7 +451,7 @@ type email_struct = {
 type alarm = [ `Audio of audio_struct alarm_struct | `Display of display_struct alarm_struct | `Email of email_struct alarm_struct ] [@@deriving eq, show]
 
 type tz_prop = [
-  | `Dtstart_local of params * local_timestamp
+  | `Dtstart_local of params * timestamp_local
   | `Tzoffset_to of params * Ptime.Span.t
   | `Tzoffset_from of params * Ptime.Span.t
   | `Rrule of params * recurrence
@@ -460,7 +463,7 @@ type tz_prop = [
 
 type timezone_prop = [
   | `Timezone_id of params * (bool * string)
-  | `Lastmod of params * utc_timestamp
+  | `Lastmod of params * timestamp_utc
   | `Tzurl of params * Uri.t
   | `Standard of tz_prop list
   | `Daylight of tz_prop list
@@ -469,29 +472,29 @@ type timezone_prop = [
 
 type todo_prop = [
   | general_prop
-  | `Completed of params * utc_timestamp
+  | `Completed of params * timestamp_utc
   | `Percent of params * int
   | `Due of  params * date_or_datetime
   | other_prop
 ] [@@deriving eq, show]
 
 type freebusy_prop = [
-  | `Dtstamp of params * utc_timestamp
+  | `Dtstamp of params * timestamp_utc
   | `Uid of params * string
   | `Contact of params * string
-  | `Dtstart_utc of params * utc_timestamp
-  | `Dtend_utc of params * utc_timestamp
+  | `Dtstart_utc of params * timestamp_utc
+  | `Dtend_utc of params * timestamp_utc
   | `Organizer of params * Uri.t
   | `Url of params * Uri.t
   | `Attendee of params * Uri.t
   | `Comment of params * string
-  | `Freebusy of params * (utc_timestamp * Ptime.Span.t) list
+  | `Freebusy of params * period_utc list
   | `Rstatus of params * ((int * int * int option) * string * string option)
   | other_prop
 ] [@@deriving eq, show]
 
 type event = {
-  dtstamp : params * utc_timestamp ;
+  dtstamp : params * timestamp_utc ;
   uid : params * string ;
   dtstart : params * date_or_datetime ; (* NOTE: optional if METHOD present according to RFC 5545 *)
   dtend_or_duration : [ `Duration of params * Ptime.Span.t | `Dtend of params * date_or_datetime ] option ;
@@ -616,6 +619,15 @@ let transp_strings = [
 type comp = [ `Allcomp | `Comp of component_transform list ]
 and prop = [ `Allprop | `Prop of (string * bool) list ]
 and component_transform = string * prop * comp [@@deriving show, eq]
+
+let add_span ts span = match Ptime.add_span ts span with
+  | None -> assert false
+  | Some ts' -> ts'
+
+let add_span_to_ts ts span = match ts with
+  | `Utc ts' -> `Utc (add_span ts' span)
+  | `Local ts' -> `Local (add_span ts' span)
+  | `With_tzid (ts', tzid) -> `With_tzid (add_span ts' span, tzid)
 
 module Writer = struct
   let print_x vendor token = Printf.sprintf "X-%s%s%s" vendor (if String.length vendor = 0 then "" else "-") token
@@ -787,10 +799,13 @@ module Writer = struct
     | `Dates xs -> List.iter (date_to_ics buf) xs
     | `Datetimes xs -> List.iter (swap timestamp_to_ics buf) xs
 
-  let period_to_ics buf (start, span) =
+  let period_to_ics buf (start, span, was_explicit) =
     timestamp_to_ics start buf ;
     Buffer.add_char buf '/' ;
-    duration_to_ics span buf
+    if was_explicit then 
+      timestamp_to_ics (add_span_to_ts start span) buf
+    else
+      duration_to_ics span buf
 
   let dates_or_times_or_periods_to_ics dt buf =
     let swap f a b = f b a in
@@ -1136,7 +1151,7 @@ module Writer = struct
     else
       match prop with
       | `Freebusy (params, periods) ->
-        let periods' = List.map (fun (start, duration) -> (`Utc start, duration)) periods in
+        let periods' = List.map (fun (start, duration, was_explicit) -> (`Utc start, duration, was_explicit)) periods in
         write_line cr buf key params ~dont_write_value (fun buf -> List.iter (period_to_ics buf) periods')
       | `Dtend_utc (params, ts) -> write_line cr buf key params ~dont_write_value (timestamp_to_ics (`Utc ts))
       | `Dtstart_utc (params, ts) -> write_line cr buf key params ~dont_write_value (timestamp_to_ics (`Utc ts))
@@ -1322,13 +1337,13 @@ let float =
 
 let period =
   let to_period tstart tend = match tstart, tend with
-    | `Utc s, `Utc e -> (`Utc s, Ptime.diff e s)
-    | `Local s, `Local e -> (`Local s, Ptime.diff e s)
+    | `Utc s, `Utc e -> (`Utc s, Ptime.diff e s, true)
+    | `Local s, `Local e -> (`Local s, Ptime.diff e s, true)
     | _ -> raise (Parse_error "period timestamps need to have the same format")
   in
   let explicit = lift2 to_period datetime (char '/' *> datetime)
-  and start = lift2 pair datetime (char '/' *> dur_value) in
-  explicit <|> start
+  and duration = lift2 (fun a b -> (a, b, false)) datetime (char '/' *> dur_value) in
+  explicit <|> duration
 
 let recur =
   let up_to_two_digits = (take 2 >>= ensure int_of_string) <|> (take 1 >>= ensure int_of_string) in
@@ -1619,13 +1634,13 @@ let move_tzid params d_or_dt =
 
 let move_tzid_period params d_or_dt =
   match d_or_dt with 
-  | #date_or_datetime as d_or_dt -> (move_tzid params d_or_dt :> (params * [ date_or_datetime | `Period of timestamp * Ptime.Span.t ]))
-  | `Period (`Local ts, span) -> 
+  | #date_or_datetime as d_or_dt -> (move_tzid params d_or_dt :> (params * [ date_or_datetime | `Period of period ]))
+  | `Period (`Local ts, span, was_explicit) -> 
     let timestamp = match Params.find Tzid params with
     | None -> `Local ts
     | Some (global, tzid) -> `With_tzid (ts, tzid)
     in
-    (params, `Period (timestamp, span))
+    (params, `Period (timestamp, span, was_explicit))
   | `Period p -> (params, `Period p)
 
 let dtstart =
@@ -1776,7 +1791,7 @@ let contact =
   propparser "CONTACT" contactparam text (fun a b -> `Contact (a, b))
 
 (* collect dates and datetimes into tagged list *)
-let move_tzid_and_collect_d_or_dt params (d_or_dts : [date_or_datetime | `Period of timestamp * Ptime.Span.t] list) = 
+let move_tzid_and_collect_d_or_dt params (d_or_dts : [date_or_datetime | `Period of period] list) = 
   let is_date = function `Date _ -> true | _ -> false
   and is_datetime = function `Datetime _ -> true | _ -> false
   in
@@ -2073,8 +2088,8 @@ let tzprop =
 let freebusy =
   let fbparam = fbtypeparam <|> other_param in
   propparser "FREEBUSY" fbparam (sep_by1 (char ',') (period >>= function
-    | `Utc ts, span -> return (ts, span)
-    | `Local _, _ -> fail "freebusy prop may only contain UTC timestamps"))
+    | `Utc ts, span, was_explicit -> return (ts, span, was_explicit)
+    | `Local _, _, _ -> fail "freebusy prop may only contain UTC timestamps"))
     (fun p v -> `Freebusy (p, v))
 
 let is_utc_datetime = function
@@ -2129,7 +2144,7 @@ let recur_dates dtstart (rrule : recurrence) =
 let date_or_datetime_to_ptime = function
   | `Datetime (`Utc dtstart) -> dtstart, true, true
   | `Datetime (`Local dtstart) -> dtstart, false, true
-  | `Datetime (`With_tzid _) -> assert false (*TODO*)
+  | `Datetime (`With_tzid (ts, tzid)) -> ts, false, true
   | `Date start -> match Ptime.of_date_time (start, ((0, 0, 0), 0)) with
     | None -> assert false
     | Some dtstart -> dtstart, false, false
@@ -2138,10 +2153,6 @@ let ptime_to_date_or_datetime ts utc is_datetime =
   if is_datetime
   then `Datetime (if utc then `Utc ts else `Local ts)
   else `Date (fst @@ Ptime.to_date_time ts)
-
-let add_span ts span = match Ptime.add_span ts span with
-  | None -> assert false
-  | Some ts' -> ts'
 
 (* TODO handle Exdate and Rdate *)
 let recur_events event = match event.rrule with

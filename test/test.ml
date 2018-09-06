@@ -1129,8 +1129,8 @@ END:VCALENDAR
       `Rdate (empty, `Datetimes [ `Utc (to_ptime (1997, 07, 14) (12, 30, 00)) ]) ;
       `Rdate (singleton Tzid (false, "America/New_York"), `Datetimes [ `With_tzid (to_ptime (1997, 07, 14) (08, 30, 00), "America/New_York") ]) ;
       `Rdate (singleton Valuetype `Period, `Periods [
-          (`Utc (to_ptime (1996, 04, 03) (02, 00, 00)), Ptime.Span.of_int_s (2 * 60 * 60)) ;
-          (`Utc (to_ptime (1996, 04, 04) (01, 00, 00)), Ptime.Span.of_int_s (3 * 60 * 60))
+          (`Utc (to_ptime (1996, 04, 03) (02, 00, 00)), Ptime.Span.of_int_s (2 * 60 * 60), true) ;
+          (`Utc (to_ptime (1996, 04, 04) (01, 00, 00)), Ptime.Span.of_int_s (3 * 60 * 60), false)
         ]) ;
       `Rdate (singleton Valuetype `Date, `Dates [ (1997, 01, 01) ; (1997, 01, 20) ; (1997, 02, 17) ;
                                              (1997, 04, 21) ; (1997, 05, 26) ; (1997, 07, 04) ;
@@ -2336,9 +2336,9 @@ END:VCALENDAR
                  `Attendee ((empty, Uri.of_string "mailto:john_public@example.com"));
                  `Dtstamp ((empty, to_ptime (1997,09,01) (10,00,00)));
                  `Freebusy ((empty,
-                             [ to_ptime (1997,10,15) (05,00,00), Ptime.Span.of_int_s (8 * 60 * 60 + 30 * 60) ;
-                               to_ptime (1997,10,15) (16,00,00), Ptime.Span.of_int_s (5 * 60 * 60 + 30 * 60) ;
-                               to_ptime (1997,10,15) (22,30,00), Ptime.Span.of_int_s (6 * 60 * 60 + 30 * 60)
+                             [ to_ptime (1997,10,15) (05,00,00), Ptime.Span.of_int_s (8 * 60 * 60 + 30 * 60), false ;
+                               to_ptime (1997,10,15) (16,00,00), Ptime.Span.of_int_s (5 * 60 * 60 + 30 * 60), false;
+                               to_ptime (1997,10,15) (22,30,00), Ptime.Span.of_int_s (6 * 60 * 60 + 30 * 60), false
                                ]));
                  `Url ((empty, Uri.of_string "http://example.com/pub/busy/jpublic-01.ifb"));
                  `Comment ((empty,
@@ -2374,11 +2374,11 @@ END:VCALENDAR
                             (to_ptime (1998,03,13) (14,17,11))));
                  `Dtend_utc ((empty, (to_ptime (1998,04,10) (14,17,11))));
                  `Freebusy ((empty,
-                             [to_ptime (1998,03,14) (23,30,00), Ptime.Span.of_int_s (60 * 60) ])) ;
+                             [to_ptime (1998,03,14) (23,30,00), Ptime.Span.of_int_s (60 * 60), true ])) ;
                  `Freebusy ((empty,
-                             [to_ptime (1998,03,16) (15,30,00), Ptime.Span.of_int_s (60 * 60) ]));
+                             [to_ptime (1998,03,16) (15,30,00), Ptime.Span.of_int_s (60 * 60), true]));
                  `Freebusy ((empty,
-                             [to_ptime (1998,03,18) (03,00,00), Ptime.Span.of_int_s (60 * 60)]));
+                             [to_ptime (1998,03,18) (03,00,00), Ptime.Span.of_int_s (60 * 60), true]));
                  `Url ((empty,
                         Uri.of_string "http://www.example.com/calendar/busytime/jsmith.ifb"))
                  ])
