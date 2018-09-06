@@ -10,7 +10,7 @@ type utc_or_timestamp_local = [
 
 type timestamp = [
   utc_or_timestamp_local
-  | `With_tzid of timestamp_local * string
+  | `With_tzid of timestamp_local * (bool * string)
 ] [@@deriving eq, show]
 
 type date_or_datetime = [ `Datetime of timestamp | `Date of Ptime.date ]

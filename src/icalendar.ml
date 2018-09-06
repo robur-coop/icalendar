@@ -21,7 +21,7 @@ type utc_or_timestamp_local = [
 
 type timestamp = [
   utc_or_timestamp_local
-  | `With_tzid of timestamp_local * string
+  | `With_tzid of timestamp_local * (bool * string)
 ] [@@deriving eq, show]
 
 type date_or_datetime = [ `Datetime of timestamp | `Date of Ptime.date ] [@@deriving eq, show]
@@ -1626,10 +1626,11 @@ let time_or_date =
   (datetime >>| fun dt -> `Datetime dt)
   <|> (date >>| fun d -> `Date d)
 
-(* TODO remove tzid from params *)
 let move_tzid params d_or_dt =
   match Params.find Tzid params, d_or_dt with 
-  | Some (global, tzid), `Datetime (`Local ts) -> (params, `Datetime (`With_tzid (ts, tzid)))
+  | Some tzid, `Datetime (`Local ts) -> 
+    let params' = Params.remove Tzid params in
+    (params', `Datetime (`With_tzid (ts, tzid)))
   | _, _ -> (params, (d_or_dt :> date_or_datetime))
 
 let move_tzid_period params d_or_dt =
@@ -1638,9 +1639,10 @@ let move_tzid_period params d_or_dt =
   | `Period (`Local ts, span, was_explicit) -> 
     let timestamp = match Params.find Tzid params with
     | None -> `Local ts
-    | Some (global, tzid) -> `With_tzid (ts, tzid)
+    | Some tzid -> `With_tzid (ts, tzid)
     in
-    (params, `Period (timestamp, span, was_explicit))
+    let params' = Params.remove Tzid params in
+    (params', `Period (timestamp, span, was_explicit))
   | `Period p -> (params, `Period p)
 
 let dtstart =
@@ -1812,7 +1814,7 @@ let exdate =
       List.iter (check_date_datetime `Datetime a) b ;
       match move_tzid_and_collect_d_or_dt a b with
       | None -> raise (Parse_error "exdate: value neither date nor datetime")
-      | Some d_or_dts -> `Exdate (a, d_or_dts))
+      | Some d_or_dts -> `Exdate (Params.remove Tzid a, d_or_dts))
 
 let rstatus =
   let rstatparam = languageparam <|> other_param in
@@ -1862,7 +1864,7 @@ let rdate =
              `Periods (List.map extract periods)
            else raise (Parse_error "rdate: value neither date nor datetime nor period")
        in
-       `Rdate (a, ds_or_dts_or_ps))
+       `Rdate (Params.remove Tzid a, ds_or_dts_or_ps))
 
 let event_prop =
   dtstamp <|> uid <|>
