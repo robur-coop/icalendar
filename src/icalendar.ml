@@ -793,12 +793,6 @@ module Writer = struct
     | `Date d -> date_to_ics buf d
     | `Datetime dt -> timestamp_to_ics dt buf
 
-  let dates_or_times_to_ics dt buf =
-    let swap f a b = f b a in
-    match dt with
-    | `Dates xs -> List.iter (date_to_ics buf) xs
-    | `Datetimes xs -> List.iter (swap timestamp_to_ics buf) xs
-
   let period_to_ics buf (start, span, was_explicit) =
     timestamp_to_ics start buf ;
     Buffer.add_char buf '/' ;
@@ -814,6 +808,22 @@ module Writer = struct
     | `Datetimes xs -> List.iter (swap timestamp_to_ics buf) xs
     | `Periods xs -> List.iter (period_to_ics buf) xs
 
+  let move_tzid_to_params timestamp params =
+    match timestamp with
+    | `Utc _ | `Local _ -> params
+    | `With_tzid (_, tzid) -> Params.add Tzid tzid params
+
+  let move_tzid_of_d_or_dt d_or_dt params =
+    match d_or_dt with
+    | `Date _ -> params
+    | `Datetime x -> move_tzid_to_params x params
+
+  let move_tzid_of_ds_or_dts_or_ps ds_or_dts_or_ps params =
+    match ds_or_dts_or_ps with
+    | `Datetimes (ts::_) -> move_tzid_to_params ts params (* head is sufficient, each element has same tzid *)
+    | `Periods ((ts, _, _)::_) -> move_tzid_to_params ts params
+    | `Dates _ -> params
+    | _ -> params 
 
   let recurs_to_ics (freq, count_or_until, interval, l) buf =
     let write_rulepart key value =
@@ -895,7 +905,8 @@ module Writer = struct
     match prop with
     | `Dtstamp (params, ts) -> output params (timestamp_to_ics (`Utc ts))
     | `Uid (params, str) -> output params (write_string str)
-    | `Dtstart (params, date_or_time) -> output params (date_or_time_to_ics date_or_time)
+    | `Dtstart (params, date_or_time) -> 
+        output (move_tzid_of_d_or_dt date_or_time params) (date_or_time_to_ics date_or_time)
     | `Class (params, class_) -> output params (write_string (List.assoc class_ class_strings))
     | `Created (params, ts) -> output params (timestamp_to_ics (`Utc ts))
     | `Description (params, desc) -> output params (write_string desc)
@@ -912,7 +923,7 @@ module Writer = struct
     | `Status (params, status) -> output params (write_string (List.assoc status status_strings))
     | `Summary (params, summary) -> output params (write_string summary)
     | `Url (params, uri) -> output params (write_string Uri.(pct_decode (to_string uri)))
-    | `Recur_id (params, date_or_time) -> output params (date_or_time_to_ics date_or_time)
+    | `Recur_id (params, date_or_time) -> output (move_tzid_of_d_or_dt date_or_time params) (date_or_time_to_ics date_or_time)
     | `Rrule (params, recurs) -> output params (recurs_to_ics recurs)
     | `Duration (params, dur) -> output params (duration_to_ics dur)
     | `Attach (params, att) ->
@@ -922,12 +933,14 @@ module Writer = struct
       in
       output params (write_string value')
     | `Attendee (params, uri) -> output params (write_string (Uri.to_string uri))
-    | `Categories (params, cats) ->
+    | `Categories (params,cats) ->
       let cat = String.concat "," cats in
       output params (write_string cat)
     | `Comment (params, comment) -> output params (write_string comment)
     | `Contact (params, contact) -> output params (write_string contact)
-    | `Exdate (params, dates_or_times) -> output params (dates_or_times_to_ics dates_or_times)
+    | `Exdate (params, dates_or_times) -> 
+      let ds_or_ts_or_ps = (dates_or_times :> [ `Dates of Ptime.date list | `Datetimes of timestamp list | `Periods of period list ]) in
+      output (move_tzid_of_ds_or_dts_or_ps ds_or_ts_or_ps params) (dates_or_times_or_periods_to_ics ds_or_ts_or_ps)
     | `Rstatus (params, (statcode, text, comment)) ->
       output params
         (fun buf ->
@@ -952,7 +965,7 @@ module Writer = struct
       let r = String.concat "," res in
       output params (write_string r)
     | `Rdate (params, dates_or_times_or_periods) ->
-      output params
+      output (move_tzid_of_ds_or_dts_or_ps dates_or_times_or_periods params)
         (dates_or_times_or_periods_to_ics dates_or_times_or_periods)
 
   let event_prop_to_ics_key = function
@@ -966,11 +979,12 @@ module Writer = struct
     let is_write_prop, dont_write_value = write_prop_and_value key filter in
     if not is_write_prop then ()
     else
+      let output params v = write_line cr buf key params ~dont_write_value v in
       match prop with
       | #general_prop as x -> general_prop_to_ics cr buf ~dont_write_value x
       | #other_prop as x -> other_prop_to_ics cr buf ~dont_write_value x
-      | `Transparency (params, transp) -> write_line cr buf key params ~dont_write_value (write_string (List.assoc transp transp_strings))
-      | `Dtend (params, date_or_time) -> write_line cr buf key params ~dont_write_value (date_or_time_to_ics date_or_time)
+      | `Transparency (params, transp) -> output params (write_string (List.assoc transp transp_strings))
+      | `Dtend (params, date_or_time) -> output (move_tzid_of_d_or_dt date_or_time params) (date_or_time_to_ics date_or_time)
 
   let event_props_to_ics cr buf filter props = List.iter (event_prop_to_ics cr buf filter) props
 
@@ -986,12 +1000,13 @@ module Writer = struct
     let is_write_prop, dont_write_value = write_prop_and_value key filter in
     if not is_write_prop then ()
     else
+      let output params v = write_line cr buf key params ~dont_write_value v in
       match prop with
       | #general_prop as x -> general_prop_to_ics cr buf ~dont_write_value x
       | #other_prop as x -> other_prop_to_ics cr buf ~dont_write_value x
-      | `Completed (params, ts) -> write_line cr buf key params ~dont_write_value (timestamp_to_ics (`Utc ts))
-      | `Percent (params, pct) -> write_line cr buf key params ~dont_write_value (write_string (string_of_int pct))
-      | `Due (params, date_or_time) -> write_line cr buf key params ~dont_write_value (date_or_time_to_ics date_or_time)
+      | `Completed (params, ts) -> output params (timestamp_to_ics (`Utc ts))
+      | `Percent (params, pct) -> output params (write_string (string_of_int pct))
+      | `Due (params, date_or_time) -> output (move_tzid_of_d_or_dt date_or_time params) (date_or_time_to_ics date_or_time)
 
   let todo_props_to_ics cr buf filter props = List.iter (todo_prop_to_ics cr buf filter) props
 
