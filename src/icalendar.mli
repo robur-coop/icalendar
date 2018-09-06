@@ -277,7 +277,7 @@ val recur_events : event -> (unit -> event option)
 
 val normalize_timezone : Ptime.t -> bool * String.t ->
   timezone_prop list list ->
-  Ptime.t
+  Ptime.t option
 
 (*
 val add_tzid_offset : timestamp_local -> string -> timezone list -> timestamp_utc

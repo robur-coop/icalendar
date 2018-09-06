@@ -2423,7 +2423,7 @@ let normal_tz_test () =
   and tzid = (false, "America/New_York")
   in
   let expected = to_ptime (2018, 08, 12) (04, 30, 00) in
-  Alcotest.(check compare_ptime __LOC__ expected
+  Alcotest.(check (option compare_ptime) __LOC__ (Some expected)
               (Icalendar.normalize_timezone datetime tzid [ timezone ]))
 
 let ts_exists_twice () =
@@ -2431,7 +2431,7 @@ let ts_exists_twice () =
   and tzid = (false, "America/New_York")
   in
   let expected = to_ptime (2007, 11, 04) (05, 30, 00) in
-  Alcotest.(check compare_ptime __LOC__ expected
+  Alcotest.(check (option compare_ptime) __LOC__ (Some expected)
               (Icalendar.normalize_timezone datetime tzid [ timezone ]))
 
 let ts_non_existing () =
@@ -2439,7 +2439,7 @@ let ts_non_existing () =
   and tzid = (false, "America/New_York")
   in
   let expected = to_ptime (2007, 03, 11) (07, 30, 00) in
-  Alcotest.(check compare_ptime __LOC__ expected
+  Alcotest.(check (option compare_ptime) __LOC__ (Some expected)
               (Icalendar.normalize_timezone datetime tzid [ timezone ]))
 
 let tz_normalisation_tests = [

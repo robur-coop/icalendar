@@ -2159,38 +2159,40 @@ let recur_dates dtstart (rrule : recurrence) =
   Recurrence.new_gen dtstart rrule
 
 let date_or_datetime_to_ptime = function
-  | `Datetime (`Utc dtstart) -> dtstart, true, true
-  | `Datetime (`Local dtstart) -> dtstart, false, true
-  | `Datetime (`With_tzid (ts, tzid)) -> ts, false, true
+  | `Datetime (`Utc dtstart) -> dtstart
+  | `Datetime (`Local dtstart) -> dtstart
+  | `Datetime (`With_tzid (ts, tzid)) -> ts
   | `Date start -> match Ptime.of_date_time (start, ((0, 0, 0), 0)) with
     | None -> assert false
-    | Some dtstart -> dtstart, false, false
+    | Some dtstart -> dtstart
 
-let ptime_to_date_or_datetime ts utc is_datetime =
-  if is_datetime
-  then `Datetime (if utc then `Utc ts else `Local ts)
-  else `Date (fst @@ Ptime.to_date_time ts)
+let date_or_datetime_with_ptime d_or_dt ts = 
+  match d_or_dt with
+  | `Date _ -> `Date (fst @@ Ptime.to_date_time ts)
+  | `Datetime (`Utc _) -> `Datetime (`Utc ts)
+  | `Datetime (`Local _) -> `Datetime (`Local ts)
+  | `Datetime (`With_tzid (_, tzid)) -> `Datetime (`With_tzid (ts, tzid))
 
 (* TODO handle Exdate and Rdate *)
 let recur_events event = match event.rrule with
   | None -> (fun () -> None)
   | Some (_, recur) ->
-    let dtstart, utc, is_datetime = date_or_datetime_to_ptime (snd event.dtstart) in
+    let dtstart = date_or_datetime_to_ptime (snd event.dtstart) in
     let adjust_dtend ts = match event.dtend_or_duration with
       | None -> None
       | Some (`Duration d) -> Some (`Duration d)
       | Some (`Dtend (params, d_o_dt)) ->
-        let dtend, utc, is_datetime = date_or_datetime_to_ptime d_o_dt in
+        let dtend = date_or_datetime_to_ptime d_o_dt in
         let span = Ptime.diff dtend dtstart in
         let ts' = add_span ts span in
-        let v = ptime_to_date_or_datetime ts' utc is_datetime in
+        let v = date_or_datetime_with_ptime d_o_dt ts' in
         Some (`Dtend (params, v))
     in
     let newdate = recur_dates dtstart recur in
     (fun () -> match newdate () with
        | None -> None
        | Some ts ->
-         let dtstart = (fst event.dtstart, ptime_to_date_or_datetime ts utc is_datetime)
+         let dtstart = (fst event.dtstart, date_or_datetime_with_ptime (snd event.dtstart) ts)
          and dtend_or_duration = adjust_dtend ts
          in
          Some { event with dtstart ; dtend_or_duration })
@@ -2249,34 +2251,36 @@ let calculate_offset (props : tz_prop list) ts datetime =
 
 let normalize_timezone datetime (is_unique, tzid) (timezones : timezone_prop list list) =
   (* TODO optimize timezone data structure *)
-  let timezoneprops =
-    List.find (fun tzprops ->
+  match
+    List.find_opt (fun tzprops ->
         List.exists (function
             | `Timezone_id (_, (is_unique', tzid')) ->
               is_unique = is_unique' && String.equal tzid tzid'
             | _ -> false) tzprops)
       timezones
-  in
-  let opt d = function
-    | None -> None
-    | Some ts -> Some (ts, d)
-  in
-  let relevant_offsets =
-    List.map (function
-        | `Standard props -> opt props (occurence_before_timestamp datetime props)
-        | `Daylight props -> opt props (occurence_before_timestamp datetime props)
-        | _ -> None)
-      timezoneprops
-  in
-  let ts, props =
-    List.fold_left
-      (fun (a, props) -> function
-         | None -> (a, props)
-         | Some (ts, d) ->
-           if Ptime.is_later ~than:a ts then (ts, d) else (a, props))
-      (Ptime.min, []) relevant_offsets
-  in
-  calculate_offset props ts datetime
+  with
+  | None -> None
+  | Some timezoneprops ->
+    let opt d = function
+      | None -> None
+      | Some ts -> Some (ts, d)
+    in
+    let relevant_offsets =
+      List.map (function
+          | `Standard props -> opt props (occurence_before_timestamp datetime props)
+          | `Daylight props -> opt props (occurence_before_timestamp datetime props)
+          | _ -> None)
+        timezoneprops
+    in
+    let ts, props =
+      List.fold_left
+        (fun (a, props) -> function
+           | None -> (a, props)
+           | Some (ts, d) ->
+             if Ptime.is_later ~than:a ts then (ts, d) else (a, props))
+        (Ptime.min, []) relevant_offsets
+    in
+    Some (calculate_offset props ts datetime)
 
 (*
 let timepair_to_utc (ts, utc) offset_to_utc =
