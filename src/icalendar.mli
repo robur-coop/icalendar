@@ -1,7 +1,7 @@
 
 (* TODO: tag these with `Utc | `Local *)
-type utc_timestamp = Ptime.t
-type local_timestamp = Ptime.t
+type utc_timestamp = Ptime.t [@@deriving eq, show]
+type local_timestamp = Ptime.t [@@deriving eq, show]
 
 type utc_or_local_timestamp = [
   | `Utc of utc_timestamp
@@ -113,6 +113,9 @@ type status = [ `Draft | `Final | `Cancelled |
                 `Needs_action | `Completed | `In_process | (* `Cancelled *)
                 `Tentative | `Confirmed (* | `Cancelled *) ]
 
+type dates_or_datetimes = [ `Datetimes of timestamp list | `Dates of Ptime.date list ]
+type dates_or_datetimes_or_periods = [ dates_or_datetimes | `Periods of (timestamp * Ptime.Span.t) list ]
+
 type general_prop = [
   | `Dtstamp of params * utc_timestamp
   | `Uid of params * string
@@ -141,13 +144,11 @@ type general_prop = [
   | `Categories of params * string list
   | `Comment of params * string
   | `Contact of params * string
-  | `Exdate of params *
-    [ `Datetimes of timestamp list | `Dates of Ptime.date list ]
+  | `Exdate of params * dates_or_datetimes
   | `Rstatus of params * ((int * int * int option) * string * string option)
   | `Related of params * string
   | `Resource of params * string list
-  | `Rdate of params *
-              [ `Datetimes of timestamp list | `Dates of Ptime.date list | `Periods of (timestamp * Ptime.Span.t) list ]
+  | `Rdate of params * dates_or_datetimes_or_periods
 ]
 
 type event_prop = [
@@ -188,7 +189,7 @@ type tz_prop = [
   | `Tzoffset_from of params * Ptime.Span.t
   | `Rrule of params * recurrence
   | `Comment of params * string
-  | `Rdate of params * [ `Datetimes of timestamp list | `Dates of Ptime.date list | `Periods of (timestamp * Ptime.Span.t) list ]
+  | `Rdate of params * dates_or_datetimes_or_periods
   | `Tzname of params * string
   | other_prop
 ]
@@ -264,6 +265,7 @@ val to_ics : ?cr:bool -> ?filter:component_transform option -> calendar -> strin
 
 module Writer : sig
   val duration_to_ics : Ptime.Span.t -> Buffer.t -> unit
+  val cal_prop_to_ics_key : cal_prop -> string
 end
 
 val recur_dates : Ptime.t -> recurrence -> (unit -> Ptime.t option)

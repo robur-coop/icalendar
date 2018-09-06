@@ -377,6 +377,9 @@ type status = [ `Draft | `Final | `Cancelled |
                 `Needs_action | `Completed | `In_process | (* `Cancelled *)
                 `Tentative | `Confirmed (* | `Cancelled *) ] [@@deriving eq, show]
 
+type dates_or_datetimes = [ `Datetimes of timestamp list | `Dates of Ptime.date list ] [@@deriving eq, show]
+type dates_or_datetimes_or_periods = [ dates_or_datetimes | `Periods of (timestamp * Ptime.Span.t) list ] [@@deriving eq, show]
+
 type general_prop = [
   | `Dtstamp of params * utc_timestamp
   | `Uid of params * string
@@ -405,13 +408,11 @@ type general_prop = [
   | `Categories of params * string list
   | `Comment of params * string
   | `Contact of params * string
-  | `Exdate of params *
-    [ `Datetimes of timestamp list | `Dates of Ptime.date list ]
+  | `Exdate of params * dates_or_datetimes
   | `Rstatus of params * ((int * int * int option) * string * string option)
   | `Related of params * string
   | `Resource of params * string list
-  | `Rdate of params *
-              [ `Datetimes of timestamp list | `Dates of Ptime.date list | `Periods of (timestamp * Ptime.Span.t) list ]
+  | `Rdate of params * dates_or_datetimes_or_periods
 ] [@@deriving eq, show]
 
 type event_prop = [
@@ -452,7 +453,7 @@ type tz_prop = [
   | `Tzoffset_from of params * Ptime.Span.t
   | `Rrule of params * recurrence
   | `Comment of params * string
-  | `Rdate of params * [ `Datetimes of timestamp list | `Dates of Ptime.date list | `Periods of (timestamp * Ptime.Span.t) list ]
+  | `Rdate of params * dates_or_datetimes_or_periods
   | `Tzname of params * string
   | other_prop
 ] [@@deriving eq, show]
@@ -683,7 +684,7 @@ module Writer = struct
     | `Iana_prop (ianatoken, _, _) -> ianatoken
     | `Xprop ((vendor, token), _, _) -> print_x vendor token
 
-  let calprop_to_ics_key (prop: cal_prop) = match prop with
+  let cal_prop_to_ics_key (prop: cal_prop) = match prop with
     | `Prodid _ -> "PRODID"
     | `Version _ -> "VERSION"
     | `Calscale _ -> "CALSCALE"
@@ -703,7 +704,7 @@ module Writer = struct
       | Some (_, dont_print_value) -> true, dont_print_value
 
   let cal_prop_to_ics cr buf filter prop =
-    let key = calprop_to_ics_key prop in
+    let key = cal_prop_to_ics_key prop in
     let is_write_prop, dont_write_value = write_prop_and_value key filter in
     if not is_write_prop
     then ()
@@ -1610,12 +1611,29 @@ let time_or_date =
   (datetime >>| fun dt -> `Datetime dt)
   <|> (date >>| fun d -> `Date d)
 
+(* TODO remove tzid from params *)
+let move_tzid params d_or_dt =
+  match Params.find Tzid params, d_or_dt with 
+  | Some (global, tzid), `Datetime (`Local ts) -> (params, `Datetime (`With_tzid (ts, tzid)))
+  | _, _ -> (params, (d_or_dt :> date_or_datetime))
+
+let move_tzid_period params d_or_dt =
+  match d_or_dt with 
+  | #date_or_datetime as d_or_dt -> (move_tzid params d_or_dt :> (params * [ date_or_datetime | `Period of timestamp * Ptime.Span.t ]))
+  | `Period (`Local ts, span) -> 
+    let timestamp = match Params.find Tzid params with
+    | None -> `Local ts
+    | Some (global, tzid) -> `With_tzid (ts, tzid)
+    in
+    (params, `Period (timestamp, span))
+  | `Period p -> (params, `Period p)
+
 let dtstart =
   let dtstparam = valuetypeparam <|> tzidparam <|> other_param in
   propparser "DTSTART" dtstparam time_or_date
     (fun a b ->
        check_date_datetime `Datetime a b ;
-       `Dtstart (a, b))
+       `Dtstart (move_tzid a b))
 
 let completed =
   propparser "COMPLETED" other_param (datetime >>= utc_only)
@@ -1631,7 +1649,7 @@ let due =
   propparser "DUE" dueparam time_or_date
     (fun a b ->
        check_date_datetime `Datetime a b ;
-       `Due (a, b))
+       `Due (move_tzid a b))
 
 let class_ =
   let class_value = choice (string_parsers class_strings)
@@ -1694,7 +1712,7 @@ let recurid =
   propparser "RECURRENCE-ID" recur_param time_or_date
     (fun a b ->
        check_date_datetime `Datetime a b ;
-       `Recur_id (a, b))
+       `Recur_id (move_tzid a b))
 
 let rrule =
   propparser "RRULE" other_param recur (fun a b -> `Rrule (a, b))
@@ -1704,7 +1722,7 @@ let dtend =
   propparser "DTEND" dtend_param time_or_date
     (fun a b ->
        check_date_datetime `Datetime a b ;
-       `Dtend (a, b))
+       `Dtend (move_tzid a b))
 
 let duration =
   propparser "DURATION" other_param dur_value (fun a b -> `Duration (a, b))
@@ -1757,25 +1775,29 @@ let contact =
   let contactparam = languageparam <|> altrepparam <|> other_param in
   propparser "CONTACT" contactparam text (fun a b -> `Contact (a, b))
 
+(* collect dates and datetimes into tagged list *)
+let move_tzid_and_collect_d_or_dt params (d_or_dts : [date_or_datetime | `Period of timestamp * Ptime.Span.t] list) = 
+  let is_date = function `Date _ -> true | _ -> false
+  and is_datetime = function `Datetime _ -> true | _ -> false
+  in
+  if List.for_all is_date d_or_dts then
+    let extract = function `Date d -> d | _ -> raise (Parse_error "exdate: date") in
+    Some (`Dates (List.map extract d_or_dts))
+  else if List.for_all is_datetime d_or_dts then
+    let datetimes = List.map (move_tzid_period params) d_or_dts in
+    let extract = function (_, `Datetime d) -> d | _ -> raise (Parse_error "exdate: datetime") in
+    Some (`Datetimes (List.map extract datetimes))
+  else None
+ 
 let exdate =
   let exdtparam = valuetypeparam <|> tzidparam <|> other_param in
   let exdtvalue = sep_by1 (char ',') time_or_date in
   propparser "EXDATE" exdtparam exdtvalue
     (fun a b ->
-       List.iter (check_date_datetime `Datetime a) b ;
-       let is_date = function `Date _ -> true | _ -> false
-       and is_datetime = function `Datetime _ -> true | _ -> false
-       in
-       let date =
-         if List.for_all is_date b then
-           let extract = function `Date d -> d | _ -> raise (Parse_error "exdate: date") in
-           `Dates (List.map extract b)
-         else if List.for_all is_datetime b then
-           let extract = function `Datetime d -> d | _ -> raise (Parse_error "exdate: datetime") in
-           `Datetimes (List.map extract b)
-         else raise (Parse_error "exdate: value neither date nor datetime")
-       in
-       `Exdate (a, date))
+      List.iter (check_date_datetime `Datetime a) b ;
+      match move_tzid_and_collect_d_or_dt a b with
+      | None -> raise (Parse_error "exdate: value neither date nor datetime")
+      | Some d_or_dts -> `Exdate (a, d_or_dts))
 
 let rstatus =
   let rstatparam = languageparam <|> other_param in
@@ -1815,23 +1837,17 @@ let rdate =
   propparser "RDATE" rdtparam rdtvalue
     (fun a b ->
        List.iter (check_date_datetime_period `Datetime a) b ;
-       let is_date = function `Date _ -> true | _ -> false
-       and is_datetime = function `Datetime _ -> true | _ -> false
-       and is_period = function `Period _ -> true | _ -> false
+       let is_period = function `Period _ -> true | _ -> false in
+       let ds_or_dts_or_ps = match move_tzid_and_collect_d_or_dt a b with
+         | Some ds_or_dts -> (ds_or_dts :> dates_or_datetimes_or_periods) 
+         | None -> 
+           if List.for_all is_period b then
+             let periods = List.map (move_tzid_period a) b in
+             let extract = function (_, `Period d) -> d | _ -> raise (Parse_error "rdate: period") in
+             `Periods (List.map extract periods)
+           else raise (Parse_error "rdate: value neither date nor datetime nor period")
        in
-       let date =
-         if List.for_all is_date b then
-           let extract = function `Date d -> d | _ -> raise (Parse_error "rdate: date") in
-           `Dates (List.map extract b)
-         else if List.for_all is_datetime b then
-           let extract = function `Datetime d -> d | _ -> raise (Parse_error "rdate: datetime") in
-           `Datetimes (List.map extract b)
-         else if List.for_all is_period b then
-           let extract = function `Period d -> d | _ -> raise (Parse_error "rdate: period") in
-           `Periods (List.map extract b)
-         else raise (Parse_error "rdate: value neither date nor datetime nor period")
-       in
-       `Rdate (a, date))
+       `Rdate (a, ds_or_dts_or_ps))
 
 let event_prop =
   dtstamp <|> uid <|>

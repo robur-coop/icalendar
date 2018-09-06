@@ -118,7 +118,7 @@ END:VCALENDAR
     let event = {
       uid = (empty, "19970610T172345Z-AF23B2@example.com") ;
       dtstamp = (empty, to_ptime (1997, 06, 10) (17, 23, 45) ) ;
-      dtstart = (singleton Tzid (false, "America/New_York"), `Datetime (`Local (to_ptime (1997, 07, 14) (17, 00, 00)))) ;
+      dtstart = (singleton Tzid (false, "America/New_York"), `Datetime (`With_tzid (to_ptime (1997, 07, 14) (17, 00, 00), "America/New_York"))) ;
       dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Summary (empty, "Bastille Day Party") ] ;
@@ -1127,7 +1127,7 @@ END:VCALENDAR
     ]
   and expecteds = List.map expected [
       `Rdate (empty, `Datetimes [ `Utc (to_ptime (1997, 07, 14) (12, 30, 00)) ]) ;
-      `Rdate (singleton Tzid (false, "America/New_York"), `Datetimes [ `Local (to_ptime (1997, 07, 14) (08, 30, 00)) ]) ;
+      `Rdate (singleton Tzid (false, "America/New_York"), `Datetimes [ `With_tzid (to_ptime (1997, 07, 14) (08, 30, 00), "America/New_York") ]) ;
       `Rdate (singleton Valuetype `Period, `Periods [
           (`Utc (to_ptime (1996, 04, 03) (02, 00, 00)), Ptime.Span.of_int_s (2 * 60 * 60)) ;
           (`Utc (to_ptime (1996, 04, 04) (01, 00, 00)), Ptime.Span.of_int_s (3 * 60 * 60))
@@ -2282,11 +2282,11 @@ END:VCALENDAR
                `Uid ((empty, "F41EFFCF-2483-43CE-A10E-91C484419193"));
                `Summary ((empty, "tomorrow buy milk"));
                `Dtstart ((singleton Tzid (false, "Europe/Paris"),
-                          `Datetime ((`Local (to_ptime (2018,09,05) (12,00,00))))));
+                          `Datetime ((`With_tzid (to_ptime (2018,09,05) (12,00,00), "Europe/Paris")))));
                `Dtstamp ((empty, to_ptime (2018,09,04) (11,24,32)));
                `Seq ((empty, 0));
                `Due ((singleton Tzid (false, "Europe/Paris"),
-                      `Datetime ((`Local (to_ptime (2018,09,05) (12,00,00))))))
+                      `Datetime ((`With_tzid (to_ptime (2018,09,05) (12,00,00), "Europe/Paris")))))
                ],
              [`Display ({ Icalendar.trigger =
                           (singleton Valuetype `Datetime,
