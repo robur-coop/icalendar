@@ -1222,7 +1222,9 @@ let string_parsers m =
 (* pre-processing of the input: remove "\n " *)
 let normalize_lines s =
   let re = Re.compile ( Re.Perl.re ~opts:[`Multiline] "(\n|\r\n)^\\s" ) in
-  Re.replace_string ~all:true re ~by:"" s
+  let s' = Re.replace_string ~all:true re ~by:"" s in
+  (* Firefox OS kludge: may not sent trailing newline *)
+  if String.get s' (pred (String.length s')) <> '\n' then s' ^ "\n" else s'
 
 (* Terminal parsers and helpers *)
 let ensure f x = try return (f x) with Failure _ -> fail "parse error"
@@ -2064,6 +2066,17 @@ let build_event eventprops alarms =
   let alarms' = List.fold_left f [] alarms in
   match dtstamp, uid, dtstart with
   | [ `Dtstamp dtstamp ], [ `Uid uid ], [ `Dtstart dtstart ] ->
+    `Event { dtstamp ; uid ; dtstart ; dtend_or_duration ; rrule ; props = rest'''' ; alarms = alarms' }
+  | _, [ `Uid uid ], [ `Dtstart dtstart ] ->
+    (* Firefox OS (g2b) kludge: tries to create event without dtstamp *)
+    let dtstamp = Params.empty, match snd dtstart with
+      | `Date d -> begin match Ptime.of_date_time (d, ((0, 0, 0), 0)) with
+          | None -> raise (Parse_error "couldn't convert dtstart to timestamp")
+          | Some x -> x end
+      | `Datetime (`Utc ts) -> ts
+      | `Datetime (`Local ts) -> ts
+      | `Datetime (`With_tzid (ts, _)) -> ts
+    in
     `Event { dtstamp ; uid ; dtstart ; dtend_or_duration ; rrule ; props = rest'''' ; alarms = alarms' }
   | _ -> raise (Parse_error "build_event: missing dtstamp, uid or dtstart")
 
