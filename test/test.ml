@@ -2304,11 +2304,100 @@ END:VCALENDAR
      ]) in
   Alcotest.check result_c __LOC__ expected (Icalendar.parse input)
 
+let apple_event () =
+  let input = {|BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//iOS 11.4.1//EN
+VERSION:2.0
+BEGIN:VTIMEZONE
+TZID:Europe/Berlin
+BEGIN:DAYLIGHT
+DTSTART:19810329T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU
+TZNAME:CEST
+TZOFFSETFROM:+0100
+TZOFFSETTO:+0200
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:19961027T030000
+RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU
+TZNAME:CET
+TZOFFSETFROM:+0200
+TZOFFSETTO:+0100
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+CREATED:20180930T150537Z
+DTEND;TZID=Europe/Berlin:20180930T180000
+DTSTAMP:20180930T150538Z
+DTSTART;TZID=Europe/Berlin:20180930T170000
+LAST-MODIFIED:20180930T150537Z
+SEQUENCE:0
+SUMMARY:hhhhhhhh
+TRANSP:OPAQUE
+UID:C0A734CB-5A7B-40E1-A49D-018083F5B469
+URL;VALUE=URI:
+BEGIN:VALARM
+ACTION:NONE
+TRIGGER;VALUE=DATE-TIME:19760401T005545Z
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+|}
+  and expected =
+    let timezone = [
+      `Timezone_id (empty, (false, "Europe/Berlin"));
+      `Daylight ([
+          `Dtstart_local (empty, to_ptime (1981, 03, 29) (02, 00, 00));
+          `Rrule (empty, (`Yearly, None, None, [`Bymonth ([3]); `Byday ([(-1, `Sunday)])]));
+          `Tzname (empty, "CEST");
+          `Tzoffset_from (empty, Ptime.Span.of_int_s @@ 60*60);
+          `Tzoffset_to (empty, Ptime.Span.of_int_s @@ 2*60*60)
+        ]);
+      `Standard ([
+          `Dtstart_local (empty, to_ptime (1996, 10, 27) (03, 00, 00));
+          `Rrule (empty, (`Yearly, None, None, [`Bymonth ([10]); `Byday ([(-1, `Sunday)])]));
+          `Tzname (empty, "CET");
+          `Tzoffset_from (empty, Ptime.Span.of_int_s @@ 2*60*60);
+          `Tzoffset_to (empty, Ptime.Span.of_int_s @@ 60*60)])
+    ]
+    in
+    let event = {
+      dtstamp = (empty, to_ptime (2018, 09, 30) (15, 05, 38)) ;
+      uid = (empty, "C0A734CB-5A7B-40E1-A49D-018083F5B469");
+      dtstart =
+        (empty, `Datetime (`With_tzid (to_ptime (2018, 09, 30) (17, 00, 00),
+                                       (false, "Europe/Berlin"))));
+      dtend_or_duration =
+        (Some (`Dtend (empty, `Datetime (`With_tzid (to_ptime (2018, 09, 30) (18, 00, 00),
+                                                    (false, "Europe/Berlin"))))));
+      rrule = None;
+      props = [
+        `Created (empty, to_ptime (2018, 09, 30) (15, 05, 37));
+        `Lastmod (empty, to_ptime (2018, 09, 30) (15, 05, 37));
+        `Seq (empty, 0);
+        `Summary (empty, "hhhhhhhh");
+        `Transparency (empty, `Opaque);
+        `Iana_prop ("URL", singleton Valuetype `Uri, "")
+      ];
+      alarms =
+        [`None ({ trigger = (singleton Valuetype `Datetime,
+                             `Datetime (to_ptime (1976, 04, 01) (00,55,45)));
+                  duration_repeat = None; other = []; special = () })
+        ]
+    } in
+    Ok
+      ([ `Calscale (empty, "GREGORIAN") ; `Prodid (empty, "-//Apple Inc.//iOS 11.4.1//EN") ; `Version (empty, "2.0") ],
+       [ `Timezone timezone ; `Event event ])
+  in
+  Alcotest.check result_c __LOC__ expected (Icalendar.parse input)
+
 let decode_encode_tests = [
   "encode durations", `Quick, encode_durations ;
   "decode and encode is identity", `Quick, decode_encode ;
   "apple calendar tester case for put", `Quick, x_apple_put ;
   "apple reminders app todos", `Quick, apple_reminder_todos ;
+  "apple calendar.app event", `Quick, apple_event ;
 ]
 
 let reply_busy_time () =

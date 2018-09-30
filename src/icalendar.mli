@@ -184,7 +184,12 @@ type email_struct = {
   attach: (params * [ `Uri of Uri.t | `Binary of string ]) option ;
 }
 
-type alarm = [ `Audio of audio_struct alarm_struct | `Display of display_struct alarm_struct | `Email of email_struct alarm_struct ]
+type alarm = [
+  | `Audio of audio_struct alarm_struct
+  | `Display of display_struct alarm_struct
+  | `Email of email_struct alarm_struct
+  | `None of unit alarm_struct
+]
 
 type tz_prop = [
   | `Dtstart_local of params * timestamp_local

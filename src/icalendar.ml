@@ -448,7 +448,12 @@ type email_struct = {
   attach: (params * [ `Uri of Uri.t | `Binary of string ]) option ;
 } [@@deriving eq, show]
 
-type alarm = [ `Audio of audio_struct alarm_struct | `Display of display_struct alarm_struct | `Email of email_struct alarm_struct ] [@@deriving eq, show]
+type alarm = [
+  | `Audio of audio_struct alarm_struct
+  | `Display of display_struct alarm_struct
+  | `Email of email_struct alarm_struct
+  | `None of unit alarm_struct
+] [@@deriving eq, show]
 
 type tz_prop = [
   | `Dtstart_local of params * timestamp_local
@@ -1067,7 +1072,7 @@ module Writer = struct
          prop_to_ics (`Duration_repeat display.duration_repeat) ;
          prop_to_ics (`Description display.special.description) ;
          List.iter prop_to_ics display.other
-       | `Email email ->
+       | `Email (email : email_struct alarm_struct) ->
          prop_to_ics (`Action "EMAIL") ;
          prop_to_ics (`Trigger email.trigger) ;
          prop_to_ics (`Duration_repeat email.duration_repeat) ;
@@ -1076,10 +1081,16 @@ module Writer = struct
          prop_to_ics (`Summary email.special.summary) ;
          List.iter (fun attendee -> prop_to_ics (`Attendee attendee)) email.special.attendees;
          List.iter prop_to_ics email.other
+       | `None (alarm : unit alarm_struct) ->
+         prop_to_ics (`Action "NONE") ;
+         prop_to_ics (`Trigger alarm.trigger) ;
+         prop_to_ics (`Duration_repeat alarm.duration_repeat) ;
+         List.iter prop_to_ics alarm.other
     in
     filter_and_write_component component_writer "VALARM" filter
 
-  let alarms_to_ics cr buf filter alarms = List.iter (alarm_to_ics cr buf filter) alarms
+  let alarms_to_ics cr buf filter alarms =
+    List.iter (alarm_to_ics cr buf filter) alarms
 
   let event_to_ics cr buf prop_filter comp_filter event =
     let prop_to_ics = event_prop_to_ics cr buf prop_filter in
@@ -1917,6 +1928,7 @@ let action =
         (string "AUDIO" >>| fun _ -> `Audio)
     <|> (string "DISPLAY" >>| fun _ -> `Display)
     <|> (string "EMAIL" >>| fun _ -> `Email)
+    <|> (string "NONE" >>| fun _ -> `None)
     <|> (iana_token >>| fun x -> `Ianatoken x)
     <|> (x_name >>| fun (vendor, name) -> `Xname (vendor, name))
   in
@@ -1976,7 +1988,7 @@ let build_alarm props =
    | `Xprop v -> (`Xprop v :: other, rest)
    | `Iana_prop v -> (`Iana_prop v :: other, rest)
    | v -> other, v :: rest) ([], []) rest' in
-  
+
   (* check dur repeat *)
   let duration_repeat, rest''' =
     let durations, rest''' = List.partition (function `Duration _ -> true | _ -> false ) rest'' in
@@ -2026,11 +2038,16 @@ let build_alarm props =
      | [] -> `Email { trigger ; duration_repeat ; other ; special = { description ; summary ; attach ; attendees } }
      | _ -> raise (Parse_error "build_email: unknown input after attach") in
 
+  let build_none rest =
+    `None { trigger ; duration_repeat ; other ; special = () }
+  in
+
   match action with
-    | _, `Audio -> build_audio rest'''
-    | _, `Display -> build_display rest'''
-    | _, `Email -> build_email rest'''
-    | _, _ -> raise (Parse_error "build_alarm: unknown action, not supported")
+  | _, `Audio -> build_audio rest'''
+  | _, `Display -> build_display rest'''
+  | _, `Email -> build_email rest'''
+  | _, `None -> build_none rest'''
+  | _, _ -> raise (Parse_error "build_alarm: unknown action, not supported")
 
 let alarmc =
   string "BEGIN:VALARM" *> end_of_line *>
