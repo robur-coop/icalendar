@@ -2392,12 +2392,62 @@ END:VCALENDAR
   in
   Alcotest.check result_c __LOC__ expected (Icalendar.parse input)
 
+let firefox_os_put () =
+  let input = {|BEGIN:VCALENDAR
+PRODID:-//Mozilla//FirefoxOS
+VERSION:2.0
+BEGIN:VEVENT
+UID:36bfc385-c19e-4533-8629-329e0e7d1e55
+SUMMARY:adgjmptw
+DESCRIPTION:\n
+LOCATION:
+SEQUENCE:1
+DTSTART;VALUE=DATE:20180924
+DTEND;VALUE=DATE:20180925
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:This is an event reminder
+TRIGGER;RELATIVE=START:-PT15H
+END:VALARM
+END:VEVENT
+END:VCALENDAR|}
+  in
+  let expected =
+    let event = {
+      dtstamp = (empty, to_ptime (2018, 09, 24) (0, 0, 0)) ;
+      uid = (empty, "36bfc385-c19e-4533-8629-329e0e7d1e55");
+      dtstart = (singleton Valuetype `Date, `Date (2018, 09, 24));
+      dtend_or_duration = Some (`Dtend (singleton Valuetype `Date, `Date (2018, 09, 25)));
+      rrule = None ;
+      props = [
+        `Summary (empty, "adgjmptw") ;
+        `Description (empty, "\n") ;
+        `Iana_prop ("LOCATION", empty, "");
+        `Seq (empty, 1)
+      ] ;
+      alarms = [
+        `Display {
+          trigger = (singleton Iana_param ("RELATIVE", [ `String "START" ]),
+                     `Duration (Ptime.Span.of_int_s (- 15 * 60* 60))) ;
+          duration_repeat = None ;
+          other = [] ;
+          special = { description = (empty, "This is an event reminder") }
+        }
+      ]
+    } in
+    Ok
+      ([ `Prodid (empty, "-//Mozilla//FirefoxOS") ; `Version (empty, "2.0") ],
+       [ `Event event ])
+  in
+  Alcotest.check result_c __LOC__ expected (Icalendar.parse input)
+
 let decode_encode_tests = [
   "encode durations", `Quick, encode_durations ;
   "decode and encode is identity", `Quick, decode_encode ;
   "apple calendar tester case for put", `Quick, x_apple_put ;
   "apple reminders app todos", `Quick, apple_reminder_todos ;
   "apple calendar.app event", `Quick, apple_event ;
+  "firefox OS put event", `Quick, firefox_os_put ;
 ]
 
 let reply_busy_time () =
