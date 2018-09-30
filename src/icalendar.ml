@@ -1233,9 +1233,7 @@ let string_parsers m =
 (* pre-processing of the input: remove "\n " *)
 let normalize_lines s =
   let re = Re.compile ( Re.Perl.re ~opts:[`Multiline] "(\n|\r\n)^\\s" ) in
-  let s' = Re.replace_string ~all:true re ~by:"" s in
-  (* Firefox OS kludge: may not sent trailing newline *)
-  if String.get s' (pred (String.length s')) <> '\n' then s' ^ "\n" else s'
+  Re.replace_string ~all:true re ~by:"" s
 
 (* Terminal parsers and helpers *)
 let ensure f x = try return (f x) with Failure _ -> fail "parse error"
@@ -2179,7 +2177,9 @@ let icalbody = lift2 pair calprops component
 let calobject =
   string "BEGIN:VCALENDAR" *> end_of_line *>
   icalbody
-  <* string "END:VCALENDAR" <* end_of_line <* end_of_input
+  <* string "END:VCALENDAR" <*
+  (* "option ()" is a workaround for FirefoxOS, which does not end with a newline *)
+  option () end_of_line <* end_of_input
 
 let parse (str : string) : (calendar, string) result =
   try parse_string calobject (normalize_lines str)
@@ -2196,7 +2196,7 @@ let date_or_datetime_to_ptime = function
     | None -> assert false
     | Some dtstart -> dtstart
 
-let date_or_datetime_with_ptime d_or_dt ts = 
+let date_or_datetime_with_ptime d_or_dt ts =
   match d_or_dt with
   | `Date _ -> `Date (fst @@ Ptime.to_date_time ts)
   | `Datetime (`Utc _) -> `Datetime (`Utc ts)
