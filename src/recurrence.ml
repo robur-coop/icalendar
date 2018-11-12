@@ -208,8 +208,10 @@ let weekday_matches (y, m, d) (x, wd) =
     let n = succ (pred d / 7) in
     match x with
     | 0 -> true
-    | x when x > 0 -> n = x
-    | x when x < 0 -> 
+    | x -> 
+      if x > 0 
+      then n = x
+      else
         let total = n + (days_in_month y m - d) / 7 in
         n = total + succ x
   else false
@@ -224,8 +226,10 @@ let yearly_weekday_matches (y, m, d) (x, wd) =
     in
     match x with
     | 0 -> true
-    | x when x > 0 -> n = x
-    | x when x < 0 -> 
+    | x -> 
+      if x > 0 
+      then n = x
+      else
         let total = n + (days_in_year y - n) / 7 in
         n = total + succ x
   else false
@@ -408,7 +412,7 @@ let next_until g =
   else None
 
 let add_missing_filters recurs freq start =
-  let s_date, s_time = Ptime.to_date_time start in
+  let s_date, _s_time = Ptime.to_date_time start in
   let bymonth = find_opt (function `Bymonth x -> Some x | _ -> None) recurs
   and byweekno = find_opt (function `Byweek x -> Some x | _ -> None) recurs
   and byyearday = find_opt (function `Byyearday x -> Some x | _ -> None) recurs

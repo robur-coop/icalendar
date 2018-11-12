@@ -1,3 +1,4 @@
+[@@@ocaml.warning "-32"]
 module Uri = struct
   include Uri
   let pp = pp_hum
@@ -74,45 +75,11 @@ type _ icalparameter =
   | Iana_param : (string * param_value list) icalparameter
   | Xparam : ((string * string) * param_value list) icalparameter
 
-(*
-let rec (equal_icalparameter
-          _ icalparameter -> _ icalparameter -> Ppx_deriving_runtime.bool)
-  =
-  ((let open! Ppx_deriving_runtime in
-      fun lhs ->
-        fun rhs ->
-          match (lhs, rhs) with
-          | (Altrep, Altrep) -> true
-          | (Cn, Cn) -> true
-          | (Cutype, Cutype) -> true
-          | (Delegated_from, Delegated_from) -> true
-          | (Delegated_to, Delegated_to) -> true
-          | (Dir, Dir) -> true
-          | (Encoding, Encoding) -> true
-          | (Media_type, Media_type) -> true
-          | (Fbtype, Fbtype) -> true
-          | (Language, Language) -> true
-          | (Member, Member) -> true
-          | (Partstat, Partstat) -> true
-          | (Range, Range) -> true
-          | (Related, Related) -> true
-          | (Reltype, Reltype) -> true
-          | (Role, Role) -> true
-          | (Rsvp, Rsvp) -> true
-          | (Sentby, Sentby) -> true
-          | (Tzid, Tzid) -> true
-          | (Valuetype, Valuetype) -> true
-          | (Iana_param, Iana_param) -> true
-          | (Xparam, Xparam) -> true
-          | _ -> false)
-  [@ocaml.warning "-A"])[@@ocaml.warning "-39"]
-*)
-
-let rec equal_icalparameter : type a b.
+let equal_icalparameter : type a b.
           a icalparameter -> a -> b icalparameter -> b -> Ppx_deriving_runtime.bool
   =
   (* type system ensures that the values fit the constructors *)
-  ((let open! Ppx_deriving_runtime in
+  let open! Ppx_deriving_runtime in
       fun lhs_c lhs_v ->
         fun rhs_c rhs_v ->
           match (lhs_c, rhs_c) with
@@ -140,104 +107,12 @@ let rec equal_icalparameter : type a b.
             String.equal (fst lhs_v) (fst rhs_v) && List.for_all2 equal_param_value (snd lhs_v) (snd rhs_v)
           | (Xparam, Xparam) -> String.equal (fst (fst lhs_v)) (fst (fst rhs_v)) && String.equal (snd (fst lhs_v)) (snd (fst rhs_v)) &&
                                 List.for_all2 equal_param_value (snd lhs_v) (snd rhs_v)
-          | _ -> false    )
-  [@ocaml.warning "-A"])[@@ocaml.warning "-39"]
+          | _ -> false 
 
-(* let rec (compare_icalparameter :
-          _ icalparameter -> _ icalparameter -> Ppx_deriving_runtime.int)
-  =
-  ((let open! Ppx_deriving_runtime in
-      fun lhs ->
-        fun rhs ->
-          match (lhs, rhs) with
-          | (Altrep, Altrep) -> 0
-          | (Cn, Cn) -> 0
-          | (Cutype, Cutype) -> 0
-          | (Delegated_from, Delegated_from) -> 0
-          | (Delegated_to, Delegated_to) -> 0
-          | (Dir, Dir) -> 0
-          | (Encoding, Encoding) -> 0
-          | (Media_type, Media_type) -> 0
-          | (Fbtype, Fbtype) -> 0
-          | (Language, Language) -> 0
-          | (Member, Member) -> 0
-          | (Partstat, Partstat) -> 0
-          | (Range, Range) -> 0
-          | (Related, Related) -> 0
-          | (Reltype, Reltype) -> 0
-          | (Role, Role) -> 0
-          | (Rsvp, Rsvp) -> 0
-          | (Sentby, Sentby) -> 0
-          | (Tzid, Tzid) -> 0
-          | (Valuetype, Valuetype) -> 0
-          | (Iana_param, Iana_param) -> 0
-          | (Xparam, Xparam) -> 0
-          | _ ->
-              let to_int =
-                function
-                | Altrep -> 0
-                | Cn -> 1
-                | Cutype -> 2
-                | Delegated_from -> 3
-                | Delegated_to -> 4
-                | Dir -> 5
-                | Encoding -> 6
-                | Media_type -> 7
-                | Fbtype -> 8
-                | Language -> 9
-                | Member -> 10
-                | Partstat -> 11
-                | Range -> 12
-                | Related -> 13
-                | Reltype -> 14
-                | Role -> 15
-                | Rsvp -> 16
-                | Sentby -> 17
-                | Tzid -> 18
-                | Valuetype -> 19
-                | Iana_param -> 20
-                | Xparam -> 21 in
-              Pervasives.compare (to_int lhs) (to_int rhs))
-  [@ocaml.warning "-A"])[@@ocaml.warning "-39"]
-*)
-
-(* let rec (pp_icalparameter :
-          Format.formatter -> _ icalparameter -> Ppx_deriving_runtime.unit)
-  =
-  ((let open! Ppx_deriving_runtime in
-      fun fmt ->
-        function
-        | Altrep -> Format.pp_print_string fmt "Icalendar.Altrep"
-        | Cn -> Format.pp_print_string fmt "Icalendar.Cn"
-        | Cutype -> Format.pp_print_string fmt "Icalendar.Cutype"
-        | Delegated_from ->
-            Format.pp_print_string fmt "Icalendar.Delegated_from"
-        | Delegated_to -> Format.pp_print_string fmt "Icalendar.Delegated_to"
-        | Dir -> Format.pp_print_string fmt "Icalendar.Dir"
-        | Encoding -> Format.pp_print_string fmt "Icalendar.Encoding"
-        | Media_type -> Format.pp_print_string fmt "Icalendar.Media_type"
-        | Fbtype -> Format.pp_print_string fmt "Icalendar.Fbtype"
-        | Language -> Format.pp_print_string fmt "Icalendar.Language"
-        | Member -> Format.pp_print_string fmt "Icalendar.Member"
-        | Partstat -> Format.pp_print_string fmt "Icalendar.Partstat"
-        | Range -> Format.pp_print_string fmt "Icalendar.Range"
-        | Related -> Format.pp_print_string fmt "Icalendar.Related"
-        | Reltype -> Format.pp_print_string fmt "Icalendar.Reltype"
-        | Role -> Format.pp_print_string fmt "Icalendar.Role"
-        | Rsvp -> Format.pp_print_string fmt "Icalendar.Rsvp"
-        | Sentby -> Format.pp_print_string fmt "Icalendar.Sentby"
-        | Tzid -> Format.pp_print_string fmt "Icalendar.Tzid"
-        | Valuetype -> Format.pp_print_string fmt "Icalendar.Valuetype"
-        | Iana_param -> Format.pp_print_string fmt "Icalendar.Iana_param"
-        | Xparam -> Format.pp_print_string fmt "Icalendar.Xparam")
-  [@ocaml.warning "-A"])
-and show_icalparameter : _ icalparameter -> Ppx_deriving_runtime.string =
-   fun x -> Format.asprintf "%a" pp_icalparameter x *)
-
-let rec pp_icalparameter : type a.
+let pp_icalparameter : type a.
           Format.formatter -> a icalparameter -> a -> Ppx_deriving_runtime.unit
   =
-  ((let open! Ppx_deriving_runtime in
+  let open! Ppx_deriving_runtime in
       fun fmt k v ->
         match k with
         | Altrep -> Format.fprintf fmt "Altrep %a" Uri.pp v
@@ -261,10 +136,7 @@ let rec pp_icalparameter : type a.
         | Tzid -> Format.fprintf fmt "Tzid (%b, %s)" (fst v) (snd v)
         | Valuetype -> Format.fprintf fmt "Valuetype %a" pp_valuetype v
         | Iana_param -> Format.fprintf fmt "Iana_param (%s, %a)" (fst v) Fmt.(list pp_param_value) (snd v)
-        | Xparam -> Format.fprintf fmt "Xparam ((%s, %s), %a)" (fst (fst v)) (snd (fst v)) Fmt.(list pp_param_value) (snd v))
-  [@ocaml.warning "-A"])
-(*and show_icalparameter : type a. a icalparameter -> a -> Ppx_deriving_runtime.string =
-  fun k v -> Format.asprintf "%a" pp_icalparameter k v *)
+        | Xparam -> Format.fprintf fmt "Xparam ((%s, %s), %a)" (fst (fst v)) (snd (fst v)) Fmt.(list pp_param_value) (snd v)
 
 module K = struct
   type 'a t = 'a icalparameter
@@ -792,7 +664,7 @@ module Writer = struct
     Buffer.add_string buf @@ match ts with
     | `Utc ts -> datetime_to_str ts true
     | `Local ts -> datetime_to_str ts false
-    | `With_tzid (ts, str) -> (* TODO *) datetime_to_str ts false
+    | `With_tzid (ts, _str) -> (* TODO *) datetime_to_str ts false
 
   let date_or_time_to_ics dt buf = match dt with
     | `Date d -> date_to_ics buf d
@@ -835,9 +707,8 @@ module Writer = struct
       Buffer.add_string buf key ;
       Buffer.add_char buf '=' ;
       Buffer.add_string buf value in
-    let recur_to_ics buf =
-      let int_list l = String.concat "," @@ List.map string_of_int l in
-      function
+    let int_list l = String.concat "," @@ List.map string_of_int l in
+    let recur_to_ics = function
       | `Byminute byminlist -> write_rulepart "BYMINUTE" (int_list byminlist)
       | `Byday bywdaylist ->
         let wday (weeknumber, weekday) =
@@ -871,38 +742,38 @@ module Writer = struct
         write_rulepart "INTERVAL" (string_of_int i) ) ;
     List.iter (fun recur ->
         Buffer.add_char buf ';' ;
-        recur_to_ics buf recur)
+        recur_to_ics recur)
       l
 
   let general_prop_to_ics_key = function
-    | `Dtstamp (params, ts) -> "DTSTAMP"
-    | `Uid (params, str) -> "UID"
-    | `Dtstart (params, date_or_time) -> "DTSTART"
-    | `Class (params, class_) -> "CLASS"
-    | `Created (params, ts) -> "CREATED"
-    | `Description desc -> "DESCRIPTION"
-    | `Geo (params, (lat, lon)) -> "GEO"
-    | `Lastmod (params, ts) -> "LAST-MODIFIED"
-    | `Location (params, name) -> "LOCATION"
-    | `Organizer (params, uri) -> "ORGANIZER"
-    | `Priority (params, prio) -> "PRIORITY"
-    | `Seq (params, seq) -> "SEQUENCE"
-    | `Status (params, status) -> "STATUS"
-    | `Summary summary -> "SUMMARY"
-    | `Url (params, uri) -> "URL"
-    | `Recur_id (params, date_or_time) -> "RECURRENCE-ID"
-    | `Rrule (params, _) -> "RRULE"
-    | `Duration (params, dur) -> "DURATION"
-    | `Attach att -> "ATTACH"
-    | `Attendee att -> "ATTENDEE"
-    | `Categories (params, cats) -> "CATEGORIES"
-    | `Comment (params, comment) -> "COMMENT"
-    | `Contact (params, contact) -> "CONTACT"
-    | `Exdate (params, dates_or_times) -> "EXDATE"
-    | `Rstatus (params, (statcode, text, comment)) -> "REQUEST-STATUS"
-    | `Related (params, rel) -> "RELATED"
-    | `Resource (params, res) -> "RESOURCE"
-    | `Rdate (params, dates_or_times_or_periods) -> "RDATE"
+    | `Dtstamp (_params, _ts) -> "DTSTAMP"
+    | `Uid (_params, _str) -> "UID"
+    | `Dtstart (_params, _date_or_time) -> "DTSTART"
+    | `Class (_params, _class_) -> "CLASS"
+    | `Created (_params, _ts) -> "CREATED"
+    | `Description _desc -> "DESCRIPTION"
+    | `Geo (_params, (_lat, _lon)) -> "GEO"
+    | `Lastmod (_params, _ts) -> "LAST-MODIFIED"
+    | `Location (_params, _name) -> "LOCATION"
+    | `Organizer (_params, _uri) -> "ORGANIZER"
+    | `Priority (_params, _prio) -> "PRIORITY"
+    | `Seq (_params, _seq) -> "SEQUENCE"
+    | `Status (_params, _status) -> "STATUS"
+    | `Summary _summary -> "SUMMARY"
+    | `Url (_params, _uri) -> "URL"
+    | `Recur_id (_params, _date_or_time) -> "RECURRENCE-ID"
+    | `Rrule (_params, _) -> "RRULE"
+    | `Duration (_params, _dur) -> "DURATION"
+    | `Attach _att -> "ATTACH"
+    | `Attendee _att -> "ATTENDEE"
+    | `Categories (_params, _cats) -> "CATEGORIES"
+    | `Comment (_params, _comment) -> "COMMENT"
+    | `Contact (_params, _contact) -> "CONTACT"
+    | `Exdate (_params, _dates_or_times) -> "EXDATE"
+    | `Rstatus (_params, (_statcode, _text, _comment)) -> "REQUEST-STATUS"
+    | `Related (_params, _rel) -> "RELATED"
+    | `Resource (_params, _res) -> "RESOURCE"
+    | `Rdate (_params, _dates_or_times_or_periods) -> "RDATE"
 
   let general_prop_to_ics cr buf ?dont_write_value (prop : general_prop) =
     let key = general_prop_to_ics_key prop in
@@ -1139,8 +1010,8 @@ module Writer = struct
     | `Timezone_id _ -> "TZID"
     | `Lastmod _ -> "LAST-MODIFIED"
     | `Tzurl _ -> "TZURL"
-    | `Standard tzprops -> "STANDARD" (* TODO preserve structure *)
-    | `Daylight tzprops -> "DAYLIGHT"
+    | `Standard _tzprops -> "STANDARD" (* TODO preserve structure *)
+    | `Daylight _tzprops -> "DAYLIGHT"
     | #other_prop as x -> other_prop_to_ics_key x
 
   let timezone_prop_to_ics cr buf prop_filter prop =
@@ -2036,7 +1907,8 @@ let build_alarm props =
      | [] -> `Email { trigger ; duration_repeat ; other ; special = { description ; summary ; attach ; attendees } }
      | _ -> raise (Parse_error "build_email: unknown input after attach") in
 
-  let build_none rest =
+  let build_none _rest =
+    (* TODO check if rest is empty *)
     `None { trigger ; duration_repeat ; other ; special = () }
   in
 
@@ -2191,7 +2063,7 @@ let recur_dates dtstart (rrule : recurrence) =
 let date_or_datetime_to_ptime = function
   | `Datetime (`Utc dtstart) -> dtstart
   | `Datetime (`Local dtstart) -> dtstart
-  | `Datetime (`With_tzid (ts, tzid)) -> ts
+  | `Datetime (`With_tzid (ts, _tzid)) -> ts
   | `Date start -> match Ptime.of_date_time (start, ((0, 0, 0), 0)) with
     | None -> assert false
     | Some dtstart -> dtstart
@@ -2311,16 +2183,3 @@ let normalize_timezone datetime (is_unique, tzid) (timezones : timezone_prop lis
         (Ptime.min, []) relevant_offsets
     in
     Some (calculate_offset props ts datetime)
-
-(*
-let timepair_to_utc (ts, utc) offset_to_utc =
-  if utc
-  then ts
-  else match Ptime.add_span ts offset_to_utc with
-    | Some ts' -> ts'
-    | None -> assert false (* TODO maybe result type? this is probably rare *)
-
-let utc_to_timepair ts target_offset_to_utc =
-  match Ptime.sub_span ts target_offset_to_utc with
-  ts, true
-*)

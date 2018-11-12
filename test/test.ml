@@ -943,7 +943,7 @@ END:VCALENDAR
   let inputs = List.map input [
       "2.0;Success" ;
       "3.1;Invalid property value;DTSTART:96-Apr-01" ;
-      "2.8; Success\, repeating event ignored. Scheduled as a single event.;RRULE:FREQ=WEEKLY\;INTERVAL=2" ;
+      "2.8; Success\\, repeating event ignored. Scheduled as a single event.;RRULE:FREQ=WEEKLY\\;INTERVAL=2" ;
       "4.1;Event conflict.  Date-time is busy." ;
       "3.7;Invalid calendar user;ATTENDEE:mailto:jsmith@example.com" ;
     ]
