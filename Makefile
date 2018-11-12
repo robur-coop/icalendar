@@ -1,8 +1,8 @@
 all: clean
-	jbuilder build -p icalendar
+	dune build -p icalendar
 test: all
-	jbuilder runtest --no-buffer -j 1
+	dune runtest --no-buffer -j 1
 clean:
-	jbuilder clean
+	dune clean
 utop:
 	dune utop src --profile=release

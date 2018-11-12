@@ -1,8 +1,0 @@
-(executables
- ((names (test))
-  (libraries (icalendar alcotest))))
-
-(alias
- ((name    runtest)
-  (deps    (test.exe))
-  (action  (run ${<}))))

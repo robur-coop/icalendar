@@ -1,7 +1,27 @@
-opam-version: "1.2"
+opam-version: "2.0"
+maintainer: [
+  "Stefanie Schirmer @linse"
+]
+authors: [
+  "Stefanie Schirmer @linse"
+  "Hannes Mehnert"
+]
+homepage: "https://github.com/roburio/icalendar"
+bug-reports: "https://github.com/roburio/icalendar/issues"
+dev-repo: "git+https://github.com/roburio/icalendar.git"
+tags: ["org:mirage" "org:robur"]
+doc: "https://roburio.github.io/icalendar"
+license: "ISC"
+
+build: [
+  ["dune" "subst"] {pinned}
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+]
+
 depends: [
-  "jbuilder" {build}
-  "alcotest" {test}
+  "dune" {build}
+  "alcotest" {with-test}
   "fmt"
   "angstrom"
   "re"
@@ -13,19 +33,9 @@ depends: [
   "gmap"
 ]
 
-build: [
-  ["jbuilder" "subst" "-p" name] {pinned}
-  ["jbuilder" "build" "-p" name "-j" jobs]
-]
-build-test: ["jbuilder" "runtest" "-p" name "-j" jobs]
-
-maintainer: [
-  "Stefanie Schirmer @linse"
-]
-authors: [
-  "Stefanie Schirmer @linse"
-  "Hannes Mehnert"
-]
-homepage: "https://github.com/roburio/icalendar"
-bug-reports: "https://github.com/roburio/icalendar/issues"
-dev-repo: "https://github.com/roburio/icalendar.git"
+synopsis: "A library to parse and print the iCalendar (RFC 5545) format"
+description: """
+Parse and print .ics files as specified in RFC 5545.
+Supports recurrent events, but only to the day level of detail.
+Does not support vJournal components.
+"""

@@ -1,7 +1,0 @@
-(jbuild_version 1)
-
-(library
- ((name        icalendar)
-  (public_name icalendar)
-  (preprocess (pps (ppx_deriving.std)))
-  (libraries (re fmt angstrom uri astring rresult ptime gmap))))
