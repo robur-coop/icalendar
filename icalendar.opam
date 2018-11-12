@@ -10,7 +10,7 @@ homepage: "https://github.com/roburio/icalendar"
 bug-reports: "https://github.com/roburio/icalendar/issues"
 dev-repo: "git+https://github.com/roburio/icalendar.git"
 tags: ["org:mirage" "org:robur"]
-doc: "https://roburio.github.io/icalendar"
+doc: "https://roburio.github.io/icalendar/"
 license: "ISC"
 
 build: [
@@ -20,6 +20,7 @@ build: [
 ]
 
 depends: [
+  "ocaml" {>= "4.05.0"}
   "dune" {build}
   "alcotest" {with-test}
   "fmt"
