@@ -11,7 +11,8 @@ open Icalendar
 
 let empty = Params.empty
 let singleton k v = Params.add k v empty
-let list_to_map xs = List.fold_right Params.addb xs empty
+let list_to_map xs =
+  List.fold_right (fun (Params.B (k, v)) -> Params.add k v) xs empty
 
 let to_ptime date time =
   match Ptime.of_date_time (date, (time, 0)) with
