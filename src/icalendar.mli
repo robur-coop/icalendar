@@ -89,8 +89,6 @@ type _ icalparameter =
   | Iana_param : (string * param_value list) icalparameter (* TODO need to allow Iana_param "foo" and Iana_param "bar" in the same map! *)
   | Xparam : ((string * string) * param_value list) icalparameter
 
-val equal_icalparameter : 'a icalparameter -> 'a -> 'b icalparameter -> 'b -> bool
-
 module Params : sig include Gmap.S with type 'a key = 'a icalparameter end
 
 type params = Params.t

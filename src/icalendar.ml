@@ -75,68 +75,60 @@ type _ icalparameter =
   | Iana_param : (string * param_value list) icalparameter
   | Xparam : ((string * string) * param_value list) icalparameter
 
-let equal_icalparameter : type a b.
-          a icalparameter -> a -> b icalparameter -> b -> Ppx_deriving_runtime.bool
-  =
+let equal_icalparameter : type a. a icalparameter -> a -> a -> bool
+  = fun k lhs_v rhs_v ->
   (* type system ensures that the values fit the constructors *)
-  let open! Ppx_deriving_runtime in
-      fun lhs_c lhs_v ->
-        fun rhs_c rhs_v ->
-          match (lhs_c, rhs_c) with
-          | (Altrep, Altrep) -> Uri.equal lhs_v rhs_v
-          | (Cn, Cn) -> equal_param_value lhs_v rhs_v
-          | (Cutype, Cutype) -> equal_cutype lhs_v rhs_v
-          | (Delegated_from, Delegated_from) -> List.for_all2 Uri.equal lhs_v rhs_v
-          | (Delegated_to, Delegated_to) -> List.for_all2 Uri.equal lhs_v rhs_v
-          | (Dir, Dir) -> Uri.equal lhs_v rhs_v
-          | (Encoding, Encoding) -> lhs_v = rhs_v
-          | (Media_type, Media_type) -> String.equal (fst lhs_v) (fst rhs_v) && String.equal (snd lhs_v) (snd rhs_v)
-          | (Fbtype, Fbtype) -> equal_fbtype lhs_v rhs_v
-          | (Language, Language) -> String.equal lhs_v rhs_v
-          | (Member, Member) -> List.for_all2 Uri.equal lhs_v rhs_v
-          | (Partstat, Partstat) -> equal_partstat lhs_v rhs_v
-          | (Range, Range) -> lhs_v = rhs_v
-          | (Related, Related) -> lhs_v = rhs_v
-          | (Reltype, Reltype) -> equal_relationship lhs_v rhs_v
-          | (Role, Role) -> equal_role lhs_v rhs_v
-          | (Rsvp, Rsvp) -> lhs_v = rhs_v
-          | (Sentby, Sentby) -> Uri.equal lhs_v rhs_v
-          | (Tzid, Tzid) -> fst lhs_v = fst rhs_v && String.equal (snd lhs_v) (snd rhs_v)
-          | (Valuetype, Valuetype) -> equal_valuetype lhs_v rhs_v
-          | (Iana_param, Iana_param) ->
-            String.equal (fst lhs_v) (fst rhs_v) && List.for_all2 equal_param_value (snd lhs_v) (snd rhs_v)
-          | (Xparam, Xparam) -> String.equal (fst (fst lhs_v)) (fst (fst rhs_v)) && String.equal (snd (fst lhs_v)) (snd (fst rhs_v)) &&
+    match k with
+    | Altrep -> Uri.equal lhs_v rhs_v
+    | Cn -> equal_param_value lhs_v rhs_v
+    | Cutype -> equal_cutype lhs_v rhs_v
+    | Delegated_from -> List.for_all2 Uri.equal lhs_v rhs_v
+    | Delegated_to -> List.for_all2 Uri.equal lhs_v rhs_v
+    | Dir -> Uri.equal lhs_v rhs_v
+    | Encoding -> lhs_v = rhs_v
+    | Media_type -> String.equal (fst lhs_v) (fst rhs_v) && String.equal (snd lhs_v) (snd rhs_v)
+    | Fbtype -> equal_fbtype lhs_v rhs_v
+    | Language -> String.equal lhs_v rhs_v
+    | Member -> List.for_all2 Uri.equal lhs_v rhs_v
+    | Partstat -> equal_partstat lhs_v rhs_v
+    | Range -> lhs_v = rhs_v
+    | Related -> lhs_v = rhs_v
+    | Reltype -> equal_relationship lhs_v rhs_v
+    | Role -> equal_role lhs_v rhs_v
+    | Rsvp -> lhs_v = rhs_v
+    | Sentby -> Uri.equal lhs_v rhs_v
+    | Tzid -> fst lhs_v = fst rhs_v && String.equal (snd lhs_v) (snd rhs_v)
+    | Valuetype -> equal_valuetype lhs_v rhs_v
+    | Iana_param ->
+      String.equal (fst lhs_v) (fst rhs_v) && List.for_all2 equal_param_value (snd lhs_v) (snd rhs_v)
+    | Xparam -> String.equal (fst (fst lhs_v)) (fst (fst rhs_v)) && String.equal (snd (fst lhs_v)) (snd (fst rhs_v)) &&
                                 List.for_all2 equal_param_value (snd lhs_v) (snd rhs_v)
-          | _ -> false 
 
-let pp_icalparameter : type a.
-          Format.formatter -> a icalparameter -> a -> Ppx_deriving_runtime.unit
-  =
-  let open! Ppx_deriving_runtime in
-      fun fmt k v ->
-        match k with
-        | Altrep -> Format.fprintf fmt "Altrep %a" Uri.pp v
-        | Cn -> Format.fprintf fmt "Cn %a" pp_param_value v
-        | Cutype -> Format.fprintf fmt "Cutype %a" pp_cutype v
-        | Delegated_from -> Format.fprintf fmt "Delegated_from %a" Fmt.(list Uri.pp) v
-        | Delegated_to -> Format.fprintf fmt "Delegated_to %a" Fmt.(list Uri.pp) v
-        | Dir -> Format.fprintf fmt "Dir %a" Uri.pp v
-        | Encoding -> Format.fprintf fmt "Encoding base64"
-        | Media_type -> Format.fprintf fmt "Media_type (%s/%s)" (fst v) (snd v)
-        | Fbtype -> Format.fprintf fmt "Fbtype %a" pp_fbtype v
-        | Language -> Format.fprintf fmt "Language %s" v
-        | Member -> Format.fprintf fmt "Member %a" Fmt.(list Uri.pp) v
-        | Partstat -> Format.fprintf fmt "Partstat %a" pp_partstat v
-        | Range -> Format.fprintf fmt "Range thisandfuture"
-        | Related -> Format.fprintf fmt "Related %s" (match v with `Start -> "start" | `End -> "end")
-        | Reltype -> Format.fprintf fmt "Reltype %a" pp_relationship v
-        | Role -> Format.fprintf fmt "Role %a" pp_role v
-        | Rsvp -> Format.fprintf fmt "Rsvp %b" v
-        | Sentby -> Format.fprintf fmt "Sentby %a" Uri.pp v
-        | Tzid -> Format.fprintf fmt "Tzid (%b, %s)" (fst v) (snd v)
-        | Valuetype -> Format.fprintf fmt "Valuetype %a" pp_valuetype v
-        | Iana_param -> Format.fprintf fmt "Iana_param (%s, %a)" (fst v) Fmt.(list pp_param_value) (snd v)
-        | Xparam -> Format.fprintf fmt "Xparam ((%s, %s), %a)" (fst (fst v)) (snd (fst v)) Fmt.(list pp_param_value) (snd v)
+let pp_icalparameter : type a. Format.formatter -> a icalparameter -> a -> unit
+  = fun fmt k v ->
+    match k with
+    | Altrep -> Format.fprintf fmt "Altrep %a" Uri.pp v
+    | Cn -> Format.fprintf fmt "Cn %a" pp_param_value v
+    | Cutype -> Format.fprintf fmt "Cutype %a" pp_cutype v
+    | Delegated_from -> Format.fprintf fmt "Delegated_from %a" Fmt.(list Uri.pp) v
+    | Delegated_to -> Format.fprintf fmt "Delegated_to %a" Fmt.(list Uri.pp) v
+    | Dir -> Format.fprintf fmt "Dir %a" Uri.pp v
+    | Encoding -> Format.fprintf fmt "Encoding base64"
+    | Media_type -> Format.fprintf fmt "Media_type (%s/%s)" (fst v) (snd v)
+    | Fbtype -> Format.fprintf fmt "Fbtype %a" pp_fbtype v
+    | Language -> Format.fprintf fmt "Language %s" v
+    | Member -> Format.fprintf fmt "Member %a" Fmt.(list Uri.pp) v
+    | Partstat -> Format.fprintf fmt "Partstat %a" pp_partstat v
+    | Range -> Format.fprintf fmt "Range thisandfuture"
+    | Related -> Format.fprintf fmt "Related %s" (match v with `Start -> "start" | `End -> "end")
+    | Reltype -> Format.fprintf fmt "Reltype %a" pp_relationship v
+    | Role -> Format.fprintf fmt "Role %a" pp_role v
+    | Rsvp -> Format.fprintf fmt "Rsvp %b" v
+    | Sentby -> Format.fprintf fmt "Sentby %a" Uri.pp v
+    | Tzid -> Format.fprintf fmt "Tzid (%b, %s)" (fst v) (snd v)
+    | Valuetype -> Format.fprintf fmt "Valuetype %a" pp_valuetype v
+    | Iana_param -> Format.fprintf fmt "Iana_param (%s, %a)" (fst v) Fmt.(list pp_param_value) (snd v)
+    | Xparam -> Format.fprintf fmt "Xparam ((%s, %s), %a)" (fst (fst v)) (snd (fst v)) Fmt.(list pp_param_value) (snd v)
 
 module K = struct
   type 'a t = 'a icalparameter
@@ -193,17 +185,15 @@ module K = struct
                 | Xparam -> 21 in
               if Pervasives.compare (to_int lhs) (to_int rhs) < 0
               then Lt else Gt
-
-  let pp = pp_icalparameter
 end
 
 module Params = Gmap.Make(K)
 
 type params = Params.t
 let equal_params m m' =
-  let eq (Params.B (k, v)) (Params.B (k', v')) = equal_icalparameter k v k' v' in
-  Params.equal eq m m'
-let pp_params ppf m = Params.pp ppf m
+  Params.equal { f = equal_icalparameter } m m'
+let pp_params ppf m = Params.iter
+    (fun (Params.B (k, v)) -> pp_icalparameter ppf k v) m
 
 type other_prop =
   [ `Iana_prop of string * params * string
@@ -1438,7 +1428,8 @@ let icalparameter =
   <|> valuetypeparam
   <|> other_param
 
-let list_to_map params = List.fold_right Params.addb params Params.empty
+let list_to_map params =
+  List.fold_right (fun (Params.B (k, v)) -> Params.add k v) params Params.empty
 
 (* Properties *)
 let propparser id pparser vparser lift =
