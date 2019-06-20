@@ -261,6 +261,7 @@ type calendar = cal_prop list * component list
 val parse_datetime: string -> (timestamp, string) result
 val parse : string -> (calendar, string) result
 val pp : calendar Fmt.t
+val equal_calendar : calendar -> calendar -> bool
 
 (* TODO this actually belongs to CalDAV! this is Webdav_xml module! *)
 type comp = [ `Allcomp | `Comp of component_transform list ]

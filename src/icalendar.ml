@@ -193,7 +193,9 @@ type params = Params.t
 let equal_params m m' =
   Params.equal { f = equal_icalparameter } m m'
 let pp_params ppf m = Params.iter
-    (fun (Params.B (k, v)) -> pp_icalparameter ppf k v) m
+    (fun (Params.B (k, v)) ->
+       pp_icalparameter ppf k v ;
+       Format.pp_print_space ppf ()) m
 
 type other_prop =
   [ `Iana_prop of string * params * string
@@ -552,6 +554,15 @@ module Writer = struct
     if cr then write_char '\r' ;
     write_char '\n'
 
+  let escape_chars str =
+    let replacements = [
+      "\\", {|\\|} ; ";", {|\;|} ; ",", {|\,|} ; "\n", {|\n|}
+    ]
+    in
+    List.fold_left (fun str (s, replacement) ->
+        Astring.String.concat ~sep:replacement (Astring.String.cuts ~sep:s str))
+      str replacements
+
   let write_string str buf = Buffer.add_string buf str
 
   let write_begin_end cr buf tag inside =
@@ -592,7 +603,7 @@ module Writer = struct
         write_line cr buf key params ~dont_write_value (write_string value)
       in
       match prop with
-      | `Prodid (params, value) -> output params value
+      | `Prodid (params, value) -> output params (escape_chars value)
       | `Version (params, value) -> output params value
       | `Calscale (params, value) -> output params value
       | `Method (params, value) -> output params value
@@ -770,24 +781,24 @@ module Writer = struct
     let output params v = write_line cr buf key params ?dont_write_value v in
     match prop with
     | `Dtstamp (params, ts) -> output params (timestamp_to_ics (`Utc ts))
-    | `Uid (params, str) -> output params (write_string str)
+    | `Uid (params, str) -> output params (write_string (escape_chars str))
     | `Dtstart (params, date_or_time) -> 
         output (move_tzid_of_d_or_dt date_or_time params) (date_or_time_to_ics date_or_time)
     | `Class (params, class_) -> output params (write_string (List.assoc class_ class_strings))
     | `Created (params, ts) -> output params (timestamp_to_ics (`Utc ts))
-    | `Description (params, desc) -> output params (write_string desc)
+    | `Description (params, desc) -> output params (write_string (escape_chars desc))
     | `Geo (params, (lat, lon)) ->
       output params (fun buf ->
           Buffer.add_string buf (string_of_float lat) ;
           Buffer.add_char buf ';' ;
           Buffer.add_string buf (string_of_float lon))
     | `Lastmod (params, ts) -> output params (timestamp_to_ics (`Utc ts))
-    | `Location (params, name) -> output params (write_string name)
+    | `Location (params, name) -> output params (write_string (escape_chars name))
     | `Organizer (params, uri) -> output params (write_string (Uri.to_string uri))
     | `Priority (params, prio) -> output params (write_string (string_of_int prio))
     | `Seq (params, seq) -> output params (write_string (string_of_int seq))
     | `Status (params, status) -> output params (write_string (List.assoc status status_strings))
-    | `Summary (params, summary) -> output params (write_string summary)
+    | `Summary (params, summary) -> output params (write_string (escape_chars summary))
     | `Url (params, uri) -> output params (write_string Uri.(pct_decode (to_string uri)))
     | `Recur_id (params, date_or_time) -> output (move_tzid_of_d_or_dt date_or_time params) (date_or_time_to_ics date_or_time)
     | `Rrule (params, recurs) -> output params (recurs_to_ics recurs)
@@ -800,10 +811,10 @@ module Writer = struct
       output params (write_string value')
     | `Attendee (params, uri) -> output params (write_string (Uri.to_string uri))
     | `Categories (params,cats) ->
-      let cat = String.concat "," cats in
+      let cat = String.concat "," (List.map escape_chars cats) in
       output params (write_string cat)
-    | `Comment (params, comment) -> output params (write_string comment)
-    | `Contact (params, contact) -> output params (write_string contact)
+    | `Comment (params, comment) -> output params (write_string (escape_chars comment))
+    | `Contact (params, contact) -> output params (write_string (escape_chars contact))
     | `Exdate (params, dates_or_times) -> 
       let ds_or_ts_or_ps = (dates_or_times :> [ `Dates of Ptime.date list | `Datetimes of timestamp list | `Periods of period list ]) in
       output (move_tzid_of_ds_or_dts_or_ps ds_or_ts_or_ps params) (dates_or_times_or_periods_to_ics ds_or_ts_or_ps)
@@ -820,15 +831,15 @@ module Writer = struct
               Buffer.add_char buf '.' ;
               Buffer.add_string buf (string_of_int m)) ;
            Buffer.add_char buf ';' ;
-           Buffer.add_string buf text ;
+           Buffer.add_string buf (escape_chars text) ;
            match comment with
            | None -> ()
            | Some x ->
              Buffer.add_char buf ';' ;
-             Buffer.add_string buf x)
-    | `Related (params, rel) -> output params (write_string rel)
+             Buffer.add_string buf (escape_chars x))
+    | `Related (params, rel) -> output params (write_string (escape_chars rel))
     | `Resource (params, res) ->
-      let r = String.concat "," res in
+      let r = String.concat "," (List.map escape_chars res) in
       output params (write_string r)
     | `Rdate (params, dates_or_times_or_periods) ->
       output (move_tzid_of_ds_or_dts_or_ps dates_or_times_or_periods params)
@@ -991,7 +1002,7 @@ module Writer = struct
     | `Rdate (params, dates_or_times_or_periods) ->
       write_line cr buf "RDATE" params
         (dates_or_times_or_periods_to_ics dates_or_times_or_periods)
-    | `Tzname (params, id) -> write_line cr buf "TZNAME" params (write_string id)
+    | `Tzname (params, id) -> write_line cr buf "TZNAME" params (write_string (escape_chars id))
     | #other_prop as x -> other_prop_to_ics cr buf x
 
   let tz_props_to_ics cr buf tzprops = List.iter (tz_prop_to_ics cr buf) tzprops
@@ -1011,7 +1022,7 @@ module Writer = struct
     then ()
     else match prop with
       | `Timezone_id (params, (prefix, name)) ->
-        let value = Printf.sprintf "%s%s" (if prefix then "/" else "") name in
+        let value = Printf.sprintf "%s%s" (if prefix then "/" else "") (escape_chars name) in
         write_line cr buf "TZID" params ~dont_write_value (write_string value)
       | `Lastmod (params, ts) -> write_line cr buf "LAST-MODIFIED" params ~dont_write_value (timestamp_to_ics (`Utc ts))
       | `Tzurl (params, uri) -> write_line cr buf "TZURL" params ~dont_write_value (write_string (Uri.to_string uri))
@@ -1969,8 +1980,8 @@ let tzid =
     (fun p v -> `Timezone_id (p, v))
 
 let tzurl =
-  propparser "TZURL" other_param text
-    (fun a b -> `Tzurl (a, Uri.of_string b))
+  propparser "TZURL" other_param caladdress
+    (fun a b -> `Tzurl (a, b))
 
 let tzoffsetto =
   propparser "TZOFFSETTO" other_param utcoffset

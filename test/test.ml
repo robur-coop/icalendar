@@ -2,7 +2,7 @@ let compare_calendar =
   let module M = struct
     type t = Icalendar.calendar
     let pp = Icalendar.pp
-    let equal a b = compare a b = 0
+    let equal = Icalendar.equal_calendar
   end in (module M: Alcotest.TESTABLE with type t = M.t)
 
 let result_c = Alcotest.(result compare_calendar string)
@@ -2442,6 +2442,133 @@ END:VCALENDAR|}
   in
   Alcotest.check result_c __LOC__ expected (Icalendar.parse input)
 
+let google_invitation () =
+  let input = {|BEGIN:VCALENDAR
+PRODID:-//Google Inc//Google Calendar 70.9054//EN
+VERSION:2.0
+CALSCALE:GREGORIAN
+METHOD:REQUEST
+BEGIN:VTIMEZONE
+TZID:Europe/Madrid
+X-LIC-LOCATION:Europe/Madrid
+BEGIN:DAYLIGHT
+TZOFFSETFROM:+0100
+TZOFFSETTO:+0200
+TZNAME:CEST
+DTSTART:19700329T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:+0200
+TZOFFSETTO:+0100
+TZNAME:CET
+DTSTART:19701025T030000
+RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+DTSTART;TZID=Europe/Madrid:20181203T173000
+DTEND;TZID=Europe/Madrid:20181203T180000
+RRULE:FREQ=WEEKLY;UNTIL=20190113T225959Z;BYDAY=MO
+DTSTAMP:20190311T153122Z
+ORGANIZER;CN=Shared Calendar:mailto:a3l8fdvmovb4lou7nvdntnj
+ hoc@group.calendar.google.com
+UID:2kur9onu5uusl8rtss0t9joqu3@google.com
+ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=TRUE
+ ;CN=a@a.com;X-NUM-GUESTS=0:mailto:a@a.com
+ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=TRUE
+ ;CN=b@b.com;X-NUM-GUESTS=0:mailto:b@b.com
+CREATED:20190114T174224Z
+DESCRIPTION:-::~:~::~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~
+ :~:~:~:~:~:~:~:~::~:~::-\nPlease do not edit this section of the descriptio
+ n.\n\nView your event at https://www.google.com/calendar/event?action=VIEW&
+ eid=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&ctz=America%2FL
+ os_Angeles&hl=en&es=0.\n-::~:~::~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~
+ :~:~:~:~:~:~:~:~:~:~:~:~:~:~::~:~::-
+LAST-MODIFIED:20190311T153116Z
+LOCATION:https://a.com/somewhere_else
+SEQUENCE:0
+STATUS:CONFIRMED
+SUMMARY:weekly meeting
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+|}
+  and expected =
+    [`Prodid (empty, "-//Google Inc//Google Calendar 70.9054//EN");
+     `Version (empty, "2.0");
+     `Calscale (empty, "GREGORIAN");
+     `Method (empty, "REQUEST")],
+    [`Timezone ([`Timezone_id (empty, (false, "Europe/Madrid"));
+                 `Xprop ((("LIC", "LOCATION"), empty, "Europe/Madrid"));
+                 `Daylight ([`Tzoffset_from (empty, Ptime.Span.of_int_s (60 * 60));
+                             `Tzoffset_to (empty, Ptime.Span.of_int_s (2 * 60 * 60));
+                             `Tzname (empty, "CEST");
+                             `Dtstart_local (empty, to_ptime (1970, 03, 29) (02, 00, 00));
+                             `Rrule (empty,
+                                       (`Yearly, None, None,
+                                        [`Bymonth ([3]);
+                                          `Byday ([(-1, `Sunday)])]))
+                              ]);
+                 `Standard ([`Tzoffset_from (empty, Ptime.Span.of_int_s (2 * 60 * 60));
+                             `Tzoffset_to (empty, Ptime.Span.of_int_s (60 * 60));
+                              `Tzname (empty, "CET");
+                              `Dtstart_local (empty, to_ptime (1970, 10, 25) (03, 00, 00));
+                              `Rrule (empty,
+                                      (`Yearly, None, None,
+                                       [`Bymonth ([10]);
+                                        `Byday ([(-1, `Sunday)])]))
+                            ])
+                ]) ;
+     `Event ({ Icalendar.dtstamp = (empty, to_ptime (2019, 03, 11) (15, 31, 22));
+               uid = (empty, "2kur9onu5uusl8rtss0t9joqu3@google.com");
+               dtstart =
+               (empty,
+                `Datetime (`With_tzid (to_ptime (2018, 12, 03) (17, 30, 00),
+                                        (false, "Europe/Madrid"))));
+               dtend_or_duration =
+                 (Some (`Dtend (empty,
+                               `Datetime (`With_tzid (to_ptime (2018, 12, 03) (18, 00, 00),
+                                                      (false, "Europe/Madrid"))))));
+               rrule =
+                 (Some (empty,
+                      (`Weekly,
+                       (Some (`Until (`Utc (to_ptime (2019, 01, 13) (22, 59, 59))))),
+                       None, [`Byday ([(0, `Monday)])])));
+               props =
+               [`Organizer (singleton Cn (`String "Shared Calendar"),
+                            Uri.of_string "mailto:a3l8fdvmovb4lou7nvdntnjhoc@group.calendar.google.com");
+                `Attendee (list_to_map [ B (Cn, `String "a@a.com") ;
+                                         B (Cutype, `Individual) ;
+                                         B (Partstat, `Accepted) ;
+                                         B (Role, `Reqparticipant) ;
+                                         B (Rsvp, true) ;
+                                         B (Iana_param, ("X-NUM-GUESTS", [ `String "0" ])) ],
+                           Uri.of_string "mailto:a@a.com");
+                `Attendee (list_to_map [ B (Cn, `String "b@b.com") ;
+                                         B (Cutype, `Individual) ;
+                                         B (Partstat, `Accepted) ;
+                                         B (Role, `Reqparticipant) ;
+                                         B (Rsvp, true) ;
+                                         B (Iana_param, ("X-NUM-GUESTS", [ `String "0" ])) ],
+                           Uri.of_string "mailto:b@b.com");
+                `Created (empty, to_ptime (2019, 01, 14) (17, 42, 24));
+                `Description (empty,
+                              "-::~:~::~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~::~:~::-\nPlease do not edit this section of the description.\n\nView your event at https://www.google.com/calendar/event?action=VIEW&eid=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&ctz=America%2FLos_Angeles&hl=en&es=0.\n-::~:~::~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~::~:~::-");
+                `Lastmod (empty, to_ptime (2019, 03, 11) (15, 31, 16));
+                `Location (empty, "https://a.com/somewhere_else");
+                `Seq (empty, 0);
+                `Status (empty, `Confirmed);
+                `Summary (empty, "weekly meeting");
+                `Transparency (empty, `Opaque)
+                 ];
+               alarms = [] })
+    ]
+  in
+  Alcotest.check result_c __LOC__ (Ok expected) (Icalendar.parse input) ;
+  let txt = Icalendar.to_ics expected in
+  Alcotest.check result_c __LOC__ (Ok expected) (Icalendar.parse txt)
+
 let decode_encode_tests = [
   "encode durations", `Quick, encode_durations ;
   "decode and encode is identity", `Quick, decode_encode ;
@@ -2449,6 +2576,7 @@ let decode_encode_tests = [
   "apple reminders app todos", `Quick, apple_reminder_todos ;
   "apple calendar.app event", `Quick, apple_event ;
   "firefox OS put event", `Quick, firefox_os_put ;
+  "google invitation", `Quick, google_invitation ;
 ]
 
 let reply_busy_time () =
