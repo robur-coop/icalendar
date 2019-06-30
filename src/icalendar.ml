@@ -72,8 +72,8 @@ type _ icalparameter =
   | Sentby : Uri.t icalparameter
   | Tzid : (bool * string) icalparameter
   | Valuetype : valuetype icalparameter
-  | Iana_param : (string * param_value list) icalparameter
-  | Xparam : ((string * string) * param_value list) icalparameter
+  | Iana_param : string -> param_value list icalparameter
+  | Xparam : (string * string) -> param_value list icalparameter
 
 let equal_icalparameter : type a. a icalparameter -> a -> a -> bool
   = fun k lhs_v rhs_v ->
@@ -99,10 +99,8 @@ let equal_icalparameter : type a. a icalparameter -> a -> a -> bool
     | Sentby -> Uri.equal lhs_v rhs_v
     | Tzid -> fst lhs_v = fst rhs_v && String.equal (snd lhs_v) (snd rhs_v)
     | Valuetype -> equal_valuetype lhs_v rhs_v
-    | Iana_param ->
-      String.equal (fst lhs_v) (fst rhs_v) && List.for_all2 equal_param_value (snd lhs_v) (snd rhs_v)
-    | Xparam -> String.equal (fst (fst lhs_v)) (fst (fst rhs_v)) && String.equal (snd (fst lhs_v)) (snd (fst rhs_v)) &&
-                                List.for_all2 equal_param_value (snd lhs_v) (snd rhs_v)
+    | Iana_param _ -> List.for_all2 equal_param_value lhs_v rhs_v
+    | Xparam _ -> List.for_all2 equal_param_value lhs_v rhs_v
 
 let pp_icalparameter : type a. Format.formatter -> a icalparameter -> a -> unit
   = fun fmt k v ->
@@ -127,8 +125,8 @@ let pp_icalparameter : type a. Format.formatter -> a icalparameter -> a -> unit
     | Sentby -> Format.fprintf fmt "Sentby %a" Uri.pp v
     | Tzid -> Format.fprintf fmt "Tzid (%b, %s)" (fst v) (snd v)
     | Valuetype -> Format.fprintf fmt "Valuetype %a" pp_valuetype v
-    | Iana_param -> Format.fprintf fmt "Iana_param (%s, %a)" (fst v) Fmt.(list pp_param_value) (snd v)
-    | Xparam -> Format.fprintf fmt "Xparam ((%s, %s), %a)" (fst (fst v)) (snd (fst v)) Fmt.(list pp_param_value) (snd v)
+    | Iana_param a -> Format.fprintf fmt "Iana_param (%s, %a)" a Fmt.(list pp_param_value) v
+    | Xparam (a, b) -> Format.fprintf fmt "Xparam ((%s, %s), %a)" a b Fmt.(list pp_param_value) v
 
 module K = struct
   type 'a t = 'a icalparameter
@@ -156,8 +154,23 @@ module K = struct
           | (Sentby, Sentby) -> Eq
           | (Tzid, Tzid) -> Eq
           | (Valuetype, Valuetype) -> Eq
-          | (Iana_param, Iana_param) -> Eq
-          | (Xparam, Xparam) -> Eq
+          | (Iana_param a, Iana_param a') ->
+            begin match String.compare a a' with
+              | 0 -> Eq
+              | x when x < 0 -> Lt
+              | _ -> Gt
+            end
+          | (Xparam (a, b), Xparam (a', b')) ->
+            begin match String.compare a a' with
+              | 0 ->
+                begin match String.compare b b' with
+                  | 0 -> Eq
+                  | y when y < 0 -> Lt
+                  | _ -> Gt
+                end
+              | x when x < 0 -> Lt
+              | _ -> Gt
+            end
           | _ ->
               let to_int : type a. a icalparameter -> int =
                 function
@@ -181,8 +194,8 @@ module K = struct
                 | Sentby -> 17
                 | Tzid -> 18
                 | Valuetype -> 19
-                | Iana_param -> 20
-                | Xparam -> 21 in
+                | Iana_param _ -> 20
+                | Xparam _ -> 21 in
               if Pervasives.compare (to_int lhs) (to_int rhs) < 0
               then Lt else Gt
 end
@@ -190,8 +203,10 @@ end
 module Params = Gmap.Make(K)
 
 type params = Params.t
+
 let equal_params m m' =
   Params.equal { f = equal_icalparameter } m m'
+
 let pp_params ppf m = Params.iter
     (fun (Params.B (k, v)) ->
        pp_icalparameter ppf k v ;
@@ -515,8 +530,8 @@ module Writer = struct
     in
     let quoted_uri uri = quoted (Uri.to_string uri) in
     match k, v with
-    | Iana_param, (token, values) -> write_kv token (String.concat "," (List.map write_param_value values))
-    | Xparam, ((vendor, name), values) -> write_kv (print_x vendor name) (String.concat "," (List.map write_param_value values))
+    | Iana_param token, values -> write_kv token (String.concat "," (List.map write_param_value values))
+    | Xparam (vendor, name), values -> write_kv (print_x vendor name) (String.concat "," (List.map write_param_value values))
     | Valuetype, v -> write_kv "VALUE" (List.assoc v valuetype_strings)
     | Tzid, (prefix, str) -> write_kv "TZID" (Printf.sprintf "%s%s" (if prefix then "/" else "") str)
     | Altrep, uri -> write_kv "ALTREP" (quoted_uri uri)
@@ -1333,11 +1348,10 @@ let media_type =
 let param k v = Params.B (k, v)
 
 (* Parameters (PARAM1_KEY=PARAM1_VALUE) *)
-let iana_param = lift2 (fun k v -> param Iana_param (k, v))
+let iana_param = lift2 (fun k v -> param (Iana_param k) v)
     (iana_token <* (char '=')) value_list
 
-
-let x_param = lift2 (fun k v -> param Xparam (k, v))
+let x_param = lift2 (fun (a, b) v -> param (Xparam (a, b)) v)
     (x_name <* char '=') value_list
 
 let other_param = iana_param <|> x_param

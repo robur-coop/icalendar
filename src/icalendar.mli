@@ -86,8 +86,8 @@ type _ icalparameter =
   | Sentby : Uri.t icalparameter
   | Tzid : (bool * string) icalparameter
   | Valuetype : valuetype icalparameter
-  | Iana_param : (string * param_value list) icalparameter (* TODO need to allow Iana_param "foo" and Iana_param "bar" in the same map! *)
-  | Xparam : ((string * string) * param_value list) icalparameter
+  | Iana_param : string -> param_value list icalparameter
+  | Xparam : (string * string) -> param_value list icalparameter
 
 module Params : sig include Gmap.S with type 'a key = 'a icalparameter end
 

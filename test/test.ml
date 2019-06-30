@@ -2428,7 +2428,7 @@ END:VCALENDAR|}
       ] ;
       alarms = [
         `Display {
-          trigger = (singleton Iana_param ("RELATIVE", [ `String "START" ]),
+          trigger = (singleton (Iana_param "RELATIVE") [ `String "START" ],
                      `Duration (Ptime.Span.of_int_s (- 15 * 60* 60))) ;
           duration_repeat = None ;
           other = [] ;
@@ -2543,14 +2543,14 @@ END:VCALENDAR
                                          B (Partstat, `Accepted) ;
                                          B (Role, `Reqparticipant) ;
                                          B (Rsvp, true) ;
-                                         B (Iana_param, ("X-NUM-GUESTS", [ `String "0" ])) ],
+                                         B (Iana_param "X-NUM-GUESTS", [ `String "0" ]) ],
                            Uri.of_string "mailto:a@a.com");
                 `Attendee (list_to_map [ B (Cn, `String "b@b.com") ;
                                          B (Cutype, `Individual) ;
                                          B (Partstat, `Accepted) ;
                                          B (Role, `Reqparticipant) ;
                                          B (Rsvp, true) ;
-                                         B (Iana_param, ("X-NUM-GUESTS", [ `String "0" ])) ],
+                                         B (Iana_param "X-NUM-GUESTS", [ `String "0" ]) ],
                            Uri.of_string "mailto:b@b.com");
                 `Created (empty, to_ptime (2019, 01, 14) (17, 42, 24));
                 `Description (empty,
@@ -2569,6 +2569,47 @@ END:VCALENDAR
   let txt = Icalendar.to_ics expected in
   Alcotest.check result_c __LOC__ (Ok expected) (Icalendar.parse txt)
 
+let iana_params () =
+  let input = {|BEGIN:VCALENDAR
+PRODID:-//Google Inc//Google Calendar 70.9054//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTART;TZID=Europe/Madrid:20181203T173000
+DTEND;TZID=Europe/Madrid:20181203T180000
+DTSTAMP:20190311T153122Z
+UID:2kur9onu5uusl8rtss0t9joqu3@google.com
+ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=TRUE
+ ;CN=a@a.com;X-NUM-GUESTS=0;X-BLA=1;X-BLUBB=2:mailto:a@a.com
+END:VEVENT
+END:VCALENDAR
+|}
+  and expected =
+    [`Prodid (empty, "-//Google Inc//Google Calendar 70.9054//EN");
+     `Version (empty, "2.0")],
+    [ `Event ({ Icalendar.dtstamp = (empty, to_ptime (2019, 03, 11) (15, 31, 22));
+                uid = (empty, "2kur9onu5uusl8rtss0t9joqu3@google.com");
+                dtstart =
+                  (empty,
+                   `Datetime (`With_tzid (to_ptime (2018, 12, 03) (17, 30, 00),
+                                          (false, "Europe/Madrid"))));
+                dtend_or_duration =
+                  (Some (`Dtend (empty,
+                                 `Datetime (`With_tzid (to_ptime (2018, 12, 03) (18, 00, 00),
+                                                        (false, "Europe/Madrid"))))));
+                rrule = None ; alarms = [] ;
+                props =
+                  [ `Attendee (list_to_map [ B (Cn, `String "a@a.com") ;
+                                             B (Cutype, `Individual) ;
+                                             B (Partstat, `Accepted) ;
+                                             B (Role, `Reqparticipant) ;
+                                             B (Rsvp, true) ;
+                                             B (Iana_param "X-NUM-GUESTS", [ `String "0" ]) ;
+                                             B (Iana_param "X-BLA", [ `String "1" ]) ;
+                                             B (Iana_param "X-BLUBB", [ `String "2" ])],
+                               Uri.of_string "mailto:a@a.com"); ] }) ]
+  in
+  Alcotest.check result_c __LOC__ (Ok expected) (Icalendar.parse input)
+
 let decode_encode_tests = [
   "encode durations", `Quick, encode_durations ;
   "decode and encode is identity", `Quick, decode_encode ;
@@ -2577,6 +2618,7 @@ let decode_encode_tests = [
   "apple calendar.app event", `Quick, apple_event ;
   "firefox OS put event", `Quick, firefox_os_put ;
   "google invitation", `Quick, google_invitation ;
+  "iana parameters", `Quick, iana_params ;
 ]
 
 let reply_busy_time () =
