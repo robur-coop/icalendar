@@ -69,6 +69,49 @@ END:VCALENDAR
   in
   Alcotest.check result_c "test short line" expected (parse multiline)
 
+let test_prodid_after_vevent () =
+  let input =
+{|BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20191109T223039Z
+LAST-MODIFIED:20191109T223039Z
+DTSTAMP:20191109T223039Z
+UID:ulre32v9-29gj-5k2h-me3x-eu4d4l7d316y
+SUMMARY:djlkfjklsfs
+TRANSP:OPAQUE
+CLASS:PUBLIC
+DTSTART;VALUE=DATE:20191104
+DTEND;VALUE=DATE:20191105
+END:VEVENT
+PRODID:-//Inf-IT//CalDavZAP 0.13.1//EN
+END:VCALENDAR
+|}
+  and expected =
+    let event = {
+      uid = (empty, "ulre32v9-29gj-5k2h-me3x-eu4d4l7d316y");
+      dtstamp = (empty, to_ptime (2019, 11, 09) (22, 30, 39));
+      dtstart = (singleton Valuetype `Date , `Date (2019, 11, 04));
+      dtend_or_duration =
+        Some (`Dtend (singleton Valuetype `Date, `Date (2019, 11, 05)));
+      rrule = None;
+      props =
+        [`Created (empty, to_ptime (2019, 11, 09) (22, 30, 39));
+         `Lastmod (empty, to_ptime (2019, 11, 09) (22, 30, 39));
+         `Summary (empty, "djlkfjklsfs");
+         `Transparency (empty, `Opaque);
+         `Class (empty, `Public) ];
+      alarms = [] }
+    in
+    Ok
+      ( [ `Version (empty, "2.0") ;
+          `Calscale (empty, "GREGORIAN");
+          `Prodid (empty, "-//Inf-IT//CalDavZAP 0.13.1//EN") ],
+        [ `Event event ])
+  in
+  Alcotest.check result_c __LOC__ expected (parse input)
+
 let calendar_object () =
   let input =
 {_|BEGIN:VCALENDAR
@@ -1754,6 +1797,7 @@ END:VCALENDAR
 let object_tests = [
   "test single long line", `Quick, test_line ;
   "test multiline", `Quick, test_multiline ;
+  "regression caldavzap", `Quick, test_prodid_after_vevent;
 
   "calendar object parsing", `Quick, calendar_object ;
   "calendar object parsing with tzid", `Quick, calendar_object_with_tzid ;
