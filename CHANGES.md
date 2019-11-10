@@ -1,3 +1,8 @@
+## v0.1.3 (2019-11-10)
+
+* Allow PRODID (and other calprops) to be after the components in a calendar
+  CalDavZAP uses such ics - and now interoperability works #5
+
 ## v0.1.2 (2019-06-30)
 
 * Escape special characters in text values when generating ics string representation
