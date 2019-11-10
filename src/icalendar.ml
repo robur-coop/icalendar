@@ -196,7 +196,7 @@ module K = struct
                 | Valuetype -> 19
                 | Iana_param _ -> 20
                 | Xparam _ -> 21 in
-              if Pervasives.compare (to_int lhs) (to_int rhs) < 0
+              if Stdlib.compare (to_int lhs) (to_int rhs) < 0
               then Lt else Gt
 end
 
@@ -2060,7 +2060,11 @@ let freebusyc =
 let component =
   many1 (eventc <|> todoc (* <|> journalc *) <|> freebusyc <|> timezonec)
 
-let icalbody = lift2 pair calprops component
+let icalbody =
+  let to_pair props comps zapprops =
+    props@zapprops, comps
+  in
+  lift3 to_pair calprops component calprops
 
 let calobject =
   string "BEGIN:VCALENDAR" *> end_of_line *>

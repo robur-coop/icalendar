@@ -31,6 +31,7 @@ depends: [
   "rresult"
   "ptime"
   "ppx_deriving"
+  "stdlib-shims"
   "gmap" {>= "0.3.0"}
 ]
 
