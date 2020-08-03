@@ -1,3 +1,7 @@
+## v0.1.4 (2020-08-03)
+
+* Adapt to angstrom 0.14.0 API change #6
+
 ## v0.1.3 (2019-11-10)
 
 * Allow PRODID (and other calprops) to be after the components in a calendar
