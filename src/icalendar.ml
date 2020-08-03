@@ -1226,7 +1226,7 @@ let utc_only = function
   | `Local _ -> fail "timestamp must be in UTC"
 
 let parse_datetime s =
-  try parse_string datetime s with Parse_error s -> Error s
+  try parse_string ~consume:Consume.All datetime s with Parse_error s -> Error s
 
 let dur_value =
   let to_seconds p factor = p >>= ensure int_of_string >>| ( * ) factor in
@@ -2074,7 +2074,7 @@ let calobject =
   option () end_of_line <* end_of_input
 
 let parse (str : string) : (calendar, string) result =
-  try parse_string calobject (normalize_lines str)
+  try parse_string ~consume:Consume.All calobject (normalize_lines str)
   with Parse_error e -> Error ("parse error: " ^ e)
 
 let recur_dates dtstart (rrule : recurrence) =

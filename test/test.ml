@@ -2813,4 +2813,4 @@ let tests = [
 
 let () =
   Printexc.record_backtrace true;
-  Alcotest.run "" tests
+  Alcotest.run "icalendar suite" tests
