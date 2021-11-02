@@ -14,24 +14,21 @@ doc: "https://roburio.github.io/icalendar/"
 license: "ISC"
 
 build: [
-  ["dune" "subst"] {pinned}
+  ["dune" "subst"] {dev}
   ["dune" "build" "-p" name "-j" jobs]
   ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
 
 depends: [
-  "ocaml" {>= "4.05.0"}
+  "ocaml" {>= "4.08.0"}
   "dune" {>= "1.3"}
   "alcotest" {with-test}
   "fmt"
   "angstrom" {>= "0.14.0"}
   "re"
   "uri"
-  "astring"
-  "rresult"
   "ptime"
   "ppx_deriving"
-  "stdlib-shims"
   "gmap" {>= "0.3.0"}
 ]
 

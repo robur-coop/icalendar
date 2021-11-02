@@ -2,4 +2,4 @@
   (name        icalendar)
   (public_name icalendar)
   (preprocess (pps ppx_deriving.std))
-  (libraries re fmt angstrom uri astring rresult ptime gmap stdlib-shims))
+  (libraries re fmt angstrom uri ptime gmap))

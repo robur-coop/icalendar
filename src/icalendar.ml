@@ -571,11 +571,11 @@ module Writer = struct
 
   let escape_chars str =
     let replacements = [
-      "\\", {|\\|} ; ";", {|\;|} ; ",", {|\,|} ; "\n", {|\n|}
+      '\\', {|\\|} ; ';', {|\;|} ; ',', {|\,|} ; '\n', {|\n|}
     ]
     in
     List.fold_left (fun str (s, replacement) ->
-        Astring.String.concat ~sep:replacement (Astring.String.cuts ~sep:s str))
+        String.concat replacement (String.split_on_char s str))
       str replacements
 
   let write_string str buf = Buffer.add_string buf str
@@ -1157,8 +1157,17 @@ let value = take_while (fun x -> not (is_control x)) (* in fact it is more compl
 
 let iana_token = name
 
+(* from OCaml 4.13 bytes.ml *)
+let for_all p s =
+  let n = String.length s in
+  let rec loop i =
+    if i = n then true
+    else if p (String.unsafe_get s i) then loop (succ i)
+    else false in
+  loop 0
+
 let is_valid p str =
-  if Astring.String.for_all p str then
+  if for_all p str then
     return str
   else
     fail "parse error"
@@ -1193,7 +1202,7 @@ let text =
            | _ -> true
   in
   let tsafe_char = take_while1 is_tsafe_char in
-  many1 (tsafe_char <|> string ":" <|> string "\"" <|> escaped_char) >>| Astring.String.concat ~sep:""
+  many1 (tsafe_char <|> string ":" <|> string "\"" <|> escaped_char) >>| String.concat ""
 
 let texts = sep_by (char ',') text
 
