@@ -1,3 +1,8 @@
+## v0.1.5 (2021-11-02)
+
+* Drop astring, rresult, stdlib-shims dependencies
+* Require OCaml 4.08 as lower bound
+
 ## v0.1.4 (2020-08-03)
 
 * Adapt to angstrom 0.14.0 API change #6
