@@ -1,4 +1,3 @@
-[@@@ocaml.warning "-32"]
 module Uri = struct
   include Uri
   let pp = pp_hum
@@ -1137,7 +1136,6 @@ let opt_sign = option positive sign
 let is_alpha_digit = function '0' .. '9' | 'a' .. 'z' | 'A' .. 'Z' -> true | _ -> false
 let is_alpha_digit_minus c = is_alpha_digit c || c = '-'
 let name = take_while1 is_alpha_digit_minus
-let param_name = name
 
 let is_control = function '\x00' .. '\x08' | '\x0a' .. '\x1f' | '\x7f' -> true | _ -> false
 let is_qsafe_char = function x when is_control x -> false | '"' -> false | _ -> true
