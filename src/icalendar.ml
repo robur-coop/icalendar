@@ -1,4 +1,3 @@
-[@@@ocaml.warning "-32"]
 module Uri = struct
   include Uri
   let pp = pp_hum
@@ -1137,7 +1136,6 @@ let opt_sign = option positive sign
 let is_alpha_digit = function '0' .. '9' | 'a' .. 'z' | 'A' .. 'Z' -> true | _ -> false
 let is_alpha_digit_minus c = is_alpha_digit c || c = '-'
 let name = take_while1 is_alpha_digit_minus
-let param_name = name
 
 let is_control = function '\x00' .. '\x08' | '\x0a' .. '\x1f' | '\x7f' -> true | _ -> false
 let is_qsafe_char = function x when is_control x -> false | '"' -> false | _ -> true
@@ -2130,15 +2128,23 @@ let recur_events event = match event.rrule with
 
 let occurence_before_timestamp datetime (tzprops : tz_prop list) =
   let dtstart = List.find (function `Dtstart_local _ -> true | _ -> false) tzprops in
-  let dtstart' = match dtstart with
-    | `Dtstart_local (_, dtstart) -> dtstart
+  let dtstart', dtstarty' = match dtstart with
+    | `Dtstart_local (_, dtstart) ->
+      let (y, _, _), _ = Ptime.to_date_time datetime in
+      let (_, m, d), t = Ptime.to_date_time dtstart in
+      dtstart, Option.get (Ptime.of_date_time ((y - 1, m, d), t))
     | _ -> assert false
   in
   (* dtstart in a vtimezone subcomponent may not contain a tzid property! *)
   let rrule = List.find_opt (function `Rrule _ -> true | _ -> false) tzprops in
   let next_event = match rrule with
     | None -> (fun () -> None)
-    | Some (`Rrule (_, rrule)) -> recur_dates dtstart' rrule
+    | Some (`Rrule (_, rrule)) ->
+      let freq, _, _ , _ = rrule in
+      if freq = `Yearly then
+        recur_dates dtstarty' rrule
+      else
+        recur_dates dtstart' rrule
     | _ -> assert false
   in
   (* TODO handle RDATE in addition to rrule *)
