@@ -1,3 +1,8 @@
+## v0.1.6 (2022-06-20)
+
+* Improve performance by 40x when computing occurrences of timezones and other
+  recurrences (investigated by @rand00 #7)
+
 ## v0.1.5 (2021-11-02)
 
 * Drop astring, rresult, stdlib-shims dependencies
