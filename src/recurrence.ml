@@ -246,69 +246,69 @@ let is_occurence s_date freq (bymonth, byweekno, byyearday, bymonthday, byday) =
       | None -> true
       | Some ms -> List.mem m ms
     in
-    let is_bymonthday = match bymonthday with
+    let is_bymonthday () = match bymonthday with
       | None -> true
       | Some ds -> List.exists (monthday_matches (y, m, d)) ds
     in
-    let is_byday = match byday with
+    let is_byday () = match byday with
       | None -> true
       | Some ds ->
         let weekday = weekday (y, m, d) in
         List.exists (fun (_, wk') -> wd_is_weekday weekday wk') ds
     in
-    is_bymonth && is_bymonthday && is_byday
+    is_bymonth && is_bymonthday () && is_byday ()
   | `Weekly ->
     let (y, m, d) = s_date in
     let is_bymonth = match bymonth with
       | None -> true
       | Some ms -> List.mem m ms
     in
-    let is_byday = match byday with
+    let is_byday () = match byday with
       | None -> true
       | Some ds ->
         let weekday = weekday (y, m, d) in
         List.exists (fun (_, wk') -> wd_is_weekday weekday wk') ds
     in
-    is_bymonth && is_byday
+    is_bymonth && is_byday ()
   | `Monthly ->
     let (y, m, d) = s_date in
     let is_bymonth = match bymonth with
       | None -> true
       | Some ms -> List.mem m ms
     in
-    let is_bymonthday = match bymonthday with
+    let is_bymonthday () = match bymonthday with
       | None -> true
       | Some md -> List.exists (monthday_matches (y, m, d)) md
     in
-    let is_byday = match byday with
+    let is_byday () = match byday with
       | None -> true
       | Some wd -> List.exists (weekday_matches (y, m, d)) wd
     in
-    is_bymonth && is_bymonthday && is_byday
+    is_bymonth && is_bymonthday () && is_byday ()
   | `Yearly ->
     let (y, m, d) = s_date in
     let is_bymonth = match bymonth with
       | None -> true
       | Some ms -> List.mem m ms
     in
-    let is_byweekno = match byweekno with
+    let is_byweekno () = match byweekno with
       | None -> true
       | Some wn -> List.exists (weekno_matches (y, m, d)) wn
     in
-    let is_byyearday = match byyearday with
+    let is_byyearday () = match byyearday with
       | None -> true
       | Some yd -> List.exists (yearday_matches (y, m, d)) yd
     in
-    let is_bymonthday = match bymonthday with
+    let is_bymonthday () = match bymonthday with
       | None -> true
       | Some md -> List.exists (monthday_matches (y, m, d)) md
     in
-    let is_byday = match byday, bymonth with
+    let is_byday () = match byday, bymonth with
       | None, _ -> true
       | Some wd, None -> List.exists (yearly_weekday_matches (y, m, d)) wd
       | Some wd, Some _ -> List.exists (weekday_matches (y, m, d)) wd
     in
-    is_bymonth && is_byweekno && is_byyearday && is_bymonthday && is_byday
+    is_bymonth && is_byweekno () && is_byyearday () && is_bymonthday () && is_byday ()
   | `Hourly | `Minutely | `Secondly -> invalid_arg "We don't support hourly, minutely or secondly for event frequencies."
 
 let filter_bysetpos bysetpos set =
