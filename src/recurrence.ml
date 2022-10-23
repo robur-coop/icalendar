@@ -198,18 +198,18 @@ let yearday_matches (y, m, d) n =
   then count = days_in_year y + succ n
   else false
 
-(* x: 0   => every $wd 
-   x: pos => the xth $wd in month, 
+(* x: 0   => every $wd
+   x: pos => the xth $wd in month,
    x: neg => the xth $wd in month, from end *)
 let weekday_matches (y, m, d) (x, wd) =
   let weekday = weekday (y, m, d) in
   if wd_is_weekday weekday wd
-  then 
+  then
     let n = succ (pred d / 7) in
     match x with
     | 0 -> true
-    | x -> 
-      if x > 0 
+    | x ->
+      if x > 0
       then n = x
       else
         let total = n + (days_in_month y m - d) / 7 in
@@ -219,15 +219,15 @@ let weekday_matches (y, m, d) (x, wd) =
 let yearly_weekday_matches (y, m, d) (x, wd) =
   let weekday = weekday (y, m, d) in
   if wd_is_weekday weekday wd
-  then 
+  then
     let n =
       let d = days_since_start_of_year (y, m, d) in
       succ (d / 7)
     in
     match x with
     | 0 -> true
-    | x -> 
-      if x > 0 
+    | x ->
+      if x > 0
       then n = x
       else
         let total = n + (days_in_year y - n) / 7 in

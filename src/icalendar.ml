@@ -688,7 +688,7 @@ module Writer = struct
   let period_to_ics buf (start, span, was_explicit) =
     timestamp_to_ics start buf ;
     Buffer.add_char buf '/' ;
-    if was_explicit then 
+    if was_explicit then
       timestamp_to_ics (add_span_to_ts start span) buf
     else
       duration_to_ics span buf
@@ -715,7 +715,7 @@ module Writer = struct
     | `Datetimes (ts::_) -> move_tzid_to_params ts params (* head is sufficient, each element has same tzid *)
     | `Periods ((ts, _, _)::_) -> move_tzid_to_params ts params
     | `Dates _ -> params
-    | _ -> params 
+    | _ -> params
 
   let recurs_to_ics (freq, count_or_until, interval, l) buf =
     let write_rulepart key value =
@@ -796,7 +796,7 @@ module Writer = struct
     match prop with
     | `Dtstamp (params, ts) -> output params (timestamp_to_ics (`Utc ts))
     | `Uid (params, str) -> output params (write_string (escape_chars str))
-    | `Dtstart (params, date_or_time) -> 
+    | `Dtstart (params, date_or_time) ->
         output (move_tzid_of_d_or_dt date_or_time params) (date_or_time_to_ics date_or_time)
     | `Class (params, class_) -> output params (write_string (List.assoc class_ class_strings))
     | `Created (params, ts) -> output params (timestamp_to_ics (`Utc ts))
@@ -829,7 +829,7 @@ module Writer = struct
       output params (write_string cat)
     | `Comment (params, comment) -> output params (write_string (escape_chars comment))
     | `Contact (params, contact) -> output params (write_string (escape_chars contact))
-    | `Exdate (params, dates_or_times) -> 
+    | `Exdate (params, dates_or_times) ->
       let ds_or_ts_or_ps = (dates_or_times :> [ `Dates of Ptime.date list | `Datetimes of timestamp list | `Periods of period list ]) in
       output (move_tzid_of_ds_or_dts_or_ps ds_or_ts_or_ps params) (dates_or_times_or_periods_to_ics ds_or_ts_or_ps)
     | `Rstatus (params, (statcode, text, comment)) ->
@@ -1547,16 +1547,16 @@ let time_or_date =
   <|> (date >>| fun d -> `Date d)
 
 let move_tzid params d_or_dt =
-  match Params.find Tzid params, d_or_dt with 
-  | Some tzid, `Datetime (`Local ts) -> 
+  match Params.find Tzid params, d_or_dt with
+  | Some tzid, `Datetime (`Local ts) ->
     let params' = Params.remove Tzid params in
     (params', `Datetime (`With_tzid (ts, tzid)))
   | _, _ -> (params, (d_or_dt :> date_or_datetime))
 
 let move_tzid_period params d_or_dt =
-  match d_or_dt with 
+  match d_or_dt with
   | #date_or_datetime as d_or_dt -> (move_tzid params d_or_dt :> (params * [ date_or_datetime | `Period of period ]))
-  | `Period (`Local ts, span, was_explicit) -> 
+  | `Period (`Local ts, span, was_explicit) ->
     let timestamp = match Params.find Tzid params with
     | None -> `Local ts
     | Some tzid -> `With_tzid (ts, tzid)
@@ -1713,7 +1713,7 @@ let contact =
   propparser "CONTACT" contactparam text (fun a b -> `Contact (a, b))
 
 (* collect dates and datetimes into tagged list *)
-let move_tzid_and_collect_d_or_dt params (d_or_dts : [date_or_datetime | `Period of period] list) = 
+let move_tzid_and_collect_d_or_dt params (d_or_dts : [date_or_datetime | `Period of period] list) =
   let is_date = function `Date _ -> true | _ -> false
   and is_datetime = function `Datetime _ -> true | _ -> false
   in
@@ -1725,7 +1725,7 @@ let move_tzid_and_collect_d_or_dt params (d_or_dts : [date_or_datetime | `Period
     let extract = function (_, `Datetime d) -> d | _ -> raise (Parse_error "exdate: datetime") in
     Some (`Datetimes (List.map extract datetimes))
   else None
- 
+
 let exdate =
   let exdtparam = valuetypeparam <|> tzidparam <|> other_param in
   let exdtvalue = sep_by1 (char ',') time_or_date in
@@ -1776,8 +1776,8 @@ let rdate =
        List.iter (check_date_datetime_period `Datetime a) b ;
        let is_period = function `Period _ -> true | _ -> false in
        let ds_or_dts_or_ps = match move_tzid_and_collect_d_or_dt a b with
-         | Some ds_or_dts -> (ds_or_dts :> dates_or_datetimes_or_periods) 
-         | None -> 
+         | Some ds_or_dts -> (ds_or_dts :> dates_or_datetimes_or_periods)
+         | None ->
            if List.for_all is_period b then
              let periods = List.map (move_tzid_period a) b in
              let extract = function (_, `Period d) -> d | _ -> raise (Parse_error "rdate: period") in
@@ -1876,7 +1876,7 @@ let build_alarm props =
    | [`Trigger x] -> x
    | _ -> raise (Parse_error "build_alarm props: trigger") in
 
-  let (other: other_prop list), rest'' = List.fold_left (fun (other, rest) -> function 
+  let (other: other_prop list), rest'' = List.fold_left (fun (other, rest) -> function
    | `Xprop v -> (`Xprop v :: other, rest)
    | `Iana_prop v -> (`Iana_prop v :: other, rest)
    | v -> other, v :: rest) ([], []) rest' in
