@@ -234,10 +234,6 @@ let yearly_weekday_matches (y, m, d) (x, wd) =
         n = total + succ x
   else false
 
-let opt f default = function
-  | None -> default
-  | Some x -> f x
-
 let is_occurence s_date freq (bymonth, byweekno, byyearday, bymonthday, byday) =
   match freq with
   | `Daily ->
