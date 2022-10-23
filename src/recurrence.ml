@@ -198,18 +198,18 @@ let yearday_matches (y, m, d) n =
   then count = days_in_year y + succ n
   else false
 
-(* x: 0   => every $wd 
-   x: pos => the xth $wd in month, 
+(* x: 0   => every $wd
+   x: pos => the xth $wd in month,
    x: neg => the xth $wd in month, from end *)
 let weekday_matches (y, m, d) (x, wd) =
   let weekday = weekday (y, m, d) in
   if wd_is_weekday weekday wd
-  then 
+  then
     let n = succ (pred d / 7) in
     match x with
     | 0 -> true
-    | x -> 
-      if x > 0 
+    | x ->
+      if x > 0
       then n = x
       else
         let total = n + (days_in_month y m - d) / 7 in
@@ -219,24 +219,20 @@ let weekday_matches (y, m, d) (x, wd) =
 let yearly_weekday_matches (y, m, d) (x, wd) =
   let weekday = weekday (y, m, d) in
   if wd_is_weekday weekday wd
-  then 
+  then
     let n =
       let d = days_since_start_of_year (y, m, d) in
       succ (d / 7)
     in
     match x with
     | 0 -> true
-    | x -> 
-      if x > 0 
+    | x ->
+      if x > 0
       then n = x
       else
         let total = n + (days_in_year y - n) / 7 in
         n = total + succ x
   else false
-
-let opt f default = function
-  | None -> default
-  | Some x -> f x
 
 let is_occurence s_date freq (bymonth, byweekno, byyearday, bymonthday, byday) =
   match freq with
@@ -423,11 +419,19 @@ let add_missing_filters recurs freq start =
      intervals between occurrences vary based on
      - leap year and month lengths
      - different recurrence rules combined with frequency;
-     because of variable intervals, we advance day by day and apply a filter. 
+     because of variable intervals, we advance day by day and apply a filter.
      If no filter (byday, bymonthday or byyearday) is defined, we build one from the start day.
      For `Daily or `Weekly freq, we don't need to filter bymonthday. *)
+  let bymonth, bymonthday = match freq, byday, byyearday, bymonth, bymonthday with
+    | `Yearly, None, None, None, None ->
+      let (_, m, d) = s_date in
+      Some [ m ], Some [ d ]
+    | `Yearly, None, None, Some _, None ->
+      let (_, _, d) = s_date in
+      bymonth, Some [ d ]
+    | _ -> bymonth, bymonthday
+  in
   let bymonthday = match freq, byday, bymonthday, byyearday with
-    | `Yearly, None, None, None
     | `Monthly, None, None, None -> let (_, _, d) = s_date in Some [ d ]
     | _ -> bymonthday
   in

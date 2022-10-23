@@ -579,6 +579,19 @@ let ex_36 () =
               (List.map (fun d -> to_ptime d time) res)
               (all_events date time rrule))
 
+let ex_37 () =
+  (* forever - limiting to count 3 *)
+  let date = (1996, 11, 05)
+  and time = (09, 00, 00)
+  and rrule = (`Yearly, Some (`Count 3), None, [])
+  and res = [
+    (1996, 11, 05) ; (1997, 11, 05) ; (1998, 11, 05)
+  ]
+  in
+  Alcotest.(check (list p) "compute occurences example 37"
+              (List.map (fun d -> to_ptime d time) res)
+              (all_events date time rrule))
+
 let tests = [
   "example 1", `Quick, ex_1 ;
   "example 2", `Quick, ex_2 ;
@@ -616,4 +629,5 @@ let tests = [
   "example 34: weekstart = monday", `Quick, ex_34 ;
   "example 35: weekstart = sunday", `Quick, ex_35 ;
   "example 36: An example where an invalid date (i.e., February 30) is ignored", `Quick, ex_36 ;
+  "example 37: yearly, count 3", `Quick, ex_37 ;
 ]
