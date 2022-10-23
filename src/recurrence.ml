@@ -423,11 +423,19 @@ let add_missing_filters recurs freq start =
      intervals between occurrences vary based on
      - leap year and month lengths
      - different recurrence rules combined with frequency;
-     because of variable intervals, we advance day by day and apply a filter. 
+     because of variable intervals, we advance day by day and apply a filter.
      If no filter (byday, bymonthday or byyearday) is defined, we build one from the start day.
      For `Daily or `Weekly freq, we don't need to filter bymonthday. *)
+  let bymonth, bymonthday = match freq, byday, byyearday, bymonth, bymonthday with
+    | `Yearly, None, None, None, None ->
+      let (_, m, d) = s_date in
+      Some [ m ], Some [ d ]
+    | `Yearly, None, None, Some _, None ->
+      let (_, _, d) = s_date in
+      bymonth, Some [ d ]
+    | _ -> bymonth, bymonthday
+  in
   let bymonthday = match freq, byday, bymonthday, byyearday with
-    | `Yearly, None, None, None
     | `Monthly, None, None, None -> let (_, _, d) = s_date in Some [ d ]
     | _ -> bymonthday
   in
