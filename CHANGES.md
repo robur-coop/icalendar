@@ -1,7 +1,7 @@
 ## v0.1.7 (2022-10-23)
 
 * Fix yearly reoccuring events without any special expansions (bymonth/byday/..)
-  (reported by @tobixen in roburio/caldav#28, fixed #8 by @hannesm)
+  (reported by @tobixen in robur-coop/caldav#28, fixed #8 by @hannesm)
 
 ## v0.1.6 (2022-06-20)
 
