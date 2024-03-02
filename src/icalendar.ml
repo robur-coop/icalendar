@@ -696,8 +696,16 @@ module Writer = struct
   let dates_or_times_or_periods_to_ics dt buf =
     let swap f a b = f b a in
     match dt with
-    | `Dates xs -> List.iter (date_to_ics buf) xs
-    | `Datetimes xs -> List.iter (swap timestamp_to_ics buf) xs
+    | `Dates xs -> (match xs with
+        | _ -> date_to_ics buf (List.hd xs);
+          List.iter (fun x -> (Buffer.add_char buf ',';
+                               date_to_ics buf x))
+            (List.tl xs))
+    | `Datetimes xs -> (match xs with
+        | _ -> timestamp_to_ics (List.hd xs) buf;
+          List.iter (fun x -> (Buffer.add_char buf ',';
+                               swap timestamp_to_ics buf x))
+            (List.tl xs))
     | `Periods xs -> List.iter (period_to_ics buf) xs
 
   let move_tzid_to_params timestamp params =

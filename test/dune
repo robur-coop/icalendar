@@ -1,5 +1,5 @@
 (test
  (name      test)
- (modules   test test_recur)
+ (modules   test test_recur test_write)
  (libraries alcotest icalendar)
  (package   icalendar))
