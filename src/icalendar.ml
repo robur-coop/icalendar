@@ -694,18 +694,19 @@ module Writer = struct
       duration_to_ics span buf
 
   let dates_or_times_or_periods_to_ics dt buf =
-    let swap f a b = f b a in
     match dt with
     | `Dates xs -> (match xs with
-        | _ -> date_to_ics buf (List.hd xs);
+        | [] -> ()
+        | hd :: tl -> date_to_ics buf hd;
           List.iter (fun x -> (Buffer.add_char buf ',';
                                date_to_ics buf x))
-            (List.tl xs))
+            tl)
     | `Datetimes xs -> (match xs with
-        | _ -> timestamp_to_ics (List.hd xs) buf;
+        | [] -> ()
+        | hd :: tl -> timestamp_to_ics hd buf;
           List.iter (fun x -> (Buffer.add_char buf ',';
-                               swap timestamp_to_ics buf x))
-            (List.tl xs))
+                               timestamp_to_ics x buf))
+            tl)
     | `Periods xs -> List.iter (period_to_ics buf) xs
 
   let move_tzid_to_params timestamp params =

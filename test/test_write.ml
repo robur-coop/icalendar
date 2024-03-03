@@ -29,8 +29,8 @@ END:VEVENT
 PRODID:-//Inf-IT//CalDavZAP 0.13.1//EN
 END:VCALENDAR
 |}
-
-  and input =
+  in
+  let input =
     let event = {
       uid = (empty, "ulre32v9-29gj-5k2h-me3x-eu4d4l7d316y");
       dtstamp = (empty, to_ptime (2019, 11, 09) (22, 30, 39));
@@ -52,10 +52,11 @@ END:VCALENDAR
       alarms = [] }
     in
     (to_ics ~cr:false ( [ `Version (empty, "2.0") ;
-                `Calscale (empty, "GREGORIAN");
-                `Prodid (empty, "-//Inf-IT//CalDavZAP 0.13.1//EN") ],
+                          `Calscale (empty, "GREGORIAN");
+                          `Prodid (empty, "-//Inf-IT//CalDavZAP 0.13.1//EN") ],
                         [ `Event event ]))
-  and sort_lines x = (String.split_on_char '\n' x) |> List.sort compare
+  in
+  let sort_lines x = (String.split_on_char '\n' x) |> List.sort compare
   in
   print_endline input;
   Alcotest.(check (list string)) "test serialization"
@@ -83,7 +84,8 @@ PRODID:-//Inf-IT//CalDavZAP 0.13.1//EN
 END:VCALENDAR
 |}
 
-  and input =
+  in
+  let input =
     let event = {
       uid = (empty, "ulre32v9-29gj-5k2h-me3x-eu4d4l7d316y");
       dtstamp = (empty, to_ptime (2019, 11, 09) (22, 30, 39));
@@ -103,10 +105,11 @@ END:VCALENDAR
       alarms = [] }
     in
     (to_ics ~cr:false ( [ `Version (empty, "2.0") ;
-                `Calscale (empty, "GREGORIAN");
-                `Prodid (empty, "-//Inf-IT//CalDavZAP 0.13.1//EN") ],
+                          `Calscale (empty, "GREGORIAN");
+                          `Prodid (empty, "-//Inf-IT//CalDavZAP 0.13.1//EN") ],
                         [ `Event event ]))
-  and sort_lines x = (String.split_on_char '\n' x) |> List.sort compare
+  in
+  let sort_lines x = (String.split_on_char '\n' x) |> List.sort compare
   in
   print_endline input;
   Alcotest.(check (list string)) "test serializing with single exception"
