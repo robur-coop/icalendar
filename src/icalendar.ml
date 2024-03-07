@@ -707,7 +707,12 @@ module Writer = struct
           List.iter (fun x -> (Buffer.add_char buf ',';
                                timestamp_to_ics x buf))
             tl)
-    | `Periods xs -> List.iter (period_to_ics buf) xs
+    | `Periods xs -> (match xs with
+        | [] -> ()
+        | hd :: tl -> period_to_ics buf hd;
+          List.iter (fun x -> (Buffer.add_char buf ',';
+                               period_to_ics buf x))
+            tl)
 
   let move_tzid_to_params timestamp params =
     match timestamp with
