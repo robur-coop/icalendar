@@ -1,3 +1,8 @@
+## v0.1.8 (2024-03-14)
+
+* BUGFIX: exception dates are now comma-separated (reported #9, fixed #10 by
+  @monomon)
+
 ## v0.1.7 (2022-10-23)
 
 * Fix yearly reoccuring events without any special expansions (bymonth/byday/..)
