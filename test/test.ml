@@ -2467,7 +2467,7 @@ END:VCALENDAR|}
       props = [
         `Summary (empty, "adgjmptw") ;
         `Description (empty, "\n") ;
-        `Iana_prop ("LOCATION", empty, "");
+        `Location (empty, "");
         `Seq (empty, 1)
       ] ;
       alarms = [
