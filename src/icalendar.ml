@@ -1220,7 +1220,7 @@ let text =
            | _ -> true
   in
   let tsafe_char = take_while1 is_tsafe_char in
-  many1 (tsafe_char <|> string ":" <|> string "\"" <|> escaped_char) >>| String.concat ""
+  many (tsafe_char <|> string ":" <|> string "\"" <|> escaped_char) >>| String.concat ""
 
 let texts = sep_by (char ',') text
 

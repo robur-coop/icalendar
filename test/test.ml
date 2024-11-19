@@ -2467,7 +2467,7 @@ END:VCALENDAR|}
       props = [
         `Summary (empty, "adgjmptw") ;
         `Description (empty, "\n") ;
-        `Iana_prop ("LOCATION", empty, "");
+        `Location (empty, "");
         `Seq (empty, 1)
       ] ;
       alarms = [
@@ -2654,6 +2654,63 @@ END:VCALENDAR
   in
   Alcotest.check result_c __LOC__ (Ok expected) (Icalendar.parse input)
 
+let ical_import_export () =
+  let input = {|BEGIN:VCALENDAR
+PRODID:iCal Import/Export CalDAV 3.2
+VERSION:2.0
+BEGIN:VEVENT
+DTSTART;TZID=Europe/Brussels:20191227T113000
+TRANSP:OPAQUE
+DTEND;TZID=Europe/Brussels:20191227T123000
+SUMMARY:Vortrag 36c3 MirageOS
+LOCATION:Dijkstra
+STATUS:CONFIRMED
+DTSTAMP:20241114T171752Z
+UID:ec260a44-2cf7-4b6d-aa30-23b1b46f3145
+CLASS:PUBLIC
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT15M
+DESCRIPTION:
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+|}
+  and expected =
+                ([`Prodid (empty, "iCal Import/Export CalDAV 3.2");
+                   `Version (empty, "2.0")],
+                 [`Event ({ Icalendar.dtstamp =
+                            empty, to_ptime (2024, 11, 14) (17, 17, 52);
+                            uid = (empty, "ec260a44-2cf7-4b6d-aa30-23b1b46f3145");
+                            dtstart =
+                            (empty,
+                             `Datetime (`With_tzid (to_ptime (2019,12,27) (11,30,00),
+                                                     (false,
+                                                      "Europe/Brussels"))));
+                            dtend_or_duration =
+                              Some (`Dtend (empty,
+                                           `Datetime (`With_tzid (to_ptime (2019, 12, 27) (12,30,00),
+                                                                   (false,
+                                                                    "Europe/Brussels")))));
+                            rrule = None;
+                            props =
+                            [`Transparency (empty, `Opaque);
+                              `Summary (empty, "Vortrag 36c3 MirageOS");
+                              `Location (empty, "Dijkstra");
+                             `Status (empty, `Confirmed);
+                             `Class (empty, `Public)];
+                            alarms =
+                            [`Display ({ Icalendar.trigger =
+                                         (empty, `Duration (Ptime.Span.of_int_s (- 15 * 60)));
+                                         duration_repeat = None; other = [];
+                                         special =
+                                         { Icalendar.description = (empty , "") } })
+                              ]
+                            })
+                   ])
+  in
+  Alcotest.check result_c __LOC__ (Ok expected) (Icalendar.parse input)
+
 let decode_encode_tests = [
   "encode durations", `Quick, encode_durations ;
   "decode and encode is identity", `Quick, decode_encode ;
@@ -2663,6 +2720,7 @@ let decode_encode_tests = [
   "firefox OS put event", `Quick, firefox_os_put ;
   "google invitation", `Quick, google_invitation ;
   "iana parameters", `Quick, iana_params ;
+  "ical import/export", `Quick, ical_import_export ;
 ]
 
 let reply_busy_time () =
