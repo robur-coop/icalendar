@@ -1,3 +1,8 @@
+## v0.1.9 (2024-11-19)
+
+* BUGFIX: allow empty text values (e.g. in DESCRIPTION), as observed by
+  "iCal import/export" (Android app) (#11 @hannesm)
+
 ## v0.1.8 (2024-03-14)
 
 * BUGFIX: exception dates are now comma-separated (reported #9, fixed #10 by
