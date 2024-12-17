@@ -38,3 +38,4 @@ Parse and print .ics files as specified in RFC 5545.
 Supports recurrent events, but only to the day level of detail.
 Does not support vJournal components.
 """
+x-maintenance-intent: [ "(latest)" ]
