@@ -2107,13 +2107,24 @@ let parse (str : string) : (calendar, string) result =
 let recur_dates dtstart (rrule : recurrence) =
   Recurrence.new_gen dtstart rrule
 
+let datetime_to_ptime =
+  function
+  | `Utc dtstart -> dtstart
+  | `Local dtstart -> dtstart
+  | `With_tzid (ts, _tzid) -> ts
+
+let date_to_ptime date =
+  match Ptime.of_date_time (date, ((0, 0, 0), 0)) with
+  | None -> assert false
+  | Some dtstart -> dtstart
+
 let date_or_datetime_to_ptime = function
-  | `Datetime (`Utc dtstart) -> dtstart
-  | `Datetime (`Local dtstart) -> dtstart
-  | `Datetime (`With_tzid (ts, _tzid)) -> ts
-  | `Date start -> match Ptime.of_date_time (start, ((0, 0, 0), 0)) with
-    | None -> assert false
-    | Some dtstart -> dtstart
+  | `Datetime datetime -> datetime_to_ptime datetime
+  | `Date date -> date_to_ptime date
+
+let dates_or_datetimes_to_ptimes = function
+| `Datetimes datetimes -> List.map datetime_to_ptime datetimes
+| `Dates dates -> List.map date_to_ptime dates
 
 let date_or_datetime_with_ptime d_or_dt ts =
   match d_or_dt with
@@ -2137,14 +2148,25 @@ let recur_events event = match event.rrule with
         let v = date_or_datetime_with_ptime d_o_dt ts' in
         Some (`Dtend (params, v))
     in
+    let exdate =
+      List.find_map
+        (function `Exdate t -> Some (dates_or_datetimes_to_ptimes (snd t))  | _ -> None)
+        event.props
+    in
+    let is_exdate ts = match exdate with None -> false | Some timestamps -> List.mem ts timestamps in
     let newdate = recur_dates dtstart recur in
-    (fun () -> match newdate () with
-       | None -> None
-       | Some ts ->
-         let dtstart = (fst event.dtstart, date_or_datetime_with_ptime (snd event.dtstart) ts)
-         and dtend_or_duration = adjust_dtend ts
-         in
-         Some { event with dtstart ; dtend_or_duration })
+    (fun () ->
+      let rec loop () =
+        match newdate () with
+        | None -> None
+        | Some ts when is_exdate ts -> loop ()
+        | Some ts ->
+          let dtstart = (fst event.dtstart, date_or_datetime_with_ptime (snd event.dtstart) ts)
+          and dtend_or_duration = adjust_dtend ts
+          in
+          Some { event with dtstart ; dtend_or_duration }
+      in
+      loop ())
 
 let occurence_before_timestamp datetime (tzprops : tz_prop list) =
   let dtstart = List.find (function `Dtstart_local _ -> true | _ -> false) tzprops in
