@@ -592,6 +592,103 @@ let ex_37 () =
               (List.map (fun d -> to_ptime d time) res)
               (all_events date time rrule))
 
+let calendar_exdate = {|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Teamup Solutions AG//Teamup Calendar//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+DESCRIPTION:Emile-14107784
+X-WR-CALDESC:Emile-14107784
+X-WR-CALNAME:test | Calendar 1
+X-PUBLISHED-TTL:PT15M
+SUMMARY:test | Calendar 1
+BEGIN:VTIMEZONE
+TZID:Europe/Paris
+LAST-MODIFIED:20231222T233358Z
+TZURL:https://www.tzurl.org/zoneinfo-outlook/Europe/Paris
+X-LIC-LOCATION:Europe/Paris
+BEGIN:DAYLIGHT
+TZNAME:CEST
+TZOFFSETFROM:+0100
+TZOFFSETTO:+0200
+DTSTART:19700329T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU
+END:DAYLIGHT
+BEGIN:STANDARD
+TZNAME:CET
+TZOFFSETFROM:+0200
+TZOFFSETTO:+0100
+DTSTART:19701025T030000
+RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:TU1831481901
+DTSTAMP:20250221T173943Z
+SUMMARY:event
+CATEGORIES:Calendar 1
+CLASS:PUBLIC
+TRANSP:OPAQUE
+SEQUENCE:0
+DTSTART;TZID=Europe/Paris:20250216T063000
+DTEND;TZID=Europe/Paris:20250216T073000
+CREATED:20250221T173553Z
+LAST-MODIFIED:20250221T173712Z
+RRULE:FREQ=DAILY
+EXDATE;TZID=Europe/Paris:20250226T063000
+END:VEVENT
+BEGIN:VEVENT
+UID:TU1831482462
+DTSTAMP:20250221T173943Z
+SUMMARY:event
+CATEGORIES:Calendar 1
+CLASS:PUBLIC
+TRANSP:OPAQUE
+SEQUENCE:0
+DTSTART;TZID=Europe/Paris:20250226T163000
+DTEND;TZID=Europe/Paris:20250226T173000
+CREATED:20250221T173712Z
+URL;VALUE=URI:https://teamup.com/c/321321/events/123123
+END:VEVENT
+END:VCALENDAR|}
+
+let exdate =
+  let calendar = Icalendar.parse calendar_exdate |> Result.get_ok in
+  let event = List.find_map (function `Event e -> Some e | _ -> None) (snd calendar) |> Option.get in
+  let get_events = Icalendar.recur_events event in
+  let buf = Buffer.create 16 in
+  for _ = 1 to 15 do
+    let e = get_events () |> Option.get in
+    Buffer.add_string buf
+      ( e.dtstart
+      |> snd
+      |> function
+         | `Datetime ts -> Icalendar.show_timestamp ts
+         | `Date d -> d |> Ptime.of_date |> Option.get |> Ptime.to_rfc3339
+      );
+      Buffer.add_char buf '\n';
+  done;
+  let str = Buffer.contents buf in
+  print_endline str;
+  (* The important bit here is the absence of event on february 26. *)
+  Alcotest.(check (string) "compute occurences example 37" str
+              {|`With_tzid ((2025-02-16 06:30:00 +00:00, (false, "Europe/Paris")))
+`With_tzid ((2025-02-17 06:30:00 +00:00, (false, "Europe/Paris")))
+`With_tzid ((2025-02-18 06:30:00 +00:00, (false, "Europe/Paris")))
+`With_tzid ((2025-02-19 06:30:00 +00:00, (false, "Europe/Paris")))
+`With_tzid ((2025-02-20 06:30:00 +00:00, (false, "Europe/Paris")))
+`With_tzid ((2025-02-21 06:30:00 +00:00, (false, "Europe/Paris")))
+`With_tzid ((2025-02-22 06:30:00 +00:00, (false, "Europe/Paris")))
+`With_tzid ((2025-02-23 06:30:00 +00:00, (false, "Europe/Paris")))
+`With_tzid ((2025-02-24 06:30:00 +00:00, (false, "Europe/Paris")))
+`With_tzid ((2025-02-25 06:30:00 +00:00, (false, "Europe/Paris")))
+`With_tzid ((2025-02-27 06:30:00 +00:00, (false, "Europe/Paris")))
+`With_tzid ((2025-02-28 06:30:00 +00:00, (false, "Europe/Paris")))
+`With_tzid ((2025-03-01 06:30:00 +00:00, (false, "Europe/Paris")))
+`With_tzid ((2025-03-02 06:30:00 +00:00, (false, "Europe/Paris")))
+`With_tzid ((2025-03-03 06:30:00 +00:00, (false, "Europe/Paris")))
+|})
+
 let tests = [
   "example 1", `Quick, ex_1 ;
   "example 2", `Quick, ex_2 ;
