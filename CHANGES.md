@@ -1,3 +1,7 @@
+## v0.1.10 (2025-03-04)
+
+* handle EXDATE in recur_event (#12 @EmileTrotignon)
+
 ## v0.1.9 (2024-11-19)
 
 * BUGFIX: allow empty text values (e.g. in DESCRIPTION), as observed by
