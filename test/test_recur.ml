@@ -652,7 +652,7 @@ URL;VALUE=URI:https://teamup.com/c/321321/events/123123
 END:VEVENT
 END:VCALENDAR|}
 
-let exdate =
+let exdate () =
   let calendar = Icalendar.parse calendar_exdate |> Result.get_ok in
   let event = List.find_map (function `Event e -> Some e | _ -> None) (snd calendar) |> Option.get in
   let get_events = Icalendar.recur_events event in
@@ -669,9 +669,8 @@ let exdate =
       Buffer.add_char buf '\n';
   done;
   let str = Buffer.contents buf in
-  print_endline str;
   (* The important bit here is the absence of event on february 26. *)
-  Alcotest.(check (string) "compute occurences example 37" str
+  Alcotest.(check (string) "compute occurences example 38"
               {|`With_tzid ((2025-02-16 06:30:00 +00:00, (false, "Europe/Paris")))
 `With_tzid ((2025-02-17 06:30:00 +00:00, (false, "Europe/Paris")))
 `With_tzid ((2025-02-18 06:30:00 +00:00, (false, "Europe/Paris")))
@@ -687,7 +686,8 @@ let exdate =
 `With_tzid ((2025-03-01 06:30:00 +00:00, (false, "Europe/Paris")))
 `With_tzid ((2025-03-02 06:30:00 +00:00, (false, "Europe/Paris")))
 `With_tzid ((2025-03-03 06:30:00 +00:00, (false, "Europe/Paris")))
-|})
+|}
+              str)
 
 let tests = [
   "example 1", `Quick, ex_1 ;
@@ -727,4 +727,5 @@ let tests = [
   "example 35: weekstart = sunday", `Quick, ex_35 ;
   "example 36: An example where an invalid date (i.e., February 30) is ignored", `Quick, ex_36 ;
   "example 37: yearly, count 3", `Quick, ex_37 ;
+  "example 38: exdate", `Quick, exdate ;
 ]

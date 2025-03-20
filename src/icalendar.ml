@@ -2133,7 +2133,7 @@ let date_or_datetime_with_ptime d_or_dt ts =
   | `Datetime (`Local _) -> `Datetime (`Local ts)
   | `Datetime (`With_tzid (_, tzid)) -> `Datetime (`With_tzid (ts, tzid))
 
-(* TODO handle Exdate and Rdate *)
+(* TODO handle and Rdate *)
 let recur_events event = match event.rrule with
   | None -> (fun () -> None)
   | Some (_, recur) ->
