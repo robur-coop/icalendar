@@ -2160,13 +2160,23 @@ let recur_events event = match event.rrule with
         (function `Exdate t -> Some (dates_or_datetimes_to_ptimes (snd t))  | _ -> None)
         event.props
     in
+    let recurrence_id =
+          print_endline "----------------------------------------------";
+      List.find_map
+        (function `Recur_id t ->
+          print_endline "===========================================";
+          Some (date_or_datetime_to_ptime (snd t))  | _ -> None)
+        event.props
+    in
     let is_exdate ts = match exdate with None -> false | Some timestamps -> List.mem ts timestamps in
+    let is_recurrence_id ts = match recurrence_id with None -> false | Some ts' -> not (Ptime.equal ts ts') (* or equal and status is cancelled *)in
     let newdate = recur_dates dtstart recur in
     (fun () ->
       let rec loop () =
         match newdate () with
         | None -> None
         | Some ts when is_exdate ts -> loop ()
+        | Some ts when is_recurrence_id ts -> loop ()
         | Some ts ->
           let dtstart = (fst event.dtstart, date_or_datetime_with_ptime (snd event.dtstart) ts)
           and dtend_or_duration = adjust_dtend ts
