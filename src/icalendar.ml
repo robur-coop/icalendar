@@ -1972,8 +1972,11 @@ let build_todo todoprops alarms =
   `Todo (todoprops, List.fold_left f [] alarms)
 
 let todoc =
+  let b_todo props alarms props2 =
+    build_todo (props @ props2) alarms
+  in
   string "BEGIN:VTODO" *> end_of_line *>
-  lift2 build_todo todoprops (many alarmc)
+  lift3 b_todo todoprops (many alarmc) todoprops
   <* string "END:VTODO" <* end_of_line
 
 let build_event eventprops alarms =
@@ -2011,8 +2014,11 @@ let build_event eventprops alarms =
   | _ -> raise (Parse_error "build_event: missing dtstamp, uid or dtstart")
 
 let eventc =
+  let b_event props alarms props2 =
+    build_event (props @ props2) alarms
+  in
   string "BEGIN:VEVENT" *> end_of_line *>
-  lift2 build_event event_props (many alarmc)
+  lift3 b_event event_props (many alarmc) event_props
   <* string "END:VEVENT" <* end_of_line
 
 let tzid =

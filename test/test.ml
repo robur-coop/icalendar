@@ -2711,6 +2711,115 @@ END:VCALENDAR
   in
   Alcotest.check result_c __LOC__ (Ok expected) (Icalendar.parse input)
 
+let ryan_14 () =
+  let input = {|BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Ximian//NONSGML Evolution Calendar//EN
+BEGIN:VEVENT
+UID:062502ad4d504c9ba5d8cf39b4e0ff73@trainline.eu
+DTSTART:20240525T074400Z
+DTEND:20240525T083200Z
+CATEGORIES:TRAVEL
+CREATED:20240524T161747Z
+DESCRIPTION:Transaction reference 431902615761\n\nManage my booking https:/
+ /www.thetrainline.com/en/my-account/login?redirectTo=%2Fen%2Fmy-account%2F
+ bookings\n\n\n
+DTSTAMP:20240524T161747Z
+LAST-MODIFIED:20241030T190943Z
+LOCATION:Cambridge
+ORGANIZER;CN=Trainline:mailto:calendar@trainline.eu
+STATUS:CONFIRMED
+SUMMARY:Cambridge → London Kings Cross [431902615761]
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACKNOWLEDGED:20241030T190940Z
+ACTION:DISPLAY
+DESCRIPTION:Cambridge → London Kings Cross
+TRIGGER;RELATED=START:-PT1H
+X-EVOLUTION-ALARM-UID:2ce8d91715627cf48c1b94ec9db8761982308c2e
+END:VALARM
+BEGIN:VALARM
+ACKNOWLEDGED:20241030T190943Z
+ACTION:DISPLAY
+DESCRIPTION:Cambridge → London Kings Cross
+TRIGGER;RELATED=START:-PT3H
+X-EVOLUTION-ALARM-UID:ec4b0296bc1f0f99b402922f9a18d1d71adfe636
+END:VALARM
+X-MICROSOFT-CDO-BUSYSTATUS:FREE
+END:VEVENT
+END:VCALENDAR
+|}
+  and expected =
+                ([`Version ((empty, "2.0")); `Calscale ((empty, "GREGORIAN"));
+                   `Prodid ((empty, "-//Ximian//NONSGML Evolution Calendar//EN"))],
+                 [`Event ({ Icalendar.dtstamp =
+                            (empty, to_ptime (2024, 05, 24) (16, 17, 47));
+                            uid =
+                            (empty,
+                             "062502ad4d504c9ba5d8cf39b4e0ff73@trainline.eu");
+                            dtstart =
+                            (empty, `Datetime (`Utc (to_ptime (2024, 05, 25) (07, 44, 00))));
+                            dtend_or_duration =
+                              (Some (`Dtend ((empty,
+                                             `Datetime (`Utc (to_ptime (2024, 05, 25) (08, 32, 00)))))));
+                            rrule = None;
+                            props =
+                            [`Categories ((empty, ["TRAVEL"]));
+                              `Created ((empty, to_ptime (2024, 05, 24) (16, 17, 47)));
+                              `Description ((empty,
+                                             "Transaction reference 431902615761\n\nManage my booking https://www.thetrainline.com/en/my-account/login?redirectTo=%2Fen%2Fmy-account%2Fbookings\n\n\n"));
+                              `Lastmod ((empty, to_ptime (2024, 10, 30) (19, 09, 43)));
+                              `Location ((empty, "Cambridge"));
+                              `Organizer (singleton Cn (`String "Trainline"),
+                                           Uri.of_string "mailto:calendar@trainline.eu");
+                              `Status ((empty, `Confirmed));
+                              `Summary ((empty,
+                                         "Cambridge \226\134\146 London Kings Cross [431902615761]"));
+                              `Transparency ((empty, `Transparent));
+                              `Xprop ((("", "MICROSOFT-CDO-BUSYSTATUS"), empty,
+                                       "FREE"))
+                              ];
+                            alarms =
+                            [`Display ({ Icalendar.trigger =
+                                         (singleton Related `Start, `Duration (Ptime.Span.of_int_s (- (3 * 60 * 60))));
+                                         duration_repeat = None;
+                                         other =
+                                         [`Xprop ((("", "EVOLUTION-ALARM-UID"),
+                                                   empty,
+                                                   "ec4b0296bc1f0f99b402922f9a18d1d71adfe636"));
+                                           `Iana_prop (("ACKNOWLEDGED", empty,
+                                                        "20241030T190943Z"))
+                                                                                        ];
+                                         special =
+                                         { Icalendar.description =
+                                           (empty,
+                                            "Cambridge \226\134\146 London Kings Cross")
+                                           }
+                                         });
+                              `Display ({ Icalendar.trigger =
+                                          (singleton Related `Start , `Duration (Ptime.Span.of_int_s (- (60 * 60))));
+                                          duration_repeat = None;
+                                          other =
+                                          [`Xprop ((("",
+                                                     "EVOLUTION-ALARM-UID"),
+                                                    empty,
+                                                    "2ce8d91715627cf48c1b94ec9db8761982308c2e"));
+                                            `Iana_prop (("ACKNOWLEDGED", empty,
+                                                         "20241030T190940Z"))
+                                            ];
+                                          special =
+                                          { Icalendar.description =
+                                            (empty,
+                                             "Cambridge \226\134\146 London Kings Cross")
+                                            }
+                                          })
+                              ]
+                            })
+                   ])
+  in
+  Alcotest.check result_c __LOC__ (Ok expected) (Icalendar.parse input)
+
 let decode_encode_tests = [
   "encode durations", `Quick, encode_durations ;
   "decode and encode is identity", `Quick, decode_encode ;
@@ -2721,6 +2830,7 @@ let decode_encode_tests = [
   "google invitation", `Quick, google_invitation ;
   "iana parameters", `Quick, iana_params ;
   "ical import/export", `Quick, ical_import_export ;
+  "ryan 14", `Quick, ryan_14 ;
 ]
 
 let reply_busy_time () =
