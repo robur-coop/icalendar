@@ -442,7 +442,7 @@ let add_missing_filters recurs freq start =
   (bymonth, byweekno, byyearday, bymonthday, byday)
 
 (* create correct main generator *)
-(* TODO timezone is not applied yet *)
+(* timezone is not applied -- but start and until must have the same shape, so this is ok :) *)
 let new_gen start recurrence =
   let (freq, count_or_until, interval, recurs) = recurrence in
   let filters = add_missing_filters recurs freq start
@@ -455,7 +455,8 @@ let new_gen start recurrence =
     | Some (`Count n) ->
       let gen_count = init_count n gen_event in
       (fun () -> next_count gen_count)
-    | Some (`Until (`Utc ts)) -> (* TODO `Until (`Local ts)! *)
+    | Some (`Until (`Utc ts))
+    | Some (`Until (`Local ts)) ->
       let gen_until = init_until ts gen_event in
       (fun () -> next_until gen_until)
     | _ ->
