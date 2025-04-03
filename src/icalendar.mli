@@ -172,7 +172,7 @@ type audio_struct = {
 }
 
 type display_struct = {
-  description : params * string ;
+  description : (params * string) option ;
 }
 
 type email_struct = {
