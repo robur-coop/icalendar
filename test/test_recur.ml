@@ -758,8 +758,8 @@ END:VCALENDAR|}
 let ex_recurrence_id () =
   let calendar = Icalendar.parse calendar_recurrence_id |> Result.get_ok in
   let event, recurrence_ids =
-    match List.partition_map (function `Event e -> Left e | f -> Right f) (snd calendar) with
-    | hd :: tl, _ -> hd, tl
+    match List.partition (function `Event _ -> true | _ -> false) (snd calendar) with
+    | `Event hd :: tl, _ -> hd, List.map (function `Event e -> e | _ -> assert false) tl
     | _ -> assert false
   in
   let get_events = Icalendar.recur_events ~recurrence_ids event in
