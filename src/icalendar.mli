@@ -277,7 +277,7 @@ end
 
 val recur_dates : Ptime.t -> recurrence -> (unit -> Ptime.t option)
 
-val recur_events : event -> (unit -> event option)
+val recur_events : ?recurrence_ids:event list -> event -> (unit -> event option)
 
 val normalize_timezone : Ptime.t -> bool * String.t ->
   timezone_prop list list ->
