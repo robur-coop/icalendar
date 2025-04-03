@@ -2130,8 +2130,8 @@ let date_or_datetime_to_ptime = function
   | `Date date -> date_to_ptime date
 
 let dates_or_datetimes_to_ptimes = function
-| `Datetimes datetimes -> List.map datetime_to_ptime datetimes
-| `Dates dates -> List.map date_to_ptime dates
+  | `Datetimes datetimes -> List.map datetime_to_ptime datetimes
+  | `Dates dates -> List.map date_to_ptime dates
 
 let date_or_datetime_with_ptime d_or_dt ts =
   match d_or_dt with
@@ -2140,7 +2140,7 @@ let date_or_datetime_with_ptime d_or_dt ts =
   | `Datetime (`Local _) -> `Datetime (`Local ts)
   | `Datetime (`With_tzid (_, tzid)) -> `Datetime (`With_tzid (ts, tzid))
 
-(* TODO handle and Rdate *)
+(* TODO handle Rdate *)
 let recur_events event = match event.rrule with
   | None -> (fun () -> None)
   | Some (_, recur) ->
