@@ -1469,7 +1469,7 @@ END:VCALENDAR
         `Display { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ;
                    duration_repeat = None ;
                    other = [] ;
-                   special = { Icalendar.description = (singleton Altrep (Uri.of_string "CID:part3.msg970930T083000SILVER@example.com"), "Meeting to provide technical review for \"Phoenix\" design.\nHappy Face Conference Room. Phoenix design team MUST attend this meeting.\nRSVP to team leader.") } }
+                   special = { Icalendar.description = Some (singleton Altrep (Uri.of_string "CID:part3.msg970930T083000SILVER@example.com"), "Meeting to provide technical review for \"Phoenix\" design.\nHappy Face Conference Room. Phoenix design team MUST attend this meeting.\nRSVP to team leader.") } }
       ]
     } in
     Ok
@@ -1563,7 +1563,7 @@ END:VCALENDAR
         `Display { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800)));
                    duration_repeat = Some ((empty, Ptime.Span.of_int_s(15 * 60)), (empty, 2)) ;
                    other = [] ;
-                   special = { Icalendar.description = (empty, "Breakfast meeting with executive\nteam at 8:30 AM EST."); }
+                   special = { Icalendar.description = Some (empty, "Breakfast meeting with executive\nteam at 8:30 AM EST."); }
                  }
       ]
     } in
@@ -1712,8 +1712,8 @@ END:VCALENDAR
       rrule = None ;
       props = [ `Summary (empty, "event 8") ] ;
       alarms = [
-        `Display { Icalendar.trigger = (singleton Related `Start, `Duration (Ptime.Span.of_int_s(- 5 * 60))) ; duration_repeat = None ; other = [] ; special = { Icalendar.description = (empty, "Test") } } ;
-        `Display { Icalendar.trigger = (singleton Related `Start, `Duration (Ptime.Span.of_int_s(- 10 * 60))) ; duration_repeat = None ; other = [] ; special = { Icalendar.description = (empty, "Test") } } ;
+        `Display { Icalendar.trigger = (singleton Related `Start, `Duration (Ptime.Span.of_int_s(- 5 * 60))) ; duration_repeat = None ; other = [] ; special = { Icalendar.description = Some (empty, "Test") } } ;
+        `Display { Icalendar.trigger = (singleton Related `Start, `Duration (Ptime.Span.of_int_s(- 10 * 60))) ; duration_repeat = None ; other = [] ; special = { Icalendar.description = Some (empty, "Test") } } ;
       ]
     } in
     Ok
@@ -2344,7 +2344,7 @@ END:VCALENDAR
                                      "C5EF8EEC-546B-462A-BE1E-5F4CB06661AB"))
                             ];
                           special =
-                          { Icalendar.description = (empty, "Event reminder") } })
+                          { Icalendar.description = Some (empty, "Event reminder") } })
                ]))
      ]) in
   Alcotest.check result_c __LOC__ expected (Icalendar.parse input)
@@ -2476,7 +2476,7 @@ END:VCALENDAR|}
                      `Duration (Ptime.Span.of_int_s (- 15 * 60* 60))) ;
           duration_repeat = None ;
           other = [] ;
-          special = { description = (empty, "This is an event reminder") }
+          special = { description = Some (empty, "This is an event reminder") }
         }
       ]
     } in
@@ -2704,7 +2704,7 @@ END:VCALENDAR
                                          (empty, `Duration (Ptime.Span.of_int_s (- 15 * 60)));
                                          duration_repeat = None; other = [];
                                          special =
-                                         { Icalendar.description = (empty , "") } })
+                                         { Icalendar.description = Some (empty , "") } })
                               ]
                             })
                    ])
@@ -2793,7 +2793,7 @@ END:VCALENDAR
                                                                                         ];
                                          special =
                                          { Icalendar.description =
-                                           (empty,
+                                           Some (empty,
                                             "Cambridge \226\134\146 London Kings Cross")
                                            }
                                          });
@@ -2810,12 +2810,151 @@ END:VCALENDAR
                                             ];
                                           special =
                                           { Icalendar.description =
-                                            (empty,
+                                            Some (empty,
                                              "Cambridge \226\134\146 London Kings Cross")
                                             }
                                           })
                               ]
                             })
+                   ])
+  in
+  Alcotest.check result_c __LOC__ (Ok expected) (Icalendar.parse input)
+
+let ryan_14_2 () =
+  let input = {|BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Ximian//NONSGML Evolution Calendar//EN
+BEGIN:VTIMEZONE
+TZID:Europe/London
+BEGIN:STANDARD
+DTSTART:19961027T020000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+TZNAME:GMT
+TZOFFSETFROM:+0100
+TZOFFSETTO:+0000
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19810329T010000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=3
+TZNAME:BST
+TZOFFSETFROM:+0000
+TZOFFSETTO:+0100
+END:DAYLIGHT
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:WPP1CH7DHQP66OAH9AZZY7EBX572AGCS4FQE
+DTSTART;TZID=Europe/London:20240903T083000
+DTEND;TZID=Europe/London:20240903T093000
+DTSTAMP:20240826T145233Z
+LAST-MODIFIED:20241030T190934Z
+SEQUENCE:0
+SUMMARY:haircut
+BEGIN:VALARM
+ACKNOWLEDGED:20241030T190929Z
+ACTION:DISPLAY
+TRIGGER;RELATED=START:-PT12H
+X-EVOLUTION-ALARM-UID:939e5f8221811dc3aea97f5a537ba646bd1225df
+END:VALARM
+BEGIN:VALARM
+ACKNOWLEDGED:20241030T190931Z
+ACTION:DISPLAY
+TRIGGER;RELATED=START:-P1D
+X-EVOLUTION-ALARM-UID:90653219050f8772072297b75e33b5a1e9b20f56
+END:VALARM
+BEGIN:VALARM
+ACKNOWLEDGED:20241030T190934Z
+ACTION:DISPLAY
+TRIGGER;RELATED=START:-P3D
+X-EVOLUTION-ALARM-UID:ca86d4580e70a7521bc35e25bbb94d8ba2758430
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+|}
+  and expected =
+    ([`Version ((empty, "2.0")); `Calscale ((empty, "GREGORIAN"));
+      `Prodid ((empty, "-//Ximian//NONSGML Evolution Calendar//EN"))],
+                 [`Timezone ([`Timezone_id ((empty, (false, "Europe/London")));
+                               `Standard ([`Dtstart_local ((empty,
+                                                            to_ptime (1996, 10, 27) (02, 00, 00)));
+                                            `Rrule ((empty,
+                                                     (`Yearly, None, None,
+                                                      [`Byday ([(-1, `Sunday)
+                                                                 ]);
+                                                        `Bymonth ([10])])));
+                                            `Tzname ((empty, "GMT"));
+                                            `Tzoffset_from ((empty, Ptime.Span.of_int_s (60 * 60)));
+                                            `Tzoffset_to ((empty, Ptime.Span.of_int_s 0))]);
+                               `Daylight ([`Dtstart_local ((empty,
+                                                            to_ptime (1981, 03, 29) (01, 00, 00)));
+                                            `Rrule ((empty,
+                                                     (`Yearly, None, None,
+                                                      [`Byday ([(-1, `Sunday)
+                                                                 ]);
+                                                        `Bymonth ([3])])));
+                                            `Tzname ((empty, "BST"));
+                                            `Tzoffset_from ((empty, Ptime.Span.of_int_s 0));
+                                            `Tzoffset_to ((empty, Ptime.Span.of_int_s (60 * 60)))])
+                               ]);
+                   `Event ({ Icalendar.dtstamp =
+                             (empty, to_ptime (2024, 08, 26) (14, 52, 33));
+                             uid = (empty, "WPP1CH7DHQP66OAH9AZZY7EBX572AGCS4FQE");
+                             dtstart =
+                             (empty,
+                              `Datetime (`With_tzid ((to_ptime (2024, 09, 03) (08, 30, 00),
+                                                      (false, "Europe/London")))));
+                             dtend_or_duration =
+                             (Some (`Dtend ((empty,
+                                            `Datetime (`With_tzid ((to_ptime (2024, 09, 03) (09, 30, 00),
+                                                                    (
+                                                                    false,
+                                                                    "Europe/London"))))))));
+                             rrule = None;
+                             props =
+                             [`Lastmod ((empty, to_ptime (2024, 10, 30) (19, 09, 34)));
+                               `Seq ((empty, 0)); `Summary ((empty, "haircut"))];
+                             alarms =
+                             [`Display ({ Icalendar.trigger =
+                                          (singleton Related `Start , `Duration (Ptime.Span.of_int_s (- (3 * 24 * 60 * 60))));
+                                          duration_repeat = None;
+                                          other =
+                                          [`Xprop ((("",
+                                                     "EVOLUTION-ALARM-UID"),
+                                                    empty,
+                                                    "ca86d4580e70a7521bc35e25bbb94d8ba2758430"));
+                                            `Iana_prop (("ACKNOWLEDGED", empty,
+                                                         "20241030T190934Z"))
+                                            ];
+                                          special =
+                                          { Icalendar.description = None } });
+                               `Display ({ Icalendar.trigger =
+                                           (singleton Related `Start , `Duration (Ptime.Span.of_int_s (- (24 *60 * 60))));
+                                           duration_repeat = None;
+                                           other =
+                                           [`Xprop ((("",
+                                                      "EVOLUTION-ALARM-UID"),
+                                                     empty,
+                                                     "90653219050f8772072297b75e33b5a1e9b20f56"));
+                                             `Iana_prop (("ACKNOWLEDGED", empty,
+                                                          "20241030T190931Z"))
+                                             ];
+                                           special =
+                                           { Icalendar.description = None } });
+                               `Display ({ Icalendar.trigger =
+                                           (singleton Related `Start , `Duration (Ptime.Span.of_int_s (- (12 * 60 * 60))));
+                                           duration_repeat = None;
+                                           other =
+                                           [`Xprop ((("",
+                                                      "EVOLUTION-ALARM-UID"),
+                                                     empty,
+                                                     "939e5f8221811dc3aea97f5a537ba646bd1225df"));
+                                             `Iana_prop (("ACKNOWLEDGED", empty,
+                                                          "20241030T190929Z"))
+                                             ];
+                                           special =
+                                           { Icalendar.description = None } })
+                               ]
+                             })
                    ])
   in
   Alcotest.check result_c __LOC__ (Ok expected) (Icalendar.parse input)
@@ -2831,6 +2970,7 @@ let decode_encode_tests = [
   "iana parameters", `Quick, iana_params ;
   "ical import/export", `Quick, ical_import_export ;
   "ryan 14", `Quick, ryan_14 ;
+  "ryan 14 2", `Quick, ryan_14_2 ;
 ]
 
 let reply_busy_time () =

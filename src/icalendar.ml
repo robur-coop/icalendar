@@ -316,7 +316,7 @@ type audio_struct = {
 } [@@deriving eq, show]
 
 type display_struct = {
-  description : params * string ;
+  description : (params * string) option ;
 } [@@deriving eq, show]
 
 type email_struct = {
@@ -976,7 +976,7 @@ module Writer = struct
          prop_to_ics (`Action "DISPLAY") ;
          prop_to_ics (`Trigger display.trigger) ;
          prop_to_ics (`Duration_repeat display.duration_repeat) ;
-         prop_to_ics (`Description display.special.description) ;
+         (match display.special.description with None -> () | Some desc -> prop_to_ics (`Description desc)) ;
          List.iter prop_to_ics display.other
        | `Email (email : email_struct alarm_struct) ->
          prop_to_ics (`Action "EMAIL") ;
@@ -1923,8 +1923,9 @@ let build_alarm props =
   let build_display rest =
     let descriptions, rest' = List.partition (function `Description _ -> true | _ -> false ) rest in
     let description = match descriptions with
-     | [`Description x] -> x
-     | _ -> raise (Parse_error "build_display: description") in
+      | [`Description x] -> Some x
+      | [] -> None
+      | _ -> raise (Parse_error "build_display: description") in
     match rest' with
      | [] -> `Display { trigger ; duration_repeat ; other ; special = { description } }
      | _ -> raise (Parse_error "build_display: unknown input after description") in
