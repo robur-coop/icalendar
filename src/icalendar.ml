@@ -2141,7 +2141,8 @@ let date_or_datetime_with_ptime d_or_dt ts =
   | `Datetime (`With_tzid (_, tzid)) -> `Datetime (`With_tzid (ts, tzid))
 
 (* TODO handle Rdate *)
-let recur_events event = match event.rrule with
+let recur_events ?(recurrence_ids = []) event =
+  match event.rrule with
   | None -> (fun () -> None)
   | Some (_, recur) ->
     let dtstart = date_or_datetime_to_ptime (snd event.dtstart) in
@@ -2157,21 +2158,45 @@ let recur_events event = match event.rrule with
     in
     let exdate =
       List.find_map
-        (function `Exdate t -> Some (dates_or_datetimes_to_ptimes (snd t))  | _ -> None)
+        (function `Exdate t -> Some (dates_or_datetimes_to_ptimes (snd t)) | _ -> None)
         event.props
     in
-    let is_exdate ts = match exdate with None -> false | Some timestamps -> List.mem ts timestamps in
+    let recurrence_ids =
+      List.filter_map (fun e ->
+          if String.equal (snd event.uid) (snd e.uid) then
+            match List.find_opt (function `Recur_id _ -> true | _ -> false) e.props with
+            | Some `Recur_id (_, ts) ->
+              let ts' = date_or_datetime_to_ptime ts in
+              Some (ts', e)
+            | _ -> None
+          else
+            None)
+        recurrence_ids
+    in
+    let is_exdate ts =
+      match exdate with
+      | None -> false
+      | Some timestamps -> List.exists (fun t -> Ptime.equal t ts) timestamps
+    in
     let newdate = recur_dates dtstart recur in
     (fun () ->
       let rec loop () =
         match newdate () with
         | None -> None
-        | Some ts when is_exdate ts -> loop ()
         | Some ts ->
-          let dtstart = (fst event.dtstart, date_or_datetime_with_ptime (snd event.dtstart) ts)
-          and dtend_or_duration = adjust_dtend ts
-          in
-          Some { event with dtstart ; dtend_or_duration }
+          if is_exdate ts then
+            loop ()
+          else match List.find_opt (fun (t, _) -> Ptime.equal ts t) recurrence_ids with
+            | None ->
+              let dtstart = (fst event.dtstart, date_or_datetime_with_ptime (snd event.dtstart) ts)
+              and dtend_or_duration = adjust_dtend ts
+              in
+              Some { event with dtstart ; dtend_or_duration }
+            | Some (_, ev) ->
+              if List.exists (function `Status (_, `Cancelled) -> true | _ -> false) ev.props then
+                loop ()
+              else
+                Some ev
       in
       loop ())
 
