@@ -1,3 +1,14 @@
+## v0.1.11 (2025-04-06)
+
+* handle recurrence ids (#13 @Khady @hannesm, tested by @RyanGibb)
+* recurrence: handle until with local date
+  (reported by @RyanGibb in #15, fixed #17 @hannesm)
+* relax todo and event parsers to allow properties after alarms
+  (reported by @RyanGibb in #14, fixed #16 @hannesm)
+* relax display alarm parser to allow an alarm without description
+  (reported by @RyanGibb in #14, fixed #16 @hannesm)
+* fix registration of exdate test (#13 @Khady)
+
 ## v0.1.10 (2025-03-04)
 
 * handle EXDATE in recur_event (#12 @EmileTrotignon)
