@@ -3053,6 +3053,63 @@ let freebusy_tests = [
   "publish busy time", `Quick, publish_busy_time ;
 ]
 
+let simple_journal () =
+  let input = {|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp//Example Client//EN
+BEGIN:VJOURNAL
+UID:19970901T130000Z-123405@example.com
+DTSTAMP:19970901T130000Z
+DTSTART;VALUE=DATE:19970317
+SUMMARY:Staff meeting minutes
+DESCRIPTION:1. Staff meeting: Participants include Joe\, Lisa\, and Bob.
+END:VJOURNAL
+END:VCALENDAR
+|}
+  and expected =
+    [`Version ((empty, "2.0"));
+     `Prodid ((empty, "-//Example Corp//Example Client//EN"))],
+    [`Journal ([
+      `Uid ((empty, "19970901T130000Z-123405@example.com"));
+      `Dtstamp ((empty, to_ptime (1997, 09, 01) (13, 00, 00)));
+      `Dtstart ((singleton Valuetype `Date, `Date (1997, 03, 17)));
+      `Summary ((empty, "Staff meeting minutes"));
+      `Description ((empty, "1. Staff meeting: Participants include Joe, Lisa, and Bob."))
+    ])]
+  in
+  Alcotest.check result_c __LOC__ (Ok expected) (parse input)
+
+let journal_with_recurrence () =
+  let input = {|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp//Example Client//EN
+BEGIN:VJOURNAL
+UID:20250101T120000Z-456789@example.com
+DTSTAMP:20250101T120000Z
+DTSTART;VALUE=DATE:20250101
+SUMMARY:Daily journal entry
+RRULE:FREQ=DAILY;COUNT=10
+END:VJOURNAL
+END:VCALENDAR
+|}
+  and expected =
+    [`Version ((empty, "2.0"));
+     `Prodid ((empty, "-//Example Corp//Example Client//EN"))],
+    [`Journal ([
+      `Uid ((empty, "20250101T120000Z-456789@example.com"));
+      `Dtstamp ((empty, to_ptime (2025, 01, 01) (12, 00, 00)));
+      `Dtstart ((singleton Valuetype `Date, `Date (2025, 01, 01)));
+      `Summary ((empty, "Daily journal entry"));
+      `Rrule ((empty, (`Daily, Some (`Count 10), None, [])))
+    ])]
+  in
+  Alcotest.check result_c __LOC__ (Ok expected) (parse input)
+
+let journal_tests = [
+  "simple journal", `Quick, simple_journal;
+  "journal with recurrence", `Quick, journal_with_recurrence;
+]
+
 let compare_ptime =
   let module M = struct
     type t = Ptime.t
@@ -3115,6 +3172,7 @@ let tests = [
   "Timezone tests", timezone_tests ;
   "Decode-Encode tests", decode_encode_tests ;
   "Freebusy tests", freebusy_tests ;
+  "Journal tests", journal_tests ;
   "Recurrence tests", Test_recur.tests ;
   "Serialization tests", Test_write.tests ;
   "Timezone normalization tests", tz_normalisation_tests ;

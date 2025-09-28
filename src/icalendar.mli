@@ -217,6 +217,11 @@ type todo_prop = [
   | other_prop
 ]
 
+type journal_prop = [
+  | general_prop
+  | other_prop
+]
+
 type freebusy_prop = [
   | `Dtstamp of params * timestamp_utc
   | `Uid of params * string
@@ -247,6 +252,7 @@ type timezone = timezone_prop list
 type component = [
   | `Event of event
   | `Todo of todo_prop list * alarm list
+  | `Journal of journal_prop list
   | `Freebusy of freebusy_prop list
   | `Timezone of timezone
 ] [@@deriving show]

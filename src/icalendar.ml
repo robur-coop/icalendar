@@ -361,6 +361,11 @@ type todo_prop = [
   | other_prop
 ] [@@deriving eq, show]
 
+type journal_prop = [
+  | general_prop
+  | other_prop
+] [@@deriving eq, show]
+
 type freebusy_prop = [
   | `Dtstamp of params * timestamp_utc
   | `Uid of params * string
@@ -391,6 +396,7 @@ type timezone = timezone_prop list [@@deriving eq, show]
 type component = [
   | `Event of event
   | `Todo of todo_prop list * alarm list
+  | `Journal of journal_prop list
   | `Freebusy of freebusy_prop list
   | `Timezone of timezone
 ] [@@deriving eq, show]
@@ -400,6 +406,7 @@ type calendar = cal_prop list * component list [@@deriving eq, show]
 let component_to_ics_key = function
   | `Event _ -> "VEVENT"
   | `Todo _ -> "VTODO"
+  | `Journal _ -> "VJOURNAL"
   | `Freebusy _ -> "VFREEBUSY"
   | `Timezone _ -> "VTIMEZONE"
 
@@ -1016,6 +1023,24 @@ module Writer = struct
     todo_props_to_ics cr buf prop_filter todoprops ;
     alarms_to_ics cr buf comp_filter alarms
 
+  let journal_prop_to_ics_key = function
+    | #general_prop as x -> general_prop_to_ics_key x
+    | #other_prop as x -> other_prop_to_ics_key x
+
+  let journal_prop_to_ics cr buf filter prop =
+    let key = journal_prop_to_ics_key prop in
+    let is_write_prop, dont_write_value = write_prop_and_value key filter in
+    if not is_write_prop then ()
+    else
+      match prop with
+      | #general_prop as x -> general_prop_to_ics cr buf ~dont_write_value x
+      | #other_prop as x -> other_prop_to_ics cr buf ~dont_write_value x
+
+  let journal_props_to_ics cr buf filter props = List.iter (journal_prop_to_ics cr buf filter) props
+
+  let journal_to_ics cr buf prop_filter journalprops =
+    journal_props_to_ics cr buf prop_filter journalprops
+
   let span_to_string span =
     match Ptime.Span.to_int_s span with
     | None -> assert false
@@ -1105,6 +1130,7 @@ module Writer = struct
        | `Timezone tzprops -> timezone_to_ics cr buf prop_filter tzprops
        | `Freebusy fbprops -> freebusy_to_ics cr buf prop_filter fbprops
        | `Todo (todoprops, alarms) -> todo_to_ics cr buf prop_filter comp_filter todoprops alarms
+       | `Journal journalprops -> journal_to_ics cr buf prop_filter journalprops
     in
     filter_and_write_component component_writer key filter
 
@@ -1835,6 +1861,19 @@ let todoprop =
 
 let todoprops = many todoprop
 
+let journalprop =
+  dtstamp <|> uid <|>
+  class_ <|> created <|> description <|>
+  dtstart <|> geo <|> last_mod <|> location <|> organizer <|>
+  priority <|> recurid <|> seq <|> status <|>
+  summary <|> url <|>
+  rrule <|>
+  attach <|> attendee <|> categories <|> comment <|> contact <|>
+  exdate <|> rstatus <|> related <|> resources <|>
+  rdate <|> otherprop
+
+let journalprops = many journalprop
+
 let action =
   let actionvalue =
         (string "AUDIO" >>| fun _ -> `Audio)
@@ -2091,8 +2130,13 @@ let freebusyc =
   (many freebusyprop >>| fun props -> `Freebusy props)
   <* string "END:VFREEBUSY" <* end_of_line
 
+let journalc =
+  string "BEGIN:VJOURNAL" *> end_of_line *>
+  (journalprops >>| fun props -> `Journal props)
+  <* string "END:VJOURNAL" <* end_of_line
+
 let component =
-  many1 (eventc <|> todoc (* <|> journalc *) <|> freebusyc <|> timezonec)
+  many1 (eventc <|> todoc <|> journalc <|> freebusyc <|> timezonec)
 
 let icalbody =
   let to_pair props comps zapprops =
