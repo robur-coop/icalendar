@@ -1,3 +1,7 @@
+## v0.1.12 (2025-09-30)
+
+* vjournal support (#19 by @RyanGibb, fixes #18)
+
 ## v0.1.11 (2025-04-06)
 
 * handle recurrence ids (#13 @Khady @hannesm, tested by @RyanGibb)
