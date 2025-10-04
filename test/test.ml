@@ -1233,7 +1233,7 @@ END:VCALENDAR
       rrule = None ;
       props = [ `Summary (empty, "Bastille Day Party") ] ;
       alarms =
-        [ `Audio { Icalendar.trigger = (singleton Valuetype `Datetime, `Datetime (to_ptime (1997, 03, 17) (13, 30, 00))) ; duration_repeat = None ; other = [] ; special = {Icalendar.attach = None } } ]
+        [ `Audio { Icalendar.trigger = (singleton Valuetype `Datetime, `Datetime (to_ptime (1997, 03, 17) (13, 30, 00))) ; duration_repeat = None ; summary = None ; other = [] ; special = {Icalendar.attach = None } } ]
     } in
     Ok
       ( [ `Version (empty, "2.0") ;
@@ -1268,7 +1268,7 @@ END:VCALENDAR
       dtend_or_duration = Some (`Dtend (empty, `Datetime (`Utc (to_ptime (1997, 07, 15) (04, 00, 00))))) ;
       rrule = None ;
       props = [ `Summary (empty, "Bastille Day Party") ] ;
-      alarms = [ `Audio { Icalendar.trigger = s ; duration_repeat = None ; other = [] ; special = {Icalendar.attach = None } } ]
+      alarms = [ `Audio { Icalendar.trigger = s ; duration_repeat = None ; summary = None ; other = [] ; special = {Icalendar.attach = None } } ]
     } in
     Ok
       ( [ `Version (empty, "2.0") ;
@@ -1319,6 +1319,7 @@ END:VCALENDAR
       alarms = [
         `Audio { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ;
                  duration_repeat = Some ((empty, Ptime.Span.of_int_s 3600), (empty, 2)) ;
+                 summary = None ;
                  other = [] ;
                  special = { Icalendar.attach = None }}
       ]
@@ -1359,8 +1360,9 @@ END:VCALENDAR
       rrule = None ;
       props = [ `Summary (empty, "Bastille Day Party") ] ;
       alarms = [
-        `Audio { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ; 
+        `Audio { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ;
                  duration_repeat = Some ((empty, Ptime.Span.of_int_s 3600), (empty, 4)) ;
+                 summary = None ;
                  other = [] ;
                  special = { Icalendar.attach = None } }
       ]
@@ -1412,6 +1414,7 @@ END:VCALENDAR
       alarms = [
         `Audio { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ;
                  duration_repeat = None;
+                 summary = None ;
                  other = [] ;
                  special = { Icalendar.attach = Some
                                  (list_to_map [B (Media_type, ("text", "plain")) ; B (Encoding, `Base64) ; B (Valuetype, `Binary)], `Binary "TG9yZW\
@@ -1468,6 +1471,7 @@ END:VCALENDAR
       alarms = [
         `Display { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ;
                    duration_repeat = None ;
+                   summary = None ;
                    other = [] ;
                    special = { Icalendar.description = Some (singleton Altrep (Uri.of_string "CID:part3.msg970930T083000SILVER@example.com"), "Meeting to provide technical review for \"Phoenix\" design.\nHappy Face Conference Room. Phoenix design team MUST attend this meeting.\nRSVP to team leader.") } }
       ]
@@ -1513,9 +1517,9 @@ END:VCALENDAR
       alarms = [
         `Email { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ;
                  duration_repeat = None ;
+                 summary = Some (empty, "*** REMINDER: SEND AGENDA FOR WEEKLY STAFF MEETING ***") ;
                  other = [] ;
-                 special = { Icalendar.summary = (empty, "*** REMINDER: SEND AGENDA FOR WEEKLY STAFF MEETING ***") ;
-                             description = (empty, "A draft agenda needs to be sent out to the attendees to the weekly managers meeting (MGR-LIST). Attached is a pointer the document template for the agenda file.") ;
+                 special = { Icalendar.description = (empty, "A draft agenda needs to be sent out to the attendees to the weekly managers meeting (MGR-LIST). Attached is a pointer the document template for the agenda file.") ;
                              attendees = [(empty, Uri.of_string "mailto:john_doe@example.com")] ;
                              attach = None ;
                            }
@@ -1562,6 +1566,7 @@ END:VCALENDAR
       alarms = [
         `Display { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800)));
                    duration_repeat = Some ((empty, Ptime.Span.of_int_s(15 * 60)), (empty, 2)) ;
+                   summary = None ;
                    other = [] ;
                    special = { Icalendar.description = Some (empty, "Breakfast meeting with executive\nteam at 8:30 AM EST."); }
                  }
@@ -1608,6 +1613,7 @@ END:VCALENDAR
       alarms = [
         `Audio { Icalendar.trigger = (singleton Valuetype `Datetime, `Datetime (to_ptime (1997,03,17) (13,30,00))) ;
                  duration_repeat = Some ((empty, Ptime.Span.of_int_s(15 * 60)), (empty, 4)) ;
+                 summary = None ;
                  other = [] ;
                  special = { Icalendar.attach = Some (singleton Media_type ("audio", "basic"), `Uri(Uri.of_string "ftp://example.com/pub/sounds/bell-01.aud"));
                            }
@@ -1657,9 +1663,9 @@ END:VCALENDAR
       alarms = [
         `Email { Icalendar.trigger = (singleton Related `End, `Duration (Ptime.Span.of_int_s (-2*24*60*60))) ;
                  duration_repeat = None ;
+                 summary = Some (empty, "*** REMINDER: SEND AGENDA FOR WEEKLY STAFF MEETING ***");
                  other = [] ;
-                 special = { Icalendar.attach = Some (singleton Media_type ("application", "msword"), `Uri(Uri.of_string "http://example.com/templates/agenda.doc")) ; attendees = [(empty, Uri.of_string "mailto:john_doe@example.com")]; 
-                             summary = (empty, "*** REMINDER: SEND AGENDA FOR WEEKLY STAFF MEETING ***");
+                 special = { Icalendar.attach = Some (singleton Media_type ("application", "msword"), `Uri(Uri.of_string "http://example.com/templates/agenda.doc")) ; attendees = [(empty, Uri.of_string "mailto:john_doe@example.com")];
                              description = (empty, "A draft agenda needs to be sent out to the attendees to the weekly managers meeting (MGR-LIST). Attached is a pointer the document template for the agenda file.")
                            }
                }
@@ -1712,8 +1718,8 @@ END:VCALENDAR
       rrule = None ;
       props = [ `Summary (empty, "event 8") ] ;
       alarms = [
-        `Display { Icalendar.trigger = (singleton Related `Start, `Duration (Ptime.Span.of_int_s(- 5 * 60))) ; duration_repeat = None ; other = [] ; special = { Icalendar.description = Some (empty, "Test") } } ;
-        `Display { Icalendar.trigger = (singleton Related `Start, `Duration (Ptime.Span.of_int_s(- 10 * 60))) ; duration_repeat = None ; other = [] ; special = { Icalendar.description = Some (empty, "Test") } } ;
+        `Display { Icalendar.trigger = (singleton Related `Start, `Duration (Ptime.Span.of_int_s(- 5 * 60))) ; duration_repeat = None ; summary = None ; other = [] ; special = { Icalendar.description = Some (empty, "Test") } } ;
+        `Display { Icalendar.trigger = (singleton Related `Start, `Duration (Ptime.Span.of_int_s(- 10 * 60))) ; duration_repeat = None ; summary = None ; other = [] ; special = { Icalendar.description = Some (empty, "Test") } } ;
       ]
     } in
     Ok
@@ -2337,6 +2343,7 @@ END:VCALENDAR
                           (singleton Valuetype `Datetime,
                            `Datetime (to_ptime (2018,09,05) (10,00,00)));
                           duration_repeat = None;
+                          summary = None;
                           other =
                           [`Iana_prop (("UID", empty,
                                         "C5EF8EEC-546B-462A-BE1E-5F4CB06661AB"));
@@ -2428,7 +2435,7 @@ END:VCALENDAR
       alarms =
         [`None ({ trigger = (singleton Valuetype `Datetime,
                              `Datetime (to_ptime (1976, 04, 01) (00,55,45)));
-                  duration_repeat = None; other = []; special = () })
+                  duration_repeat = None; summary = None ; other = []; special = () })
         ]
     } in
     Ok
@@ -2475,6 +2482,7 @@ END:VCALENDAR|}
           trigger = (singleton (Iana_param "RELATIVE") [ `String "START" ],
                      `Duration (Ptime.Span.of_int_s (- 15 * 60* 60))) ;
           duration_repeat = None ;
+          summary = None ;
           other = [] ;
           special = { description = Some (empty, "This is an event reminder") }
         }
@@ -2702,7 +2710,7 @@ END:VCALENDAR
                             alarms =
                             [`Display ({ Icalendar.trigger =
                                          (empty, `Duration (Ptime.Span.of_int_s (- 15 * 60)));
-                                         duration_repeat = None; other = [];
+                                         duration_repeat = None; summary = None ; other = [];
                                          special =
                                          { Icalendar.description = Some (empty , "") } })
                               ]
@@ -2784,6 +2792,7 @@ END:VCALENDAR
                             [`Display ({ Icalendar.trigger =
                                          (singleton Related `Start, `Duration (Ptime.Span.of_int_s (- (3 * 60 * 60))));
                                          duration_repeat = None;
+                                         summary = None ;
                                          other =
                                          [`Xprop ((("", "EVOLUTION-ALARM-UID"),
                                                    empty,
@@ -2800,6 +2809,7 @@ END:VCALENDAR
                               `Display ({ Icalendar.trigger =
                                           (singleton Related `Start , `Duration (Ptime.Span.of_int_s (- (60 * 60))));
                                           duration_repeat = None;
+                                          summary = None ;
                                           other =
                                           [`Xprop ((("",
                                                      "EVOLUTION-ALARM-UID"),
@@ -2917,6 +2927,7 @@ END:VCALENDAR
                              [`Display ({ Icalendar.trigger =
                                           (singleton Related `Start , `Duration (Ptime.Span.of_int_s (- (3 * 24 * 60 * 60))));
                                           duration_repeat = None;
+                                          summary = None;
                                           other =
                                           [`Xprop ((("",
                                                      "EVOLUTION-ALARM-UID"),
@@ -2930,6 +2941,7 @@ END:VCALENDAR
                                `Display ({ Icalendar.trigger =
                                            (singleton Related `Start , `Duration (Ptime.Span.of_int_s (- (24 *60 * 60))));
                                            duration_repeat = None;
+                                           summary = None;
                                            other =
                                            [`Xprop ((("",
                                                       "EVOLUTION-ALARM-UID"),
@@ -2943,6 +2955,7 @@ END:VCALENDAR
                                `Display ({ Icalendar.trigger =
                                            (singleton Related `Start , `Duration (Ptime.Span.of_int_s (- (12 * 60 * 60))));
                                            duration_repeat = None;
+                                           summary = None;
                                            other =
                                            [`Xprop ((("",
                                                       "EVOLUTION-ALARM-UID"),
@@ -2959,6 +2972,120 @@ END:VCALENDAR
   in
   Alcotest.check result_c __LOC__ (Ok expected) (Icalendar.parse input)
 
+let issue_20 () =
+  let input = {|BEGIN:VCALENDAR
+PRODID:-//Inverse inc./SOGo 5.12.3//EN
+VERSION:2.0
+METHOD:PUBLISH
+BEGIN:VTIMEZONE
+TZID:Europe/Rome
+LAST-MODIFIED:20250324T091428Z
+X-LIC-LOCATION:Europe/Rome
+BEGIN:DAYLIGHT
+TZNAME:CEST
+TZOFFSETFROM:+0100
+TZOFFSETTO:+0200
+DTSTART:19700329T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU
+END:DAYLIGHT
+BEGIN:STANDARD
+TZNAME:CET
+TZOFFSETFROM:+0200
+TZOFFSETTO:+0100
+DTSTART:19701025T030000
+RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:000-00000000-0-00000000
+SUMMARY:Event summary!
+CLASS:CONFIDENTIAL
+TRANSP:OPAQUE
+DTSTART;TZID=Europe/Rome:20251001T093000
+DTEND;TZID=Europe/Rome:20251001T110000
+BEGIN:VALARM
+TRIGGER;VALUE=DURATION;X-WEBSTATUS=triggered;RELATED=START:-PT30M
+ACTION:DISPLAY
+SUMMARY:Alarm summary
+DESCRIPTION:Alarm description
+END:VALARM
+CREATED:20250930T223223Z
+DTSTAMP:20250930T223223Z
+LAST-MODIFIED:20251001T074845Z
+END:VEVENT
+END:VCALENDAR
+|}
+  and expected =
+                ([`Prodid (empty, "-//Inverse inc./SOGo 5.12.3//EN");
+                   `Version ((empty, "2.0")); `Method ((empty, "PUBLISH"))],
+                 [`Timezone ([`Timezone_id ((empty, (false, "Europe/Rome")));
+                               `Lastmod ((empty, to_ptime (2025, 03, 24) (09, 14, 28)));
+                               `Xprop ((("LIC", "LOCATION"), empty, "Europe/Rome"));
+                               `Daylight ([`Tzname ((empty, "CEST"));
+                                            `Tzoffset_from ((empty, Ptime.Span.of_int_s (60 * 60)));
+                                            `Tzoffset_to ((empty, Ptime.Span.of_int_s (2 * 60 * 60)));
+                                           `Dtstart_local ((empty,
+                                                           to_ptime (1970, 03, 29) (02, 00, 00)));
+                                            `Rrule ((empty,
+                                                     (`Yearly, None, None,
+                                                      [`Bymonth ([3]);
+                                                        `Byday ([(-1, `Sunday)
+                                                                  ])
+                                                        ])))
+                                            ]);
+                               `Standard ([`Tzname ((empty, "CET"));
+                                            `Tzoffset_from ((empty, Ptime.Span.of_int_s (2 * 60 * 60)));
+                                            `Tzoffset_to ((empty, Ptime.Span.of_int_s (60 * 60)));
+                                            `Dtstart_local ((empty,
+                                                             to_ptime (1970, 10, 25) (03, 00, 00)));
+                                            `Rrule ((empty,
+                                                     (`Yearly, None, None,
+                                                          [`Bymonth ([10]);
+                                                        `Byday ([(-1, `Sunday)
+                                                                  ])
+                                                        ])))
+                                            ])
+                               ]);
+                   `Event ({ Icalendar.dtstamp =
+                             (empty, to_ptime (2025, 09, 30) (22, 32, 23));
+                             uid = (empty, "000-00000000-0-00000000");
+                             dtstart =
+                             (empty,
+                              `Datetime (`With_tzid ((to_ptime (2025, 10, 01) (09,30,00),
+                                                      (false, "Europe/Rome")))));
+                             dtend_or_duration =
+                               (Some (`Dtend ((empty,
+                                                                            `Datetime (`With_tzid ((to_ptime (2025,10,01) (11,00,00),
+                                                                    (
+                                                                    false,
+                                                                    "Europe/Rome"))))))));
+                             rrule = None;
+                             props =
+                             [`Summary ((empty, "Event summary!"));
+                               `Class ((empty, `Confidential));
+                               `Transparency ((empty, `Opaque));
+                               `Created ((empty, to_ptime (2025, 09, 30) (22, 32,23)));
+                               `Lastmod ((empty, to_ptime (2025,10,01) (07,48,45)))];
+                             alarms =
+                               [`Display ({ Icalendar.trigger =
+                                              Params.add Valuetype `Duration
+                                                (Params.add (Iana_param "X-WEBSTATUS") [`String "triggered"]
+                                                   (singleton Related `Start)),
+                                                 `Duration (Ptime.Span.of_int_s(- 30 * 60));
+                                          duration_repeat = None;
+                                          summary =
+                                          (Some (empty, "Alarm summary"));
+                                          other = [];
+                                          special =
+                                          { Icalendar.description =
+                                            (Some (empty, "Alarm description")) }
+                                          })
+                               ]
+                             })
+                 ])
+  in
+  Alcotest.check result_c __LOC__ (Ok expected) (Icalendar.parse input)
+
 let decode_encode_tests = [
   "encode durations", `Quick, encode_durations ;
   "decode and encode is identity", `Quick, decode_encode ;
@@ -2971,6 +3098,7 @@ let decode_encode_tests = [
   "ical import/export", `Quick, ical_import_export ;
   "ryan 14", `Quick, ryan_14 ;
   "ryan 14 2", `Quick, ryan_14_2 ;
+  "issue 20", `Quick, issue_20 ;
 ]
 
 let reply_busy_time () =
@@ -3008,9 +3136,9 @@ END:VCALENDAR
                  ])
      ]
   in
-  Alcotest.check result_c __LOC__ (Ok expected) (parse input) 
+  Alcotest.check result_c __LOC__ (Ok expected) (parse input)
 
-let publish_busy_time () = 
+let publish_busy_time () =
   let input = {|BEGIN:VCALENDAR
 PRODID:-//Example Inc.//Example Calendar//EN
 VERSION:2.0
@@ -3046,7 +3174,7 @@ END:VCALENDAR
                  ])
      ]
   in
-  Alcotest.check result_c __LOC__ (Ok expected) (Icalendar.parse input) 
+  Alcotest.check result_c __LOC__ (Ok expected) (Icalendar.parse input)
 
 let freebusy_tests = [
   "reply busy time", `Quick, reply_busy_time ;

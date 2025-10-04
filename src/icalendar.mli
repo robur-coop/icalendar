@@ -163,6 +163,7 @@ type event_prop = [
 type 'a alarm_struct = {
   trigger : params * [ `Duration of Ptime.Span.t | `Datetime of timestamp_utc ] ;
   duration_repeat: ((params * Ptime.Span.t) * (params * int )) option ;
+  summary : (params * string) option ;
   other: other_prop list ;
   special: 'a ;
 }
@@ -177,7 +178,6 @@ type display_struct = {
 
 type email_struct = {
   description : params * string ;
-  summary : params * string ;
   attendees : (params * Uri.t) list ;
   attach: (params * [ `Uri of Uri.t | `Binary of string ]) option ;
 }
