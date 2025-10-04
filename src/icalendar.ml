@@ -307,6 +307,7 @@ type event_prop = [
 type 'a alarm_struct = {
   trigger : params * [ `Duration of Ptime.Span.t | `Datetime of timestamp_utc ] ;
   duration_repeat: ((params * Ptime.Span.t) * (params * int )) option ;
+  summary : (params * string) option ;
   other: other_prop list ;
   special: 'a ;
 } [@@deriving eq, show]
@@ -321,7 +322,6 @@ type display_struct = {
 
 type email_struct = {
   description : params * string ;
-  summary : params * string ;
   attendees : (params * Uri.t) list ;
   attach: (params * [ `Uri of Uri.t | `Binary of string ]) option ;
 } [@@deriving eq, show]
@@ -977,6 +977,7 @@ module Writer = struct
          prop_to_ics (`Action "AUDIO") ;
          prop_to_ics (`Trigger audio.trigger) ;
          prop_to_ics (`Duration_repeat audio.duration_repeat) ;
+         (match audio.summary with None -> () | Some summ -> prop_to_ics (`Summary summ)) ;
          List.iter prop_to_ics audio.other;
          (match audio.special.attach with None -> () | Some attach -> prop_to_ics (`Attach attach))
        | `Display (display : display_struct alarm_struct) ->
@@ -984,6 +985,7 @@ module Writer = struct
          prop_to_ics (`Trigger display.trigger) ;
          prop_to_ics (`Duration_repeat display.duration_repeat) ;
          (match display.special.description with None -> () | Some desc -> prop_to_ics (`Description desc)) ;
+         (match display.summary with None -> () | Some summ -> prop_to_ics (`Summary summ)) ;
          List.iter prop_to_ics display.other
        | `Email (email : email_struct alarm_struct) ->
          prop_to_ics (`Action "EMAIL") ;
@@ -991,13 +993,14 @@ module Writer = struct
          prop_to_ics (`Duration_repeat email.duration_repeat) ;
          (match email.special.attach with None -> () | Some attach -> prop_to_ics (`Attach attach));
          prop_to_ics (`Description email.special.description) ;
-         prop_to_ics (`Summary email.special.summary) ;
+         (match email.summary with None -> () | Some summ -> prop_to_ics (`Summary summ)) ;
          List.iter (fun attendee -> prop_to_ics (`Attendee attendee)) email.special.attendees;
          List.iter prop_to_ics email.other
        | `None (alarm : unit alarm_struct) ->
          prop_to_ics (`Action "NONE") ;
          prop_to_ics (`Trigger alarm.trigger) ;
          prop_to_ics (`Duration_repeat alarm.duration_repeat) ;
+         (match alarm.summary with None -> () | Some summ -> prop_to_ics (`Summary summ)) ;
          List.iter prop_to_ics alarm.other
     in
     filter_and_write_component component_writer "VALARM" filter
@@ -1915,7 +1918,7 @@ let audioprop =
 (* missing cases already covered in audioprop *)
 let dispprop =
   (* action <|> *) description (* <|> trigger <|>
-   duration <|> repeat *)
+   duration <|> repeat *) <|> summary
 
 (* missing cases already covered in audioprop *)
 let emailprop =
@@ -1928,17 +1931,20 @@ let build_alarm props =
   let actions, rest = List.partition (function `Action _ -> true | _ -> false) props in
   let action = match actions with
    | [`Action x] -> x
-   | _ -> raise (Parse_error "build_alarm props: action") in
+   | _ -> raise (Parse_error "build_alarm props: action")
+  in
 
   let triggers, rest' = List.partition (function `Trigger _ -> true | _ -> false ) rest in
   let trigger = match triggers with
    | [`Trigger x] -> x
-   | _ -> raise (Parse_error "build_alarm props: trigger") in
+   | _ -> raise (Parse_error "build_alarm props: trigger")
+  in
 
   let (other: other_prop list), rest'' = List.fold_left (fun (other, rest) -> function
    | `Xprop v -> (`Xprop v :: other, rest)
    | `Iana_prop v -> (`Iana_prop v :: other, rest)
-   | v -> other, v :: rest) ([], []) rest' in
+   | v -> other, v :: rest) ([], []) rest'
+  in
 
   (* check dur repeat *)
   let duration_repeat, rest''' =
@@ -1947,7 +1953,16 @@ let build_alarm props =
     match durations, repeats with
      | [`Duration x], [`Repeat y] -> Some (x, y), rest''''
      | [], [] -> None, rest''''
-     | _, _ -> raise (Parse_error "build_alarm props: duration_repeat") in
+     | _, _ -> raise (Parse_error "build_alarm props: duration_repeat")
+  in
+
+  let summary, rest'''' =
+    let summaries, rest'''' = List.partition (function `Summary _ -> true | _ -> false ) rest''' in
+    match summaries with
+      | [`Summary s] -> Some s, rest''''
+      | [] -> None, rest''''
+      | _ -> raise (Parse_error "build_display: summary")
+  in
 
   let build_audio rest =
     let attachs, rest' = List.partition (function `Attach _ -> true | _ -> false ) rest in
@@ -1956,7 +1971,7 @@ let build_alarm props =
      | [] -> None
      | _ -> raise (Parse_error "build_audio: attach") in
     match rest' with
-     | [] -> `Audio { trigger ; duration_repeat ; other ; special = { attach } }
+     | [] -> `Audio { trigger ; duration_repeat ; summary ; other ; special = { attach } }
      | _ -> raise (Parse_error "build_audio: unkown input after attach") in
 
   let build_display rest =
@@ -1964,9 +1979,10 @@ let build_alarm props =
     let description = match descriptions with
       | [`Description x] -> Some x
       | [] -> None
-      | _ -> raise (Parse_error "build_display: description") in
+      | _ -> raise (Parse_error "build_display: description")
+    in
     match rest' with
-     | [] -> `Display { trigger ; duration_repeat ; other ; special = { description } }
+     | [] -> `Display { trigger ; duration_repeat ; summary ; other ; special = { description } }
      | _ -> raise (Parse_error "build_display: unknown input after description") in
 
   let build_email rest =
@@ -1974,11 +1990,7 @@ let build_alarm props =
     let description = match descriptions with
      | [`Description x] -> x
      | _ -> raise (Parse_error "build_email: description") in
-    let summarys, rest'' = List.partition (function `Summary _ -> true | _ -> false ) rest' in
-    let summary = match summarys with
-     | [`Summary x] -> x
-     | _ -> raise (Parse_error "build_email: summary") in
-    let raw_attendees, rest''' = List.partition (function `Attendee _ -> true | _ -> false ) rest'' in
+    let raw_attendees, rest''' = List.partition (function `Attendee _ -> true | _ -> false ) rest' in
     let attendees = List.map (function `Attendee x -> x | _ -> raise (Parse_error "build_email: attendee")) raw_attendees in
     if attendees = [] then raise (Parse_error "build_email: attendees");
     let attachs, rest'''' = List.partition (function `Attach _ -> true | _ -> false ) rest''' in
@@ -1987,19 +1999,19 @@ let build_alarm props =
      | [] -> None
      | _ -> raise (Parse_error "build_email: attach") in
     match rest'''' with
-     | [] -> `Email { trigger ; duration_repeat ; other ; special = { description ; summary ; attach ; attendees } }
+     | [] -> `Email { trigger ; duration_repeat ; summary ; other ; special = { description ; attach ; attendees } }
      | _ -> raise (Parse_error "build_email: unknown input after attach") in
 
   let build_none _rest =
     (* TODO check if rest is empty *)
-    `None { trigger ; duration_repeat ; other ; special = () }
+    `None { trigger ; duration_repeat ; summary ; other ; special = () }
   in
 
   match action with
-  | _, `Audio -> build_audio rest'''
-  | _, `Display -> build_display rest'''
-  | _, `Email -> build_email rest'''
-  | _, `None -> build_none rest'''
+  | _, `Audio -> build_audio rest''''
+  | _, `Display -> build_display rest''''
+  | _, `Email -> build_email rest''''
+  | _, `None -> build_none rest''''
   | _, _ -> raise (Parse_error "build_alarm: unknown action, not supported")
 
 let alarmc =
