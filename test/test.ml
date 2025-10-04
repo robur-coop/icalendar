@@ -1359,7 +1359,7 @@ END:VCALENDAR
       rrule = None ;
       props = [ `Summary (empty, "Bastille Day Party") ] ;
       alarms = [
-        `Audio { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ; 
+        `Audio { Icalendar.trigger = (empty, `Duration (Ptime.Span.of_int_s (-1800))) ;
                  duration_repeat = Some ((empty, Ptime.Span.of_int_s 3600), (empty, 4)) ;
                  other = [] ;
                  special = { Icalendar.attach = None } }
@@ -1658,7 +1658,7 @@ END:VCALENDAR
         `Email { Icalendar.trigger = (singleton Related `End, `Duration (Ptime.Span.of_int_s (-2*24*60*60))) ;
                  duration_repeat = None ;
                  other = [] ;
-                 special = { Icalendar.attach = Some (singleton Media_type ("application", "msword"), `Uri(Uri.of_string "http://example.com/templates/agenda.doc")) ; attendees = [(empty, Uri.of_string "mailto:john_doe@example.com")]; 
+                 special = { Icalendar.attach = Some (singleton Media_type ("application", "msword"), `Uri(Uri.of_string "http://example.com/templates/agenda.doc")) ; attendees = [(empty, Uri.of_string "mailto:john_doe@example.com")];
                              summary = (empty, "*** REMINDER: SEND AGENDA FOR WEEKLY STAFF MEETING ***");
                              description = (empty, "A draft agenda needs to be sent out to the attendees to the weekly managers meeting (MGR-LIST). Attached is a pointer the document template for the agenda file.")
                            }
@@ -3008,9 +3008,9 @@ END:VCALENDAR
                  ])
      ]
   in
-  Alcotest.check result_c __LOC__ (Ok expected) (parse input) 
+  Alcotest.check result_c __LOC__ (Ok expected) (parse input)
 
-let publish_busy_time () = 
+let publish_busy_time () =
   let input = {|BEGIN:VCALENDAR
 PRODID:-//Example Inc.//Example Calendar//EN
 VERSION:2.0
@@ -3046,7 +3046,7 @@ END:VCALENDAR
                  ])
      ]
   in
-  Alcotest.check result_c __LOC__ (Ok expected) (Icalendar.parse input) 
+  Alcotest.check result_c __LOC__ (Ok expected) (Icalendar.parse input)
 
 let freebusy_tests = [
   "reply busy time", `Quick, reply_busy_time ;
