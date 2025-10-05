@@ -1,3 +1,8 @@
+## v0.1.13 (2025-10-05)
+
+* Support "summary" in all alarms (requested by @pdonadeo in #20 (SOGo),
+  fixed #21 @hannesm)
+
 ## v0.1.12 (2025-09-30)
 
 * vjournal support (#19 by @RyanGibb, fixes #18)
