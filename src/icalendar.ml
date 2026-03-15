@@ -2213,9 +2213,11 @@ let recur_events ?(recurrence_ids = []) event =
         Some (`Dtend (params, v))
     in
     let exdate =
-      List.find_map
+      let all = List.filter_map
         (function `Exdate t -> Some (dates_or_datetimes_to_ptimes (snd t)) | _ -> None)
         event.props
+      in
+      match List.flatten all with [] -> None | l -> Some l
     in
     let recurrence_ids =
       List.filter_map (fun e ->

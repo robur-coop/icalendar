@@ -689,6 +689,52 @@ let exdate () =
 |}
               str)
 
+let calendar_multiple_exdates = {|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+UID:multi-exdate-test
+DTSTAMP:20250221T173943Z
+SUMMARY:daily event
+DTSTART:20250301T090000Z
+DTEND:20250301T100000Z
+RRULE:FREQ=DAILY;COUNT=7
+EXDATE:20250303T090000Z
+EXDATE:20250305T090000Z
+END:VEVENT
+END:VCALENDAR|}
+
+let multiple_exdates () =
+  let calendar = Icalendar.parse calendar_multiple_exdates |> Result.get_ok in
+  let event = List.find_map (function `Event e -> Some e | _ -> None) (snd calendar) |> Option.get in
+  let get_events = Icalendar.recur_events event in
+  let buf = Buffer.create 16 in
+  let rec collect () =
+    match get_events () with
+    | None -> ()
+    | Some e ->
+      Buffer.add_string buf
+        ( e.dtstart
+        |> snd
+        |> function
+           | `Datetime ts -> Icalendar.show_timestamp ts
+           | `Date d -> d |> Ptime.of_date |> Option.get |> Ptime.to_rfc3339
+        );
+        Buffer.add_char buf '\n';
+        collect ()
+  in
+  collect ();
+  let str = Buffer.contents buf in
+  (* March 3 and March 5 should both be excluded *)
+  Alcotest.(check (string) "multiple EXDATE properties both honoured"
+{|`Utc (2025-03-01 09:00:00 +00:00)
+`Utc (2025-03-02 09:00:00 +00:00)
+`Utc (2025-03-04 09:00:00 +00:00)
+`Utc (2025-03-06 09:00:00 +00:00)
+`Utc (2025-03-07 09:00:00 +00:00)
+|}
+              str)
+
 let calendar_recurrence_id = {|BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Teamup Solutions AG//Teamup Calendar//EN
@@ -838,4 +884,5 @@ let tests = [
   "example 37: yearly, count 3", `Quick, ex_37 ;
   "example 38: exdate", `Quick, exdate ;
   "example 39: recurrence-id", `Quick, ex_recurrence_id ;
+  "example 40: multiple exdates", `Quick, multiple_exdates ;
 ]
