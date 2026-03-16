@@ -3295,6 +3295,31 @@ let tz_normalisation_tests = [
   "timestamp doesn't exist (standard -> DST)", `Quick, ts_non_existing ;
 ]
 
+let param_equality_different_lengths () =
+  (* Comparing events with different-length Delegated_from lists
+     should return false, not crash with Invalid_argument from List.for_all2 *)
+  let p1 = Params.add Delegated_from [Uri.of_string "mailto:a@b.com"] empty in
+  let p2 = Params.add Delegated_from [Uri.of_string "mailto:a@b.com"; Uri.of_string "mailto:c@d.com"] empty in
+  let make_cal params =
+    let event = {
+      uid = (empty, "test-uid");
+      dtstamp = (empty, to_ptime (2020, 01, 01) (00, 00, 00));
+      dtstart = (empty, `Datetime (`Utc (to_ptime (2020, 01, 01) (09, 00, 00))));
+      dtend_or_duration = None;
+      rrule = None;
+      props = [`Attendee (params, Uri.of_string "mailto:a@b.com")];
+      alarms = [] }
+    in
+    ([`Version (empty, "2.0"); `Prodid (empty, "-//Test//Test//EN")], [`Event event])
+  in
+  let c1 = make_cal p1 and c2 = make_cal p2 in
+  Alcotest.(check bool) "different-length Delegated_from params are not equal"
+    false (equal_calendar c1 c2)
+
+let param_equality_tests = [
+  "Delegated_from different lengths", `Quick, param_equality_different_lengths ;
+]
+
 let tests = [
   "Object tests", object_tests ;
   "Timezone tests", timezone_tests ;
@@ -3304,6 +3329,7 @@ let tests = [
   "Recurrence tests", Test_recur.tests ;
   "Serialization tests", Test_write.tests ;
   "Timezone normalization tests", tz_normalisation_tests ;
+  "Parameter equality tests", param_equality_tests ;
 ]
 
 let () =

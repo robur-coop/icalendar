@@ -81,14 +81,14 @@ let equal_icalparameter : type a. a icalparameter -> a -> a -> bool
     | Altrep -> Uri.equal lhs_v rhs_v
     | Cn -> equal_param_value lhs_v rhs_v
     | Cutype -> equal_cutype lhs_v rhs_v
-    | Delegated_from -> List.for_all2 Uri.equal lhs_v rhs_v
-    | Delegated_to -> List.for_all2 Uri.equal lhs_v rhs_v
+    | Delegated_from -> List.equal Uri.equal lhs_v rhs_v
+    | Delegated_to -> List.equal Uri.equal lhs_v rhs_v
     | Dir -> Uri.equal lhs_v rhs_v
     | Encoding -> lhs_v = rhs_v
     | Media_type -> String.equal (fst lhs_v) (fst rhs_v) && String.equal (snd lhs_v) (snd rhs_v)
     | Fbtype -> equal_fbtype lhs_v rhs_v
     | Language -> String.equal lhs_v rhs_v
-    | Member -> List.for_all2 Uri.equal lhs_v rhs_v
+    | Member -> List.equal Uri.equal lhs_v rhs_v
     | Partstat -> equal_partstat lhs_v rhs_v
     | Range -> lhs_v = rhs_v
     | Related -> lhs_v = rhs_v
@@ -98,8 +98,8 @@ let equal_icalparameter : type a. a icalparameter -> a -> a -> bool
     | Sentby -> Uri.equal lhs_v rhs_v
     | Tzid -> fst lhs_v = fst rhs_v && String.equal (snd lhs_v) (snd rhs_v)
     | Valuetype -> equal_valuetype lhs_v rhs_v
-    | Iana_param _ -> List.for_all2 equal_param_value lhs_v rhs_v
-    | Xparam _ -> List.for_all2 equal_param_value lhs_v rhs_v
+    | Iana_param _ -> List.equal equal_param_value lhs_v rhs_v
+    | Xparam _ -> List.equal equal_param_value lhs_v rhs_v
 
 let pp_icalparameter : type a. Format.formatter -> a icalparameter -> a -> unit
   = fun fmt k v ->
