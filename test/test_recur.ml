@@ -844,6 +844,19 @@ let ex_recurrence_id () =
 |}
               str)
 
+let days_until_eoy () =
+  (* Bug: days_until_end_of_year used the starting month for all months
+     in the recursion instead of the current iteration month.
+     March 15 non-leap year: (31-15) + 30+31+30+31+31+30+31+30+31 = 291 *)
+  Alcotest.(check int) "days until end of year from March 15"
+    291 (Recurrence.days_until_end_of_year (2023, 3, 15)) ;
+  (* Feb 15 non-leap year: (28-15) + 31+30+31+30+31+31+30+31+30+31 = 319 *)
+  Alcotest.(check int) "days until end of year from Feb 15"
+    319 (Recurrence.days_until_end_of_year (2023, 2, 15)) ;
+  (* Dec 25: 31-25 = 6 *)
+  Alcotest.(check int) "days until end of year from Dec 25"
+    6 (Recurrence.days_until_end_of_year (2023, 12, 25))
+
 let until_inclusive () =
   (* UNTIL should be inclusive per RFC 5545 Section 3.3.10:
      "The UNTIL rule part defines a DATE or DATE-TIME value that bounds
@@ -904,4 +917,5 @@ let tests = [
   "example 39: recurrence-id", `Quick, ex_recurrence_id ;
   "example 40: multiple exdates", `Quick, multiple_exdates ;
   "UNTIL is inclusive", `Quick, until_inclusive ;
+  "days_until_end_of_year", `Quick, days_until_eoy ;
 ]

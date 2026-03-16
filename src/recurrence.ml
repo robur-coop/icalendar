@@ -101,7 +101,7 @@ let days_since_start_of_year (y, m, d) =
 let days_until_end_of_year (y, m, d) =
   let rec md = function
     | 12 -> 31 - d
-    | n -> days_in_month y m + md (succ n)
+    | n -> days_in_month y n + md (succ n)
   in
   md m
 
