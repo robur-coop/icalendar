@@ -144,14 +144,18 @@ let wd = function
   | `Friday -> 5
   | `Saturday -> 6
 
-let w1d1_offset year =
-  let wd = wd (weekday (year, 01, 01)) in
-  (11 - wd) mod 7 - 3
+let w1d1_offset wkst year =
+  let jan1_wd = wd (weekday (year, 01, 01)) in
+  let wkst_wd = wd wkst in
+  let days_into_week = (jan1_wd - wkst_wd + 7) mod 7 in
+  if days_into_week <= 3 then
+    -days_into_week
+  else
+    7 - days_into_week
 
-(* TODO needs to be parametrised by wkst! *)
 (* day 1 of week 1 in a given year *)
-let w1d1 year =
-  let off = w1d1_offset year
+let w1d1 wkst year =
+  let off = w1d1_offset wkst year
   and date = (year, 01, 01)
   in
   if off < 0
@@ -160,28 +164,28 @@ let w1d1 year =
 
 (* returns (year * weeknumber), year can be last year, this year or next year *)
 (* (date - d1w1) / 7 + 1 *)
-let rec week_number (y, m, d) =
+let rec week_number wkst (y, m, d) =
   let days = pred @@ days_since_start_of_year (y, m, d)
-  and off = w1d1_offset y
+  and off = w1d1_offset wkst y
   in
   let ndays = days - off in
   if ndays < 0
-  then week_number (pred y, 12, 31)
+  then week_number wkst (pred y, 12, 31)
   else
-    let next_off = w1d1_offset (succ y) in
+    let next_off = w1d1_offset wkst (succ y) in
     if next_off < 0 && days_until_end_of_year (y, m, d) + next_off <= 0
     then (succ y, 1)
     else (y, ndays / 7 + 1)
 
-let weeks y =
-  let off = w1d1_offset (succ y) in
+let weeks wkst y =
+  let off = w1d1_offset wkst (succ y) in
   let last_day = (y, 12, 31) in
   let last =
     if off >= 0
     then add_days off last_day
     else sub_days (abs (pred off)) last_day
   in
-  snd (week_number last)
+  snd (week_number wkst last)
 
 (* for matches: if n is negative, index from end, which is defined as -1 *)
 
@@ -192,12 +196,12 @@ let monthday_matches (y, m, d) n =
   then d = days_in_month y m + succ n
   else false
 
-let weekno_matches date wn =
-  let y, week = week_number date in
+let weekno_matches wkst date wn =
+  let y, week = week_number wkst date in
   if week = wn
   then true
   else if wn < 0
-  then week = weeks y + succ wn
+  then week = weeks wkst y + succ wn
   else false
 
 let yearday_matches (y, m, d) n =
@@ -242,7 +246,7 @@ let yearly_weekday_matches (y, m, d) (x, wd) =
         n = total + succ x
   else false
 
-let is_occurence s_date freq (bymonth, byweekno, byyearday, bymonthday, byday) =
+let is_occurence s_date freq wkst (bymonth, byweekno, byyearday, bymonthday, byday) =
   match freq with
   | `Daily ->
     let (y, m, d) = s_date in
@@ -297,7 +301,7 @@ let is_occurence s_date freq (bymonth, byweekno, byyearday, bymonthday, byday) =
     in
     let is_byweekno () = match byweekno with
       | None -> true
-      | Some wn -> List.exists (weekno_matches (y, m, d)) wn
+      | Some wn -> List.exists (weekno_matches wkst (y, m, d)) wn
     in
     let is_byyearday () = match byyearday with
       | None -> true
@@ -362,7 +366,7 @@ let init_rr next_interval freq interval filters bysetpos wkst =
     let rec next_elem d =
       if in_set d
       then let d' = add_days 1 d in
-        if is_occurence d freq filters
+        if is_occurence d freq wkst filters
         then d :: next_elem d'
         else next_elem d'
       else []

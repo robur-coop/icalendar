@@ -907,6 +907,23 @@ let weekday_pre_1970 () =
   Alcotest.(check bool) "1582-10-15 is Friday"
     true (Recurrence.wd_is_weekday (Recurrence.weekday (1582, 10, 15)) `Friday)
 
+let byweekno_wkst () =
+  (* 2017-01-01 is Sunday.
+     With Monday WKST (ISO): Jan 1 is in the last week of 2016, so
+     week 1 of 2017 starts Jan 2 (Monday). Jan 1 is NOT in week 1.
+     With Sunday WKST: Jan 1 IS the first day of week 1 of 2017. *)
+  Alcotest.(check bool) "Jan 1 2017 is NOT in week 1 with Monday WKST"
+    false (Recurrence.weekno_matches `Monday (2017, 1, 1) 1) ;
+  Alcotest.(check bool) "Jan 1 2017 IS in week 1 with Sunday WKST"
+    true (Recurrence.weekno_matches `Sunday (2017, 1, 1) 1) ;
+  (* Jan 2 2017 is Monday.
+     With Monday WKST: Jan 2 is week 1 day 1.
+     With Sunday WKST: Jan 2 is week 1 day 2. Both agree it's week 1. *)
+  Alcotest.(check bool) "Jan 2 2017 is in week 1 with Monday WKST"
+    true (Recurrence.weekno_matches `Monday (2017, 1, 2) 1) ;
+  Alcotest.(check bool) "Jan 2 2017 is in week 1 with Sunday WKST"
+    true (Recurrence.weekno_matches `Sunday (2017, 1, 2) 1)
+
 let bysetpos_out_of_bounds () =
   (* BYSETPOS=5 with a set that has fewer than 5 elements should not crash.
      RFC 5545: invalid recurrence instances are ignored.
@@ -978,4 +995,5 @@ let tests = [
   "yearly_weekday_matches", `Quick, yearly_weekday_matches_test ;
   "BYSETPOS out-of-bounds", `Quick, bysetpos_out_of_bounds ;
   "weekday pre-1970", `Quick, weekday_pre_1970 ;
+  "BYWEEKNO respects WKST", `Quick, byweekno_wkst ;
 ]
