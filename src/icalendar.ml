@@ -1112,7 +1112,12 @@ module Writer = struct
       match prop with
       | `Freebusy (params, periods) ->
         let periods' = List.map (fun (start, duration, was_explicit) -> (`Utc start, duration, was_explicit)) periods in
-        write_line cr buf key params ~dont_write_value (fun buf -> List.iter (period_to_ics buf) periods')
+        write_line cr buf key params ~dont_write_value (fun buf ->
+          match periods' with
+          | [] -> ()
+          | hd :: tl ->
+            period_to_ics buf hd;
+            List.iter (fun x -> Buffer.add_char buf ','; period_to_ics buf x) tl)
       | `Dtend_utc (params, ts) -> write_line cr buf key params ~dont_write_value (timestamp_to_ics (`Utc ts))
       | `Dtstart_utc (params, ts) -> write_line cr buf key params ~dont_write_value (timestamp_to_ics (`Utc ts))
       | #general_prop as x -> general_prop_to_ics cr buf ~dont_write_value x

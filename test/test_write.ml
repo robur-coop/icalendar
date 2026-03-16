@@ -117,7 +117,45 @@ END:VCALENDAR
     (sort_lines input)
 
 
+let test_freebusy_comma_separators () =
+  let expected =
+    {|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VFREEBUSY
+DTSTAMP:20200101T000000Z
+UID:fb-test-1
+DTSTART:20200101T080000Z
+DTEND:20200101T180000Z
+FREEBUSY:20200101T080000Z/PT1H,20200101T100000Z/PT2H
+END:VFREEBUSY
+END:VCALENDAR
+|}
+  in
+  let p1 = (to_ptime (2020, 01, 01) (08, 00, 00), Ptime.Span.of_int_s 3600, false) in
+  let p2 = (to_ptime (2020, 01, 01) (10, 00, 00), Ptime.Span.of_int_s 7200, false) in
+  let freebusy : Icalendar.component =
+    `Freebusy [
+      `Dtstamp (empty, to_ptime (2020, 01, 01) (00, 00, 00));
+      `Uid (empty, "fb-test-1");
+      `Dtstart_utc (empty, to_ptime (2020, 01, 01) (08, 00, 00));
+      `Dtend_utc (empty, to_ptime (2020, 01, 01) (18, 00, 00));
+      `Freebusy (empty, [ p1; p2 ]);
+    ]
+  in
+  let input =
+    to_ics ~cr:false ( [ `Version (empty, "2.0") ;
+                          `Prodid (empty, "-//Test//Test//EN") ],
+                        [ freebusy ])
+  in
+  let sort_lines x = (String.split_on_char '\n' x) |> List.sort compare in
+  print_endline input;
+  Alcotest.(check (list string)) "FREEBUSY periods separated by commas"
+    (sort_lines expected)
+    (sort_lines input)
+
 let tests = [
   "Write entire calendar correctly with exceptions", `Quick, test_serialize_calendar ;
   "Write entire calendar correctly with single exception", `Quick, test_single_exception ;
+  "FREEBUSY periods have comma separators", `Quick, test_freebusy_comma_separators ;
 ]
