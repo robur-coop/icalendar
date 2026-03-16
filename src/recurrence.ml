@@ -108,22 +108,28 @@ let days_until_end_of_year (y, m, d) =
 let weekday (y, m, d) =
   let d1_to_date = pred @@ days_since_start_of_year (y, m, d) in
   let epoch_to_d1 =
-    let rec go = function
-      | 1969 -> 0
-      | x -> days_in_year x + go (pred x)
-    in
-    go (pred y)
+    if y >= 1970 then
+      let rec go = function
+        | 1969 -> 0
+        | x -> days_in_year x + go (pred x)
+      in
+      go (pred y)
+    else
+      (* For years before 1970, count days backward *)
+      let rec go = function
+        | 1970 -> 0
+        | x -> -(days_in_year x) + go (succ x)
+      in
+      go y
   in
   (* 1970/01/01 was a thursday! *)
   match (epoch_to_d1 + d1_to_date) mod 7 with
-  | 0 -> `Thursday
-  | 1 -> `Friday
-  | 2 -> `Saturday
-  | 3 -> `Sunday
-  | 4 -> `Monday
-  | 5 -> `Tuesday
-  | 6 -> `Wednesday
-  | _ -> invalid_arg "bad input for weekday"
+  | n when n >= 0 ->
+    [| `Thursday; `Friday; `Saturday; `Sunday; `Monday; `Tuesday; `Wednesday |].(n)
+  | n ->
+    (* OCaml mod can be negative for negative inputs *)
+    [| `Thursday; `Friday; `Saturday; `Sunday; `Monday; `Tuesday; `Wednesday |].(n + 7)
+
 
 let wd = function
   | `Sunday -> 0
