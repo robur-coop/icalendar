@@ -840,7 +840,7 @@ module Writer = struct
     | `Seq (params, seq) -> output params (write_string (string_of_int seq))
     | `Status (params, status) -> output params (write_string (List.assoc status status_strings))
     | `Summary (params, summary) -> output params (write_string (escape_chars summary))
-    | `Url (params, uri) -> output params (write_string Uri.(pct_decode (to_string uri)))
+    | `Url (params, uri) -> output params (write_string (Uri.to_string uri))
     | `Recur_id (params, date_or_time) -> output (move_tzid_of_d_or_dt date_or_time params) (date_or_time_to_ics date_or_time)
     | `Rrule (params, recurs) -> output params (recurs_to_ics recurs)
     | `Duration (params, dur) -> output params (duration_to_ics dur)
