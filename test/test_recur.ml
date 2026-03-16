@@ -844,6 +844,24 @@ let ex_recurrence_id () =
 |}
               str)
 
+let until_inclusive () =
+  (* UNTIL should be inclusive per RFC 5545 Section 3.3.10:
+     "The UNTIL rule part defines a DATE or DATE-TIME value that bounds
+     the recurrence rule in an inclusive manner." *)
+  let date = (1997, 09, 02)
+  and time = (09, 00, 00)
+  (* UNTIL exactly matches the 10th occurrence *)
+  and rrule = (`Daily, Some (`Until (`Utc (to_ptime (1997, 09, 11) (09, 00, 00)))), None, [])
+  and res = [
+    (1997, 09, 02) ; (1997, 09, 03) ; (1997, 09, 04) ; (1997, 09, 05) ;
+    (1997, 09, 06) ; (1997, 09, 07) ; (1997, 09, 08) ; (1997, 09, 09) ;
+    (1997, 09, 10) ; (1997, 09, 11)  (* this last one must be included *)
+  ]
+  in
+  Alcotest.(check (list p) "UNTIL boundary is inclusive"
+              (List.map (fun d -> to_ptime d time) res)
+              (all_events date time rrule))
+
 let tests = [
   "example 1", `Quick, ex_1 ;
   "example 2", `Quick, ex_2 ;
@@ -885,4 +903,5 @@ let tests = [
   "example 38: exdate", `Quick, exdate ;
   "example 39: recurrence-id", `Quick, ex_recurrence_id ;
   "example 40: multiple exdates", `Quick, multiple_exdates ;
+  "UNTIL is inclusive", `Quick, until_inclusive ;
 ]

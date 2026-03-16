@@ -402,8 +402,8 @@ let init_until until f = { until ; f }
 
 let next_until g =
   let candidate = next_rr g.f in
-  (* desired behaviour if Ptime.equal? need to check *)
-  if Ptime.is_earlier ~than:g.until candidate
+  (* RFC 5545 Section 3.3.10: UNTIL bounds the recurrence in an inclusive manner *)
+  if not (Ptime.is_later ~than:g.until candidate)
   then Some candidate
   else None
 
