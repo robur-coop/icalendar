@@ -312,7 +312,9 @@ let filter_bysetpos bysetpos set =
     let l = List.length set in
     let positions = List.map (fun i -> if i < 0 then l + i else pred i) p |>
     List.sort_uniq compare in
-    List.map (List.nth set) positions
+    List.filter_map (fun idx ->
+      if idx >= 0 && idx < l then Some (List.nth set idx) else None)
+      positions
 
 let compare_dates (y, m, d) (y', m', d') = match compare y y' with
   | 0 -> begin match compare m m' with

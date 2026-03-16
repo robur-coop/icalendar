@@ -893,6 +893,31 @@ let until_inclusive () =
               (List.map (fun d -> to_ptime d time) res)
               (all_events date time rrule))
 
+let bysetpos_out_of_bounds () =
+  (* BYSETPOS=5 with a set that has fewer than 5 elements should not crash.
+     RFC 5545: invalid recurrence instances are ignored.
+     MONTHLY;BYDAY=MO;BYSETPOS=1,5 - first and fifth Monday, but months
+     only have 4-5 Mondays, so BYSETPOS=5 may not exist some months. *)
+  let date = (2025, 01, 06)
+  and time = (09, 00, 00)
+  and rrule = (`Monthly, Some (`Count 5), None,
+    [`Byday [(0, `Monday)]; `Bysetposday [1; 5]])
+  and res = [
+    (* Jan 2025: 5 Mondays (6,13,20,27 -- wait, also Jan has Mon 6,13,20,27 = 4 Mondays,
+       but also need to check... Jan 2025 starts on Wednesday.
+       Mondays in Jan 2025: 6, 13, 20, 27 = 4 Mondays. BYSETPOS=1 -> 6th, BYSETPOS=5 -> skip.
+       Feb 2025: Mondays 3, 10, 17, 24 = 4. BYSETPOS=1 -> 3rd, BYSETPOS=5 -> skip.
+       Mar 2025: Mondays 3, 10, 17, 24, 31 = 5. BYSETPOS=1 -> 3rd, BYSETPOS=5 -> 31st.
+       Apr 2025: Mondays 7, 14, 21, 28 = 4. BYSETPOS=1 -> 7th.
+       May 2025: Mondays 5, 12, 19, 26 = 4. BYSETPOS=1 -> 5th. *)
+    (2025, 01, 06) ; (2025, 02, 03) ; (2025, 03, 03) ;
+    (2025, 03, 31) ; (2025, 04, 07)
+  ]
+  in
+  Alcotest.(check (list p) "BYSETPOS out-of-bounds is skipped"
+              (List.map (fun d -> to_ptime d time) res)
+              (all_events date time rrule))
+
 let tests = [
   "example 1", `Quick, ex_1 ;
   "example 2", `Quick, ex_2 ;
@@ -937,4 +962,5 @@ let tests = [
   "UNTIL is inclusive", `Quick, until_inclusive ;
   "days_until_end_of_year", `Quick, days_until_eoy ;
   "yearly_weekday_matches", `Quick, yearly_weekday_matches_test ;
+  "BYSETPOS out-of-bounds", `Quick, bysetpos_out_of_bounds ;
 ]
