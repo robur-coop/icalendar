@@ -220,17 +220,15 @@ let yearly_weekday_matches (y, m, d) (x, wd) =
   let weekday = weekday (y, m, d) in
   if wd_is_weekday weekday wd
   then
-    let n =
-      let d = days_since_start_of_year (y, m, d) in
-      succ (d / 7)
-    in
+    let doy = days_since_start_of_year (y, m, d) in
+    let n = succ ((doy - 1) / 7) in
     match x with
     | 0 -> true
     | x ->
       if x > 0
       then n = x
       else
-        let total = n + (days_in_year y - n) / 7 in
+        let total = n + (days_in_year y - doy) / 7 in
         n = total + succ x
   else false
 
