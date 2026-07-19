@@ -123,13 +123,17 @@ let weekday (y, m, d) =
       go y
   in
   (* 1970/01/01 was a thursday! *)
-  match (epoch_to_d1 + d1_to_date) mod 7 with
-  | n when n >= 0 ->
-    [| `Thursday; `Friday; `Saturday; `Sunday; `Monday; `Tuesday; `Wednesday |].(n)
-  | n ->
-    (* OCaml mod can be negative for negative inputs *)
-    [| `Thursday; `Friday; `Saturday; `Sunday; `Monday; `Tuesday; `Wednesday |].(n + 7)
-
+  let day = (epoch_to_d1 + d1_to_date) mod 7 in
+  let day = if day < 0 then day + 7 else day in
+  match day with
+  | 0 -> `Thursday
+  | 1 -> `Friday
+  | 2 -> `Saturday
+  | 3 -> `Sunday
+  | 4 -> `Monday
+  | 5 -> `Tuesday
+  | 6 -> `Wednesday
+  | _ -> invalid_arg "bad input for weekday"
 
 let wd = function
   | `Sunday -> 0
