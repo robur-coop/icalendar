@@ -3320,6 +3320,37 @@ let param_equality_tests = [
   "Delegated_from different lengths", `Quick, param_equality_different_lengths ;
 ]
 
+let calendar_until_date = {|BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+UID:until-date-test
+DTSTAMP:20250221T173943Z
+SUMMARY:date event
+DTSTART;VALUE=DATE:20250301
+DTEND;VALUE=DATE:20250302
+RRULE:FREQ=DAILY;UNTIL=20250305
+END:VEVENT
+END:VCALENDAR|}
+
+let until_bare_date () =
+  let calendar = Icalendar.parse calendar_until_date |> Result.get_ok in
+  let event = List.find_map (function `Event e -> Some e | _ -> None) (snd calendar) |> Option.get in
+  let get_events = Icalendar.recur_events event in
+  let rec collect acc =
+    match get_events () with
+    | None -> List.rev acc
+    | Some e -> collect (e :: acc)
+  in
+  let events = collect [] in
+  (* UNTIL=20250305 should include Mar 1-5 (5 days, inclusive) *)
+  Alcotest.(check int) "UNTIL bare date gives correct count" 5 (List.length events)
+
+let until_date_tests = [
+  "UNTIL with bare date in RRULE", `Quick, until_bare_date ;
+]
+
+
 let tests = [
   "Object tests", object_tests ;
   "Timezone tests", timezone_tests ;
@@ -3330,6 +3361,7 @@ let tests = [
   "Serialization tests", Test_write.tests ;
   "Timezone normalization tests", tz_normalisation_tests ;
   "Parameter equality tests", param_equality_tests ;
+  "UNTIL date tests", until_date_tests ;
 ]
 
 let () =
